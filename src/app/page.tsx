@@ -301,7 +301,7 @@ export default function Home() {
                   e.preventDefault();
                   handleSendMessage();
                 }}
-                className="flex items-end gap-2 border rounded-2xl overflow-hidden px-2 py-1 bg-zinc-50"
+                className="flex items-end gap-2 border rounded-full overflow-hidden p-1 bg-zinc-50"
               >
                 <label className="flex h-9 w-9 md:h-10 md:w-10 rounded-full cursor-pointer items-center justify-center text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-all flex-shrink-0">
                   <FontAwesomeIcon icon={faPaperclip} size="sm" />

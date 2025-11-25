@@ -1,7 +1,20 @@
 // src/app/api/nm-ai/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 
+const OLLAMA_BASE_URL =
+  (process.env.OLLAMA_BASE_URL || "https://2f01c467d198.ngrok-free.app/").replace(/\/$/, "");
+const OLLAMA_CHAT_URL = `${OLLAMA_BASE_URL}/api/chat`;
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "NM-Ai-v0.1a";
+const QUOTES_API_URL =
+  process.env.QUOTES_API_URL ||
+  "https://endpoapi-production-3202.up.railway.app/api/quotes";
+const CALENDAR_API_URL =
+  process.env.CALENDAR_API_URL ||
+  "https://endpoapi-production-3202.up.railway.app/api/calendar/today";
+
 export const runtime = "nodejs";
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,7 +91,7 @@ export async function POST(req: NextRequest) {
     let quotesJsonString = "";
     try {
       const quotesRes = await fetch(
-        "https://endpoapi-production-3202.up.railway.app/api/quotes",
+        QUOTES_API_URL,
         {
           method: "GET",
           cache: "no-store", // jangan di-cache
@@ -114,7 +127,7 @@ export async function POST(req: NextRequest) {
     let calendarJsonString = "";
     try {
       const calRes = await fetch(
-        "https://endpoapi-production-3202.up.railway.app/api/calendar/today",
+        CALENDAR_API_URL,
         {
           method: "GET",
           cache: "no-store",
@@ -161,12 +174,12 @@ export async function POST(req: NextRequest) {
     ];
 
     const body: any = {
-      model: "NM-Ai-v0.1a", // pastikan sama dengan nama model di `ollama list`
+      model: OLLAMA_MODEL, // pastikan sama dengan nama model di `ollama list`
       stream: false,
       messages: messagesForOllama,
     };
 
-    const ollamaRes = await fetch("http://192.168.55.1:11434/api/chat", {
+    const ollamaRes = await fetch(OLLAMA_CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
