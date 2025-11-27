@@ -1,0 +1,43 @@
+# NM_Market_Drive_Menu.yaml
+# Versi 2.1 – Market Navigator Edition (with user prompt hint)
+
+menu_title: "🧭 NM Ai Market Navigator"
+menu_description: >
+  Pilih jalur pembelajaran pasar sesuai kebutuhanmu — dari analisa teknikal hingga edukasi risiko.
+
+options:
+  - title: "Trader Mode"
+    description: "Analisa teknikal, margin, leverage, dan perilaku trader."
+    example: "Hitung margin XAUUSD 1 lot"
+  - title: "Investor Path"
+    description: "Analisa fundamental, risiko portofolio, dan strategi jangka panjang."
+    example: "Bagaimana outlook emas minggu ini?"
+  - title: "Marketing Insight"
+    description: "Edukasi produk, strategi komunikasi, dan transparansi harga."
+    example: "Bagaimana menjelaskan leverage ke nasabah?"
+  - title: "Broker Access"
+    description: "Diskusi regulasi, kepatuhan Bappebti, dan model SPA."
+    example: "Apa syarat margin minimal sistem SPA?"
+  - title: "Regulatory View"
+    description: "Analisa perilaku pasar & etika perdagangan berjangka."
+    example: "Bagaimana NM Ai membantu deteksi manipulasi pasar?"
+  - title: "Mentor Lab"
+    description: "Simulasi risiko dan pembelajaran psikologi trading."
+    example: "Simulasikan ketahanan dana 1000 USD di XAUUSD."
+  - title: "Public Learn"
+    description: "Literasi dasar trading, perbandingan sumber, dan tips manajemen risiko."
+    example: "Apa bedanya spread dan margin?"
+  - title: "Open Talk"
+    description: "Diskusi santai seputar pasar, tren, atau opini pribadi."
+    example: "Kenapa gold sering volatil pas rilis data CPI?"
+  - title: "AI Sandbox"
+    description: "Uji kemampuan NM Ai, bandingkan dengan sumber lain, atau tanya logika pasar."
+    example: "Coba jelaskan logika XAUUSD kalau DXY naik."
+
+closing: >
+  Ketik: “Mulai dari Trader Mode” atau “Buka Open Talk” untuk memulai sesi.
+  Kamu juga bisa cukup menulis angkanya saja — misalnya: **1**, **2**, atau **3**.
+
+render_context: "isolated"
+use_formatter: false
+use_manifest: false

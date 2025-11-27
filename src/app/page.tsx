@@ -160,8 +160,8 @@ export default function Home() {
                 <FontAwesomeIcon icon={faXmark} />
               </a>
 
-              <div>
-                <h1 className="text-sm md:text-lg font-semibold text-zinc-900">
+              <div className="">
+                <h1 className="text-sm md:text-lg font-semibold bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500 bg-clip-text text-transparent">
                   Newsmaker Artificial Intelligence
                 </h1>
                 <p className="text-[11px] md:text-sm text-zinc-500">
@@ -190,9 +190,6 @@ export default function Home() {
               backgroundPosition: "center",
             }}
           >
-            {/* overlay tipis biar logo tidak terlalu keras */}
-            <div className="absolute inset-0 bg-white/80 pointer-events-none" />
-
             <div className="relative z-10 mx-auto w-full max-w-3xl space-y-4">
               {messages.map((msg) => (
                 <div
@@ -204,8 +201,8 @@ export default function Home() {
                   <div
                     className={`relative px-4 py-3 md:px-5 md:py-3 rounded-2xl break-words shadow-md max-w-[80%] md:max-w-[75%] ${
                       msg.sender === "user"
-                        ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white"
-                        : "bg-gray-200/90 backdrop-blur-md text-zinc-900"
+                        ? "bg-gradient-to-br from-blue-500/80 to-blue-600/80 backdrop-blur-md text-white"
+                        : "bg-gray-200/70 backdrop-blur-md text-zinc-900"
                     }`}
                   >
                     {msg.sender === "ai" ? (
@@ -331,6 +328,7 @@ export default function Home() {
                   type="submit"
                   disabled={isSendDisabled}
                   title={isSendDisabled ? "Massage is empty" : ""}
+                  autoFocus
                   className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full bg-blue-500 hover:bg-blue-700 text-white transition-all cursor-pointer disabled:opacity-50 disabled:hover:bg-blue-500 flex-shrink-0"
                 >
                   <FontAwesomeIcon icon={faArrowUp} size="sm" />
