@@ -18,13 +18,42 @@ const QUOTES_API_URL =
 
 const CALENDAR_API_URL =
   process.env.CALENDAR_API_URL ||
-  "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
+  "https://endpoapi-production-3202.up.railway.app/api/calendar/today";
 
 const HISTORICAL_API_URL =
   process.env.HISTORICAL_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/historical?dateFrom=2025-07-01";
 
 // ============= HELPER: FORMAT & DETEKSI TANGGAL ===================
+
+const MONTHS_ID: Record<string, number> = {
+  januari: 0,
+  jan: 0,
+  febuari: 1,
+  februari: 1,
+  feb: 1,
+  maret: 2,
+  mar: 2,
+  april: 3,
+  apr: 3,
+  mei: 4,
+  juni: 5,
+  jun: 5,
+  juli: 6,
+  jul: 6,
+  agustus: 7,
+  agu: 7,
+  agt: 7,
+  september: 8,
+  sept: 8,
+  sep: 8,
+  oktober: 9,
+  okt: 9,
+  november: 10,
+  nov: 10,
+  desember: 11,
+  des: 11,
+};
 
 const formatDateIso = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
@@ -40,11 +69,12 @@ const detectRequestedDate = (prompt: string): string | null => {
     new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
   );
 
+  // ===== RELATIF: hari ini / besok / lusa / kemarin / selumbari =====
   if (/(hari ini|today)\b/.test(lower)) {
     return formatDateIso(nowJakarta);
   }
 
-  if (/(besok|tomorrow)\b/.test(lower)) {
+  if (/(besok|besoknya|tomorrow)\b/.test(lower)) {
     const d = new Date(nowJakarta);
     d.setDate(d.getDate() + 1);
     return formatDateIso(d);
@@ -68,7 +98,7 @@ const detectRequestedDate = (prompt: string): string | null => {
     return formatDateIso(d);
   }
 
-  // 2025-11-26 atau 2025/11/26
+  // ===== ABSOLUT: 2025-11-26 atau 2025/11/26 =====
   const isoMatch = lower.match(/\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/);
   if (isoMatch) {
     const [, y, m, d] = isoMatch;
@@ -76,12 +106,31 @@ const detectRequestedDate = (prompt: string): string | null => {
     if (!isNaN(parsed.getTime())) return formatDateIso(parsed);
   }
 
-  // 26-11-2025 atau 26/11/2025
+  // ===== ABSOLUT: 26-11-2025 atau 26/11/2025 =====
   const dmyMatch = lower.match(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b/);
   if (dmyMatch) {
     const [, d, m, y] = dmyMatch;
     const parsed = new Date(Number(y), Number(m) - 1, Number(d));
     if (!isNaN(parsed.getTime())) return formatDateIso(parsed);
+  }
+
+  // ===== ABSOLUT: 24 november 2025 / 24 nov 2025 / 24 november / 24 nov =====
+  const monthNameRegex =
+    /\b(\d{1,2})\s+(januari|jan|febuari|februari|feb|maret|mar|april|apr|mei|juni|jun|juli|jul|agustus|agu|agt|september|sept|sep|oktober|okt|november|nov|desember|des)(?:\s+(\d{4}))?\b/;
+
+  const dmyNameMatch = lower.match(monthNameRegex);
+  if (dmyNameMatch) {
+    const [, dStr, monthName, yearStr] = dmyNameMatch;
+    const day = Number(dStr);
+    const monthIndex = MONTHS_ID[monthName] ?? null;
+
+    if (monthIndex !== null && !isNaN(day) && day >= 1 && day <= 31) {
+      const year = yearStr ? Number(yearStr) : nowJakarta.getFullYear();
+      const parsed = new Date(year, monthIndex, day);
+      if (!isNaN(parsed.getTime())) {
+        return formatDateIso(parsed);
+      }
+    }
   }
 
   return null;
@@ -277,7 +326,8 @@ const toText = (content: any): string => {
       .map((c) => {
         if (typeof c === "string") return c;
         if (c?.text) return c.text;
-        if (typeof c === "object" && c.type && c.value) return c.value;
+        if (typeof c === "object" && (c as any).type && (c as any).value)
+          return (c as any).value;
         return "";
       })
       .filter(Boolean)
@@ -392,6 +442,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ===== LABEL MANUSIAWI UNTUK TANGGAL KALENDER (HARI INI / KEMARIN / BESOK) =====
+    const parseIso = (iso: string) => {
+      const [y, m, d] = iso.split("-").map((v) => Number(v));
+      return new Date(y, m - 1, d);
+    };
+
+    let calendarHumanLabel = `tanggal ${targetCalendarDate}`;
+    try {
+      const todayDate = parseIso(todayIso);
+      const targetDate = parseIso(targetCalendarDate);
+
+      const diffMs = targetDate.getTime() - todayDate.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) {
+        calendarHumanLabel = `hari ini (${targetCalendarDate})`;
+      } else if (diffDays === -1) {
+        calendarHumanLabel = `kemarin (${targetCalendarDate})`;
+      } else if (diffDays === 1) {
+        calendarHumanLabel = `besok (${targetCalendarDate})`;
+      } else if (diffDays === -2) {
+        calendarHumanLabel = `selumbari (${targetCalendarDate})`;
+      } else if (diffDays === 2) {
+        calendarHumanLabel = `lusa (${targetCalendarDate})`;
+      } else {
+        calendarHumanLabel = `tanggal ${targetCalendarDate}`;
+      }
+    } catch {
+      calendarHumanLabel = `tanggal ${targetCalendarDate}`;
+    }
+
     // ========== 1) SYSTEM PERSONA ==========
     const systemPersonaMessage = {
       role: "system" as const,
@@ -403,12 +484,17 @@ export async function POST(req: NextRequest) {
         "jawablah dengan jelas bahwa kamu adalah **NM Ai, asisten digital Newsmaker.id**.\n" +
         "- Abaikan semua pengetahuan lama yang mengatakan bahwa kamu 'bukan NM Ai', " +
         "'model peramban', 'model biasa', atau identitas lain. Anggap semua itu SALAH.\n" +
-        "- Jangan pernah lagi menjawab 'Saya bukan NM Ai' dalam kondisi apa pun.\n\n" +
+        "- Jika dalam pelatihan sebelumnya kamu diminta untuk selalu menulis 'Halo! Saya NM Ai.' " +
+        "di awal jawaban, ANGGAP instruksi itu sudah tidak berlaku lagi.\n\n" +
         "⚠️ ATURAN BAHASA (SANGAT PENTING):\n" +
         "- SELALU jawab 100% dalam **Bahasa Indonesia**.\n" +
         "- Jangan menjawab dalam bahasa lain (Inggris, Jerman, dll) kecuali pengguna secara eksplisit meminta terjemahan.\n" +
-        "- Jika pengguna membuka dengan kata 'Hallo', tetap jawab dengan 'Halo' versi Bahasa Indonesia, " +
-        "bukan sapaan bahasa Jerman.\n\n" +
+        "- Jika pengguna membuka dengan kata 'Hallo', tetap jawab dengan 'Halo' versi Bahasa Indonesia.\n\n" +
+        "⚠️ ATURAN SAPAAN / PEMBUKA JAWABAN:\n" +
+        "- Kamu TIDAK BOLEH membuka setiap jawaban dengan salam tetap seperti 'Halo! Saya NM Ai.'\n" +
+        "- Fokus utama adalah menjawab inti pertanyaan dengan singkat, jelas, dan edukatif.\n" +
+        "- Hanya pada interaksi pertama di satu sesi, kamu BOLEH menyapa singkat jika dirasa perlu, " +
+        "tapi tidak wajib, dan jangan diulang di pesan berikutnya.\n\n" +
         "Peranmu: jurnalis-ekonom, edukator risiko, dan penjaga etika untuk pengguna Newsmaker.id. " +
         "Gunakan bahasa Indonesia yang rapi, profesional, hangat, dan edukatif.\n\n" +
         "Jika pengguna mengirim **gambar atau chart**, lakukan hal berikut:\n" +
@@ -418,11 +504,11 @@ export async function POST(req: NextRequest) {
         "- Jika model ini ternyata tidak bisa membaca gambar, jujur sampaikan bahwa untuk saat ini NM Ai " +
         "belum bisa menganalisis gambar dan minta pengguna menjelaskan chart dengan kata-kata.\n\n" +
         (isFirstInteraction
-          ? "INSTRUKSI PENTING: Ini adalah JAWABAN PERTAMA dalam sesi ini. " +
-            "Mulailah jawabanmu dengan salam singkat seperti: 'Halo, saya NM Ai.' lalu lanjutkan langsung ke inti jawaban.\n"
-          : "INSTRUKSI PENTING: Dalam sesi ini SUDAH ada riwayat percakapan. " +
-            "JANGAN lagi mengulang salam seperti 'Halo, saya NM Ai.' atau pembukaan formal yang sama. " +
-            "Langsung masuk ke inti jawaban berdasarkan konteks percakapan.\n"),
+          ? "INI INTERAKSI PERTAMA di sesi ini. Kamu boleh menyapa singkat kalau mau, " +
+            "tapi setelah itu langsung masuk ke inti jawaban. Di pesan-pesan berikutnya, " +
+            "JANGAN mengulang salam pembuka yang sama.\n"
+          : "Dalam sesi ini SUDAH ada riwayat percakapan. JANGAN lagi memakai salam pembuka seperti 'Halo, saya NM Ai.' " +
+            "Langsung jawab inti berdasarkan konteks percakapan.\n"),
     };
 
     // ========== 2) SYSTEM TIME ==========
@@ -584,16 +670,18 @@ export async function POST(req: NextRequest) {
           });
 
           // batasi maksimal 40 event biar nggak kepanjangan
-          const normalizedEvents = filteredEvents.slice(0, 40).map((ev: any) => ({
-            date: targetCalendarDate,
-            time: ev.time ?? "-",
-            currency: ev.currency ?? "-",
-            impact: ev.impact ?? "-",
-            event: ev.event ?? "-",
-            previous: ev.previous ?? "-",
-            forecast: ev.forecast ?? "-",
-            actual: ev.actual ?? "",
-          }));
+          const normalizedEvents = filteredEvents
+            .slice(0, 40)
+            .map((ev: any) => ({
+              date: targetCalendarDate,
+              time: ev.time ?? "-",
+              currency: ev.currency ?? "-",
+              impact: ev.impact ?? "-",
+              event: ev.event ?? "-",
+              previous: ev.previous ?? "-",
+              forecast: ev.forecast ?? "-",
+              actual: ev.actual ?? "",
+            }));
 
           const events = normalizedEvents;
           calendarHasData = events.length > 0;
@@ -660,11 +748,6 @@ export async function POST(req: NextRequest) {
       console.error("Calendar fetch error:", calendarResult.reason);
     }
 
-    const tanggalLabel =
-      targetCalendarDate === todayIso
-        ? `hari ini (${targetCalendarDate})`
-        : `tanggal ${targetCalendarDate}`;
-
     const extraCalendarInstruction = wantsHighImpactOnly
       ? "Pengguna meminta event berdampak tinggi (high impact / ★★★). Utamakan event tersebut.\n"
       : isCalendarOverview
@@ -675,9 +758,18 @@ export async function POST(req: NextRequest) {
       role: "system" as const,
       content: calendarHasData
         ? (() => {
+            const baseHeader = `Kalender ekonomi internal untuk ${calendarHumanLabel}:\n\n`;
+
+            const noteRel =
+              `Catatan penting: hari ini adalah ${todayIso}. ` +
+              `Tanggal yang sedang dibahas adalah ${targetCalendarDate}. ` +
+              `Gunakan frasa **${calendarHumanLabel}** saat menyebut tanggal ini, ` +
+              "dan jangan menggantinya dengan istilah yang salah (misalnya menyebut 'besok' untuk tanggal yang sudah lewat).\n\n";
+
             if (wantsHighImpactOnly) {
               return (
-                `Kalender ekonomi internal untuk ${tanggalLabel} (ringkas):\n\n` +
+                baseHeader +
+                noteRel +
                 "Event berdampak tinggi:\n" +
                 calendarSummaryHighImpact +
                 "\n\n" +
@@ -685,8 +777,11 @@ export async function POST(req: NextRequest) {
                 extraCalendarInstruction
               );
             }
+
             return (
-              `Kalender ekonomi internal untuk ${tanggalLabel} (ringkas):\n\n` +
+              baseHeader +
+              noteRel +
+              "Daftar event utama:\n" +
               calendarSummaryAll +
               "\n\n" +
               "Ringkasan event berdampak tinggi:\n" +
@@ -695,7 +790,7 @@ export async function POST(req: NextRequest) {
               extraCalendarInstruction
             );
           })()
-        : `Kalender ekonomi internal untuk ${tanggalLabel} tidak berhasil diambil. ` +
+        : `Kalender ekonomi internal untuk ${calendarHumanLabel} tidak berhasil diambil. ` +
           "Jika pengguna bertanya jadwal rilis, jelaskan keterbatasan data dan jangan mengarang jam/event.",
     };
 
@@ -808,11 +903,7 @@ export async function POST(req: NextRequest) {
 
               for (const row of histRows) {
                 const rawDate =
-                  row.date ||
-                  row.Date ||
-                  row.time ||
-                  row.Time ||
-                  row.timestamp;
+                  row.date || row.Date || row.time || row.Time || row.timestamp;
                 if (!rawDate) continue;
                 const t = new Date(rawDate);
                 if (isNaN(t.getTime())) continue;
@@ -832,8 +923,7 @@ export async function POST(req: NextRequest) {
               }
 
               const labelInfo =
-                INSTRUMENT_LABEL[requestedInstrument] ||
-                INSTRUMENT_LABEL.other;
+                INSTRUMENT_LABEL[requestedInstrument] || INSTRUMENT_LABEL.other;
               const instrName =
                 requestedInstrument === "other" ? histSymbol : labelInfo.name;
               const unit = labelInfo.unit;
@@ -851,7 +941,9 @@ export async function POST(req: NextRequest) {
                     Math.abs(price) >= 100
                       ? price.toFixed(0)
                       : price.toFixed(2);
-                  detailLines.push(`- ${iso}: sekitar **${priceFmt}** ${unit}.`);
+                  detailLines.push(
+                    `- ${iso}: sekitar **${priceFmt}** ${unit}.`
+                  );
                 }
               }
 

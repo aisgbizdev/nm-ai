@@ -38,7 +38,7 @@ export default function Home() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -136,11 +136,11 @@ export default function Home() {
           background: transparent;
         }
         .nm-scroll::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, #4f46e5, #9333ea);
+          background: linear-gradient(180deg, #6366f1, #a855f7);
           border-radius: 999px;
         }
         .nm-scroll::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(180deg, #6366f1, #a855f7);
+          background: linear-gradient(180deg, #4f46e5, #9333ea);
         }
         .nm-scroll {
           scrollbar-width: thin;
@@ -149,158 +149,189 @@ export default function Home() {
       `}</style>
 
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100">
-        <main className="flex h-screen w-full max-w-4xl flex-col bg-white shadow-2xl md:h-[95vh] md:rounded-2xl md:my-4 overflow-hidden">
+        <main className="flex h-screen w-full flex-col overflow-hidden bg-white">
           {/* HEADER */}
-          <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 md:px-6 md:py-4 select-none">
+          <header className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 select-none md:px-6 md:py-4">
             <div className="flex items-center gap-3">
               <a
                 href="https://www.newsmaker.id/"
-                className="border w-9 h-9 md:w-10 md:h-10 bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center text-gray-600 hover:text-gray-800 rounded-full transition-all"
+                className="flex h-9 w-9 items-center justify-center rounded-full border bg-zinc-200 text-gray-600 transition-all hover:bg-zinc-300 hover:text-gray-800 md:h-10 md:w-10"
               >
                 <FontAwesomeIcon icon={faXmark} />
               </a>
 
-              <div className="">
-                <h1 className="text-sm md:text-lg font-semibold bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500 bg-clip-text text-transparent">
+              {/* <select name="" id="">
+                <option value="">Gwen</option>
+                <option value="">Stacy</option>
+              </select> */}
+
+              <div>
+                <h1 className="bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500 bg-clip-text text-lg font-semibold text-transparent md:text-xl">
                   Newsmaker Artificial Intelligence
                 </h1>
-                <p className="text-[11px] md:text-sm text-zinc-500">
+                <p className="text-xs text-zinc-500 md:text-sm">
                   Virtual Assistant
                 </p>
               </div>
             </div>
 
             <Image
-              className="opacity-60 hidden md:block"
+              className="hidden opacity-70 md:block"
               src="/assets/LogoNM23_Ai_22.png"
               alt="Newsmaker logo"
               width={50}
               height={12}
               priority
             />
-          </div>
+          </header>
 
-          {/* CHAT MESSAGES */}
-          <div
-            className="flex-1 overflow-y-auto nm-scroll px-3 md:px-6 py-4 relative"
-            style={{
-              backgroundImage: "url('/assets/NewsMaker-23-logo.png')",
-              backgroundSize: "clamp(80px, 20vw, 180px)",
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "center",
-            }}
-          >
-            <div className="relative z-10 mx-auto w-full max-w-3xl space-y-4">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${
-                    msg.sender === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`relative px-4 py-3 md:px-5 md:py-3 rounded-2xl break-words shadow-md max-w-[80%] md:max-w-[75%] ${
-                      msg.sender === "user"
-                        ? "bg-gradient-to-br from-blue-500/80 to-blue-600/80 backdrop-blur-md text-white"
-                        : "bg-gray-200/70 backdrop-blur-md text-zinc-900"
-                    }`}
-                  >
-                    {msg.sender === "ai" ? (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({ node, ...props }) => (
-                            <p
-                              {...props}
-                              className={
-                                "mb-1 text-sm leading-relaxed " +
-                                (props.className || "")
-                              }
-                            />
-                          ),
-                          strong: ({ node, ...props }) => (
-                            <strong
-                              {...props}
-                              className={
-                                "font-semibold " + (props.className || "")
-                              }
-                            />
-                          ),
-                          ul: ({ node, ...props }) => (
-                            <ul
-                              {...props}
-                              className={
-                                "mb-2 ml-4 list-disc space-y-1 " +
-                                (props.className || "")
-                              }
-                            />
-                          ),
-                          li: ({ node, ...props }) => (
-                            <li
-                              {...props}
-                              className={
-                                "text-sm leading-relaxed " +
-                                (props.className || "")
-                              }
-                            />
-                          ),
-                        }}
+          {/* CHAT AREA */}
+          <section className="nm-scroll relative flex-1 overflow-y-auto px-3 py-4 md:px-6">
+            <div className="bg-white/50">
+              <div className="relative z-10 flex h-full max-w-3xl flex-col">
+                {messages.map((msg) => {
+                  const isUser = msg.sender === "user";
+                  const isAi = msg.sender === "ai";
+
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex w-full ${
+                        isUser ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                      {/* column: bubble + time */}
+                      <div
+                        className={`flex max-w-full flex-col gap-1 md:max-w-[75%] ${
+                          isUser ? "items-end" : "items-start"
+                        }`}
                       >
-                        {msg.text}
-                      </ReactMarkdown>
-                    ) : (
-                      <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                    )}
+                        {/* Bubble */}
+                        <div
+                          className={[
+                            "relative w-full rounded-2xl px-4 py-3 text-sm shadow-md md:px-5",
+                            isUser
+                              ? "bg-gradient-to-r from-blue-500/90 to-blue-600/90 text-white backdrop-blur rounded-br-none"
+                              : "bg-white/90 text-zinc-900 backdrop-blur border border-zinc-100 rounded-bl-none",
+                          ].join(" ")}
+                        >
+                          {isAi && (
+                            <div
+                              className="absolute inset-0 pointer-events-none"
+                              style={{
+                                backgroundImage:
+                                  "url('/assets/NewsMaker-23-logo.png')",
+                                backgroundSize: "clamp(80px, 50vw, 180px)",
+                                backgroundRepeat: "no-repeat",
+                                backgroundPosition: "center",
+                                opacity: 0.15, // << watermark lembut
+                              }}
+                            />
+                          )}
 
-                    {msg.imagePath && msg.sender === "ai" && (
-                      <div className="mt-3">
-                        <Image
-                          src={msg.imagePath}
-                          alt="Gambar yang dianalisis"
-                          width={240}
-                          height={160}
-                          className="rounded-lg border border-zinc-200 object-contain"
-                        />
+                          {msg.sender === "ai" ? (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                p: ({ node, ...props }) => (
+                                  <p
+                                    {...props}
+                                    className={
+                                      "mb-1 leading-relaxed " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                strong: ({ node, ...props }) => (
+                                  <strong
+                                    {...props}
+                                    className={
+                                      "font-semibold " + (props.className || "")
+                                    }
+                                  />
+                                ),
+                                ul: ({ node, ...props }) => (
+                                  <ul
+                                    {...props}
+                                    className={
+                                      "mb-2 ml-4 list-disc space-y-1 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                li: ({ node, ...props }) => (
+                                  <li
+                                    {...props}
+                                    className={
+                                      "leading-relaxed " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                              }}
+                            >
+                              {msg.text}
+                            </ReactMarkdown>
+                          ) : (
+                            <p className="whitespace-pre-wrap leading-relaxed">
+                              {msg.text}
+                            </p>
+                          )}
+
+                          {msg.imagePath && msg.sender === "ai" && (
+                            <div className="mt-3">
+                              <Image
+                                src={msg.imagePath}
+                                alt="Gambar yang dianalisis"
+                                width={240}
+                                height={160}
+                                className="h-auto w-auto max-w-full rounded-lg border border-zinc-200 object-contain"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Timestamp */}
+                        <span className="text-[10px] text-gray-500 opacity-70">
+                          {msg.timestamp.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
-                    )}
+                    </div>
+                  );
+                })}
 
-                    <p className="absolute -bottom-4 right-3 text-[10px] opacity-50">
-                      {msg.timestamp.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="max-w-[60%] rounded-2xl bg-white backdrop-blur-md px-4 py-3 shadow-md">
-                    <div className="flex gap-1">
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.15s]" />
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400" />
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[60%] rounded-2xl border border-zinc-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur">
+                      <div className="flex gap-1">
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.15s]" />
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} />
+              </div>
             </div>
-          </div>
+          </section>
 
-          {/* INPUT */}
-          <div className="border-t border-zinc-200 px-3 py-2 md:px-6 md:py-3 bg-white">
-            <div className="mx-auto w-full">
+          {/* INPUT AREA */}
+          <footer className="border-t border-zinc-200 bg-white px-3 py-2 md:px-6 md:py-3">
+            <div className="w-full">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSendMessage();
                 }}
-                className="flex items-end gap-2 border rounded-full overflow-hidden p-1 bg-zinc-50"
+                className="flex items-end gap-2 rounded-full border bg-zinc-50 p-1"
               >
-                <label className="flex h-9 w-9 md:h-10 md:w-10 rounded-full cursor-pointer items-center justify-center text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-all flex-shrink-0">
+                {/* Attach Button */}
+                <label className="flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-all hover:bg-zinc-200 md:h-10 md:w-10">
                   <FontAwesomeIcon icon={faPaperclip} size="sm" />
                   <input
                     type="file"
@@ -310,11 +341,12 @@ export default function Home() {
                   />
                 </label>
 
+                {/* Textarea */}
                 <textarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Tulis pertanyaan..."
-                  className="flex-1 max-h-32 text-sm outline-none text-gray-900 px-2 py-2 resize-none bg-transparent"
+                  placeholder="Tulis pertanyaan ke NM Ai..."
+                  className="max-h-32 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-gray-900 outline-none"
                   rows={1}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -324,18 +356,25 @@ export default function Home() {
                   }}
                 />
 
+                {/* Send Button */}
                 <button
                   type="submit"
                   disabled={isSendDisabled}
-                  title={isSendDisabled ? "Massage is empty" : ""}
-                  autoFocus
-                  className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full bg-blue-500 hover:bg-blue-700 text-white transition-all cursor-pointer disabled:opacity-50 disabled:hover:bg-blue-500 flex-shrink-0"
+                  title={isSendDisabled ? "Message is empty" : ""}
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-white transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-blue-500 md:h-10 md:w-10"
                 >
                   <FontAwesomeIcon icon={faArrowUp} size="sm" />
                 </button>
               </form>
+
+              {/* Selected file hint */}
+              {selectedFile && (
+                <p className="mt-1 truncate text-xs text-zinc-500">
+                  📎 {selectedFile.name}
+                </p>
+              )}
             </div>
-          </div>
+          </footer>
         </main>
       </div>
     </>
