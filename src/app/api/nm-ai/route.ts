@@ -152,7 +152,6 @@ const buildCalendarUrl = (baseUrl: string, targetDate: string) => {
 };
 
 // ================== INSTRUMENT MAPPING (HISTORICAL) ==================
-
 type InstrumentKey =
   | "gold"
   | "silver"
@@ -168,7 +167,7 @@ type InstrumentKey =
 
 const INSTRUMENT_HINTS: Record<InstrumentKey, string[]> = {
   // LGD Daily (emas)
-  gold: ["LGD", "LGD DAILY", "XAUUSD", "XAU", "GOLD", "EMAS"],
+  gold: ["LGD", "LGD DAILY", "XAUUSD", "XAU", "GOLD", "EMAS", "LGD"],
 
   // LSI Daily (perak)
   silver: ["LSI", "LSI DAILY", "XAGUSD", "XAG", "SILVER", "PERAK"],
@@ -216,7 +215,8 @@ const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
     p.includes("emas") ||
     p.includes("gold") ||
     p.includes("xau") ||
-    p.includes("lgd")
+    p.includes("lgd") ||
+    p.includes("LGD")
   ) {
     return "gold";
   }
