@@ -24,6 +24,11 @@ const HISTORICAL_API_URL =
   process.env.HISTORICAL_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/historical?dateFrom=2025-07-01";
 
+// 🔥 NEW: NEWS API (BERITA TERBARU)
+const NEWS_API_URL =
+  process.env.NEWS_API_URL ||
+  "https://endpoapi-production-3202.up.railway.app/api/news-id";
+
 // ============= HELPER: FORMAT & DETEKSI TANGGAL ===================
 
 const MONTHS_ID: Record<string, number> = {
@@ -390,6 +395,17 @@ export async function POST(req: NextRequest) {
     const requestedInstrument: InstrumentKey =
       detectInstrumentFromPrompt(userPrompt);
 
+    // 🔎 NEW: DETEKSI PERTANYAAN BERITA TERBARU
+    const isNewsQuery =
+      lowerPrompt.includes("berita terbaru") ||
+      lowerPrompt.includes("news terbaru") ||
+      lowerPrompt.includes("headline") ||
+      lowerPrompt.includes("berita hari ini") ||
+      (lowerPrompt.includes("berita") &&
+        (lowerPrompt.includes("update") ||
+          lowerPrompt.includes("pasar") ||
+          lowerPrompt.includes("market")));
+
     // ====== WAKTU SAAT INI (WIB / Asia/Jakarta) ======
     const nowJakarta = new Date(
       new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
@@ -521,7 +537,7 @@ export async function POST(req: NextRequest) {
         `Selain itu, jangan menyebutkan tanggal/jam saat ini secara spontan tanpa diminta.`,
     };
 
-    // ========== 3) FETCH DATA PARALLEL (QUOTES, CALENDAR, HISTORICAL) ==========
+    // ========== 3) FETCH DATA PARALLEL (QUOTES, CALENDAR, HISTORICAL, NEWS) ==========
     let quotesSummary = "";
     let quotesUpdatedAtLocal = "";
 
@@ -533,13 +549,19 @@ export async function POST(req: NextRequest) {
     let historicalInstrumentWindowSummary = "";
     let historicalFromLabel = "";
 
+    // 🔥 NEW: NEWS (BERITA)
+    let newsSummaryAll = "";
+    let newsSummaryToday = "";
+    let newsHasData = false;
+
     const calendarUrl = buildCalendarUrl(CALENDAR_API_URL, targetCalendarDate);
 
-    const [quotesResult, calendarResult, historicalResult] =
+    const [quotesResult, calendarResult, historicalResult, newsResult] =
       await Promise.allSettled([
         fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" }),
         fetch(calendarUrl, { method: "GET", cache: "no-store" }),
         fetch(HISTORICAL_API_URL, { method: "GET", cache: "no-store" }),
+        fetch(NEWS_API_URL, { method: "GET", cache: "no-store" }),
       ]);
 
     // ----- QUOTES -----
@@ -840,12 +862,7 @@ export async function POST(req: NextRequest) {
 
             const getNum = (obj: any): number | null => {
               const cand =
-                obj.close ??
-                obj.Close ??
-                obj.last ??
-                obj.Last ??
-                obj.price ??
-                obj.Price;
+                obj.close ?? obj.Close ?? obj.last ?? obj.Last ?? obj.price ?? obj.Price;
               const n = Number(cand);
               return isFinite(n) ? n : null;
             };
@@ -923,7 +940,8 @@ export async function POST(req: NextRequest) {
               }
 
               const labelInfo =
-                INSTRUMENT_LABEL[requestedInstrument] || INSTRUMENT_LABEL.other;
+                INSTRUMENT_LABEL[requestedInstrument] ||
+                INSTRUMENT_LABEL.other;
               const instrName =
                 requestedInstrument === "other" ? histSymbol : labelInfo.name;
               const unit = labelInfo.unit;
@@ -1002,6 +1020,143 @@ export async function POST(req: NextRequest) {
         : "Sistem data historis saat ini tidak berhasil mengambil data. Jika pengguna bertanya tentang pergerakan historis, jawab secara konseptual tanpa menyebut angka spesifik.",
     };
 
+    // ----- 🔥 NEW: NEWS (BERITA PASAR) -----
+    if (newsResult.status === "fulfilled") {
+      const newsRes = newsResult.value;
+      if (newsRes.ok) {
+        try {
+          const newsData: any = await newsRes.json();
+          const rows: any[] = Array.isArray(newsData.data)
+            ? newsData.data
+            : [];
+
+          if (rows.length > 0) {
+            // sort terbaru dulu (pakai published_at / createdAt)
+            const sorted = [...rows].sort((a, b) => {
+              const da = a.published_at || a.createdAt || a.date;
+              const db = b.published_at || b.createdAt || b.date;
+              const ta = da ? new Date(da).getTime() : 0;
+              const tb = db ? new Date(db).getTime() : 0;
+              return tb - ta;
+            });
+
+            // ambil max 15 berita terakhir
+            const latest = sorted.slice(0, 15);
+            newsHasData = latest.length > 0;
+
+            const allLines: string[] = [];
+            const todayLines: string[] = [];
+
+            for (const item of latest) {
+              const title: string = item.title ?? "-";
+              const category: string = item.category ?? "-";
+              const summary: string = item.summary ?? "";
+              const link: string = item.source_url ?? item.link ?? "";
+              const authorName: string = item.author_name ?? item.author ?? "";
+              const lang: string = item.language ?? "";
+
+              const rawDate: string =
+                item.published_at || item.createdAt || item.date || "";
+              let waktuWib = "";
+              let tanggalIso = "";
+
+              if (rawDate) {
+                const dt = new Date(rawDate);
+                if (!isNaN(dt.getTime())) {
+                  const dtJakarta = new Date(
+                    dt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
+                  );
+                  waktuWib = dtJakarta.toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  tanggalIso = formatDateIso(dtJakarta);
+                }
+              }
+
+              const jamLabel = waktuWib ? `pukul ${waktuWib} WIB` : "waktu tidak diketahui";
+              const catLabel =
+                category && category !== "-"
+                  ? `kategori **${category.toUpperCase()}**`
+                  : "kategori tidak disebutkan";
+              const langLabel =
+                lang && lang.toLowerCase() === "id"
+                  ? "bahasa Indonesia"
+                  : lang
+                  ? `bahasa ${lang}`
+                  : "";
+
+              const penulisLabel = authorName
+                ? `, ditulis oleh ${authorName}`
+                : "";
+
+              const ringkas =
+                summary && summary.length > 0
+                  ? summary.replace(/\s+/g, " ").trim()
+                  : "";
+
+              const baseLine =
+                `- ${jamLabel}: **${title}** (${catLabel}${langLabel ? `, ${langLabel}` : ""}${penulisLabel}).` +
+                (ringkas ? ` Ringkasan singkat: ${ringkas}` : "") +
+                (link ? ` Sumber: ${link}` : "");
+
+              allLines.push(baseLine);
+
+              if (tanggalIso === todayIso) {
+                todayLines.push(baseLine);
+              }
+            }
+
+            newsSummaryAll = allLines.join("\n");
+            newsSummaryToday = todayLines.join("\n");
+          }
+        } catch (e) {
+          console.error("Gagal parse news JSON:", e);
+        }
+      } else {
+        console.error("News HTTP error:", newsRes.status);
+      }
+    } else {
+      console.error("News fetch error:", newsResult.reason);
+    }
+
+    const systemNewsMessage = {
+      role: "system" as const,
+      content: newsHasData
+        ? (() => {
+            let txt =
+              "Sistem Berita Pasar (internal Newsmaker.id – endpoint `/api/news-id`):\n\n" +
+              "Ringkasan beberapa berita/analisis TERBARU di database:\n" +
+              newsSummaryAll +
+              "\n\n";
+
+            if (newsSummaryToday) {
+              txt +=
+                "Highlight berita yang TERBIT HARI INI (WIB):\n" +
+                newsSummaryToday +
+                "\n\n";
+            }
+
+            txt +=
+              "Panduan menjawab terkait BERITA:\n" +
+              "- Jika pengguna bertanya **'berita terbaru tentang apa'**, pilih 3–5 judul paling relevan dari daftar di atas, lalu jelaskan isinya dengan bahasamu sendiri secara ringkas dan mudah dipahami.\n" +
+              "- Jika pengguna menyebut instrumen tertentu (misalnya *emas, minyak, dolar, Nikkei, Hang Seng, kripto*), prioritaskan berita yang judul/summary-nya mengandung kata tersebut.\n" +
+              "- Jangan menyalin daftar di atas mentah-mentah sebagai jawaban final; rangkai ulang menjadi narasi yang enak dibaca.\n" +
+              "- Jika pengguna hanya minta satu topik utama, cukup ambil 1–3 berita yang paling kuat keterkaitannya.\n";
+
+            if (isNewsQuery) {
+              txt +=
+                "\nPengguna di pesan terakhir tampaknya sedang MENANYAKAN BERITA TERBARU. Fokuskan jawabanmu untuk merangkum 1–3 berita utama yang paling relevan dengan pertanyaan pengguna.\n";
+            } else {
+              txt +=
+                "\nJika pengguna tidak menyinggung berita sama sekali, tidak perlu memaksa menyebut judul berita; gunakan daftar ini hanya bila relevan.\n";
+            }
+
+            return txt;
+          })()
+        : "Sistem berita pasar Newsmaker.id (endpoint `/api/news-id`) saat ini tidak berhasil mengambil data. Jika pengguna bertanya 'berita terbaru', jelaskan bahwa data berita internal sedang tidak dapat diakses dan berikan penjelasan pasar secara umum tanpa menyebut artikel spesifik.",
+    };
+
     // ========== 6) INSTRUKSI PENGGUNAAN DATA vs GAMBAR ==========
     const systemDataUsageMessage = {
       role: "system" as const,
@@ -1013,7 +1168,8 @@ export async function POST(req: NextRequest) {
         : "PENTING: Pesan terakhir pengguna TIDAK menyertakan gambar.\n" +
           "- Untuk pertanyaan harga terkini, gunakan ringkasan data quotes.\n" +
           "- Untuk tren beberapa waktu terakhir, gunakan ringkasan data historis.\n" +
-          "- Untuk pertanyaan 'historical data [instrumen] X hari sebelumnya', gunakan ringkasan per hari jika tersedia.\n",
+          "- Untuk pertanyaan 'historical data [instrumen] X hari sebelumnya', gunakan ringkasan per hari jika tersedia.\n" +
+          "- Untuk pertanyaan berita, gunakan ringkasan dari sistem berita internal jika relevan.\n",
     };
 
     // ====== SUSUN MESSAGES UNTUK OLLAMA ======
@@ -1030,6 +1186,7 @@ export async function POST(req: NextRequest) {
       systemQuotesMessage,
       systemCalendarMessage,
       systemHistoricalMessage,
+      systemNewsMessage, // 🔥 NEW: berita
       systemDataUsageMessage,
     ];
 

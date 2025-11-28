@@ -26,10 +26,14 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [apiRoute, setApiRoute] = useState<ApiRoute>("/api/nm-ai");
+  const [isModelOpen, setIsModelOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
 
   const isGwen = apiRoute === "/api/nm-ai";
   const isStacy = apiRoute === "/api/chatgpt";
@@ -37,7 +41,17 @@ export default function Home() {
 
   useEffect(() => {
     setIsMounted(true);
+    const timer = setTimeout(() => setIsReady(true), 5000);
+    return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (isReady) {
+      const fadeTimer = setTimeout(() => setShowLoader(false), 500);
+      return () => clearTimeout(fadeTimer);
+    }
+    setShowLoader(true);
+  }, [isReady]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -47,10 +61,51 @@ export default function Home() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        modelMenuRef.current &&
+        !modelMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsModelOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canAttachFile) return; // kalau Gwen, abaikan input file
     const file = e.target.files?.[0] || null;
     setSelectedFile(file);
+  };
+
+  const modelOptions: {
+    value: ApiRoute;
+    label: string;
+    icon: string;
+    description: string;
+  }[] = [
+    {
+      value: "/api/nm-ai",
+      label: "Gwen (NM Ai)",
+      icon: "",
+      description: "Cepat, ringan, tanpa lampiran.",
+    },
+    {
+      value: "/api/chatgpt",
+      label: "Stacy (GPT-5 Nano)",
+      icon: "",
+      description: "Lebih pintar, dukung lampiran.",
+    },
+  ];
+
+  const handleModelSelect = (value: ApiRoute) => {
+    setApiRoute(value);
+    if (value === "/api/nm-ai") {
+      setSelectedFile(null);
+    }
+    setIsModelOpen(false);
   };
 
   const handleSendMessage = async () => {
@@ -130,8 +185,12 @@ export default function Home() {
 
   if (!isMounted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100">
-        <main className="flex h-screen w-full max-w-4xl flex-col bg-white shadow-2xl md:my-8 md:h-[90vh] md:rounded-2xl" />
+      <div className="flex min-h-screen items-center justify-center bg-blue-600 p-6">
+        <img
+          src="/assets/Loading_Nm.gif"
+          alt="Loading NM"
+          className="h-auto w-[40vw] max-w-[150px]"
+        />
       </div>
     );
   }
@@ -163,6 +222,19 @@ export default function Home() {
       `}</style>
 
       <main className="flex h-screen w-full flex-col overflow-hidden bg-white shadow-2xl">
+        {showLoader && (
+          <div
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-blue-600 transition-opacity duration-500 ${
+              isReady ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+          >
+            <img
+              src="/assets/Loading_Nm.gif"
+              alt="Loading NM"
+              className="h-auto w-[40vw] max-w-[240px]"
+            />
+          </div>
+        )}
         {/* HEADER */}
         <header className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 select-none md:px-6 md:py-4">
           <div className="flex items-center gap-5">
@@ -179,25 +251,49 @@ export default function Home() {
               </h1>
 
               {/* Engine selector */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* <span className="text-[10px] uppercase tracking-wide text-zinc-400">
-                    Engine:
-                  </span> */}
-                <select
-                  value={apiRoute}
-                  onChange={(e) => {
-                    const value = e.target.value as ApiRoute;
-                    setApiRoute(value);
-                    // kalau pindah ke Gwen, kosongkan file
-                    if (value === "/api/nm-ai") {
-                      setSelectedFile(null);
-                    }
-                  }}
-                  className="h-7 min-w-[35%] rounded-lg border border-zinc-200 bg-zinc-50 px-1 text-zinc-700 outline-none transition hover:border-zinc-300 focus:border-blue-500 focus:bg-white"
+              <div className="relative" ref={modelMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsModelOpen((v) => !v)}
+                  className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs md:text-sm text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-white focus:border-blue-500 focus:outline-none"
                 >
-                  <option value="/api/nm-ai">Gwen (NM Ai)</option>
-                  <option value="/api/chatgpt">Stacy (GPT-5 Nano)</option>
-                </select>
+                  <span>
+                    {modelOptions.find((opt) => opt.value === apiRoute)
+                      ?.label || "Pilih model"}
+                  </span>
+                  <span
+                    className={`text-xs transition-transform ${
+                      isModelOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                    aria-hidden
+                  >
+                    ▼
+                  </span>
+                </button>
+
+                {isModelOpen && (
+                  <div className="absolute z-20 mt-2 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+                    {modelOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleModelSelect(opt.value)}
+                        className={`block w-full px-4 py-3 text-left transition hover:bg-zinc-50 ${
+                          apiRoute === opt.value
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-zinc-700"
+                        }`}
+                      >
+                        <div className="text-sm md:text-base font-semibold">
+                          {opt.label}
+                        </div>
+                        <div className="text-xs text-zinc-500">
+                          {opt.description}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -355,11 +451,10 @@ export default function Home() {
             >
               {/* Attach Button – hanya tampil kalau boleh lampiran */}
               {canAttachFile && (
-                <label className="flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-all hover:bg-zinc-200 md:h-10 md:w-10">
+                <label className="flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-all hover:bg-zinc-200 md:h-10 md:w-10">
                   <FontAwesomeIcon icon={faPaperclip} size="sm" />
                   <input
                     type="file"
-                    accept="image/*"
                     className="hidden"
                     onChange={handleFileChange}
                   />
