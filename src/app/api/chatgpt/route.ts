@@ -137,10 +137,8 @@ const INSTRUMENT_HINTS: Record<InstrumentKey, string[]> = {
   other: [],
 };
 
-const INSTRUMENT_LABEL: Record<
-  InstrumentKey,
-  { name: string; unit: string }
-> = {
+const INSTRUMENT_LABEL: Record<InstrumentKey, { name: string; unit: string }> =
+{
   gold: { name: "emas (Gold)", unit: "USD per troy ounce" },
   silver: { name: "perak (Silver)", unit: "USD per troy ounce" },
   oil: { name: "minyak (Oil)", unit: "USD per barrel" },
@@ -158,19 +156,39 @@ const INSTRUMENT_LABEL: Record<
 const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
   const p = prompt.toLowerCase();
 
-  if (p.includes("emas") || p.includes("gold") || p.includes("xau") || p.includes("lgd")) {
+  if (
+    p.includes("emas") ||
+    p.includes("gold") ||
+    p.includes("xau") ||
+    p.includes("lgd")
+  ) {
     return "gold";
   }
-  if (p.includes("perak") || p.includes("silver") || p.includes("xag") || p.includes("lsi")) {
+  if (
+    p.includes("perak") ||
+    p.includes("silver") ||
+    p.includes("xag") ||
+    p.includes("lsi")
+  ) {
     return "silver";
   }
-  if (p.includes("oil") || p.includes("minyak") || p.includes("bco") || p.includes("brent")) {
+  if (
+    p.includes("oil") ||
+    p.includes("minyak") ||
+    p.includes("bco") ||
+    p.includes("brent")
+  ) {
     return "oil";
   }
   if (p.includes("hsi") || p.includes("hang seng")) {
     return "hsi";
   }
-  if (p.includes("sni") || p.includes("nikkei") || p.includes("n225") || p.includes("jepang")) {
+  if (
+    p.includes("sni") ||
+    p.includes("nikkei") ||
+    p.includes("n225") ||
+    p.includes("jepang")
+  ) {
     return "sni";
   }
   if (p.includes("usd/chf") || p.includes("usdchf") || p.includes("chf")) {
@@ -186,7 +204,12 @@ const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
   ) {
     return "usdjpy";
   }
-  if (p.includes("gbp/usd") || p.includes("gbpusd") || p.includes("cable") || p.includes("pound")) {
+  if (
+    p.includes("gbp/usd") ||
+    p.includes("gbpusd") ||
+    p.includes("cable") ||
+    p.includes("pound")
+  ) {
     return "gbpusd";
   }
   if (p.includes("aud/usd") || p.includes("audusd") || p.includes("aussie")) {
@@ -237,11 +260,19 @@ const detectNewsCategoryFromPrompt = (lowerPrompt: string): string | null => {
     return "MARKET ANALISYS";
   }
 
-  if (lowerPrompt.includes("ekonomi") || lowerPrompt.includes("data makro") || lowerPrompt.includes("cpi")) {
+  if (
+    lowerPrompt.includes("ekonomi") ||
+    lowerPrompt.includes("data makro") ||
+    lowerPrompt.includes("cpi")
+  ) {
     return "ECONOMIC";
   }
 
-  if (lowerPrompt.includes("kripto") || lowerPrompt.includes("crypto") || lowerPrompt.includes("bitcoin")) {
+  if (
+    lowerPrompt.includes("kripto") ||
+    lowerPrompt.includes("crypto") ||
+    lowerPrompt.includes("bitcoin")
+  ) {
     return "CRYPTO";
   }
 
@@ -301,7 +332,7 @@ export async function POST(req: NextRequest) {
       // 3) Excel (XLS/XLSX) -> pakai xlsx
       else if (
         mime ===
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
         mime === "application/vnd.ms-excel" ||
         filename.endsWith(".xlsx") ||
         filename.endsWith(".xls")
@@ -347,9 +378,8 @@ export async function POST(req: NextRequest) {
     const lowerPrompt = userPrompt.toLowerCase();
 
     // Deteksi instrumen untuk historical
-    const requestedInstrument: InstrumentKey = detectInstrumentFromPrompt(
-      userPrompt
-    );
+    const requestedInstrument: InstrumentKey =
+      detectInstrumentFromPrompt(userPrompt);
 
     // Deteksi apakah user nanya berita
     const isNewsQuery =
@@ -433,9 +463,9 @@ export async function POST(req: NextRequest) {
         "- Jika model tidak bisa membaca gambar, jujur sampaikan bahwa NM Ai belum bisa menganalisis gambar dan minta pengguna menjelaskan chart dengan kata-kata.\n\n" +
         (isFirstInteraction
           ? "INI INTERAKSI PERTAMA di sesi ini. Kamu boleh menyapa singkat kalau mau, " +
-            "tapi setelah itu langsung masuk ke inti jawaban. Di pesan berikutnya, jangan mengulang salam pembuka yang sama.\n"
+          "tapi setelah itu langsung masuk ke inti jawaban. Di pesan berikutnya, jangan mengulang salam pembuka yang sama.\n"
           : "Dalam sesi ini SUDAH ada riwayat percakapan. JANGAN lagi mengulang salam seperti 'Halo, saya NM Ai.' " +
-            "Langsung masuk ke inti jawaban berdasarkan konteks percakapan.\n"),
+          "Langsung masuk ke inti jawaban berdasarkan konteks percakapan.\n"),
     };
 
     // 2) Info waktu
@@ -458,7 +488,9 @@ export async function POST(req: NextRequest) {
 
       if (quotesRes.ok) {
         const quotesData: any = await quotesRes.json();
-        const rows: any[] = Array.isArray(quotesData.data) ? quotesData.data : [];
+        const rows: any[] = Array.isArray(quotesData.data)
+          ? quotesData.data
+          : [];
 
         if (quotesData.updatedAt) {
           const updatedRaw = new Date(quotesData.updatedAt);
@@ -511,8 +543,8 @@ export async function POST(req: NextRequest) {
                 ? pct > 0
                   ? "naik"
                   : pct < 0
-                  ? "turun"
-                  : "stabil"
+                    ? "turun"
+                    : "stabil"
                 : "stabil";
 
             return (
@@ -532,22 +564,22 @@ export async function POST(req: NextRequest) {
       role: "system",
       content: quotesSummary
         ? (() => {
-            const updateInfo = quotesUpdatedAtLocal
-              ? `Data harga terakhir diperbarui sekitar **${quotesUpdatedAtLocal} WIB**.\n\n`
-              : "";
+          const updateInfo = quotesUpdatedAtLocal
+            ? `Data harga terakhir diperbarui sekitar **${quotesUpdatedAtLocal} WIB**.\n\n`
+            : "";
 
-            return (
-              "Sistem Harga Live (internal Newsmaker):\n\n" +
-              updateInfo +
-              "Ringkasan harga terkini (hanya referensi internal, rangkai ulang dengan kata-katamu sendiri):\n" +
-              quotesSummary +
-              "\n\n" +
-              "Panduan menjawab:\n" +
-              "- Gunakan angka ini hanya ketika pengguna bertanya harga terkini atau pergerakan terbaru.\n" +
-              "- Jangan menyalin bullet di atas mentah-mentah sebagai jawaban final.\n" +
-              "- Jika instrumen yang diminta tidak ada, jelaskan dengan sopan dan beri konteks edukatif.\n"
-            );
-          })()
+          return (
+            "Sistem Harga Live (internal Newsmaker):\n\n" +
+            updateInfo +
+            "Ringkasan harga terkini (hanya referensi internal, rangkai ulang dengan kata-katamu sendiri):\n" +
+            quotesSummary +
+            "\n\n" +
+            "Panduan menjawab:\n" +
+            "- Gunakan angka ini hanya ketika pengguna bertanya harga terkini atau pergerakan terbaru.\n" +
+            "- Jangan menyalin bullet di atas mentah-mentah sebagai jawaban final.\n" +
+            "- Jika instrumen yang diminta tidak ada, jelaskan dengan sopan dan beri konteks edukatif.\n"
+          );
+        })()
         : "Sistem harga live saat ini tidak berhasil mengambil data. Jika pengguna bertanya harga terkini, jangan mengarang angka; jelaskan bahwa data live sementara tidak tersedia dan beri penjelasan umum.",
     };
 
@@ -608,7 +640,7 @@ export async function POST(req: NextRequest) {
         };
 
         calendarSummaryAll = events
-          .map((ev) => {
+          .map((ev: any) => {
             const {
               time,
               currency,
@@ -630,7 +662,7 @@ export async function POST(req: NextRequest) {
           .join("\n");
 
         const highImpact = events.filter(
-          (ev) =>
+          (ev: any) =>
             typeof ev.impact === "string" &&
             (ev.impact.includes("★★★") ||
               ev.impact.toLowerCase().includes("high"))
@@ -639,11 +671,11 @@ export async function POST(req: NextRequest) {
         calendarSummaryHighImpact =
           highImpact.length > 0
             ? highImpact
-                .map((ev) => {
-                  const { time, currency, impact, event } = ev;
-                  return `- Pukul ${time}, ${currency} – ${event} (dampak tinggi ${impact}).`;
-                })
-                .join("\n")
+              .map((ev: any) => {
+                const { time, currency, impact, event } = ev;
+                return `- Pukul ${time}, ${currency} – ${event} (dampak tinggi ${impact}).`;
+              })
+              .join("\n")
             : "- Tidak ada event berdampak sangat tinggi (★★★) pada tanggal ini.";
       } else {
         console.error("Calendar HTTP error:", calRes.status);
@@ -660,23 +692,23 @@ export async function POST(req: NextRequest) {
     const extraCalendarInstruction = wantsHighImpactOnly
       ? "Pengguna menanyakan event berdampak tinggi (high impact / ★★★). Utamakan event tersebut.\n"
       : isCalendarOverview
-      ? "Pengguna menanyakan kalender ekonomi secara umum. Tampilkan seluruh event tanggal tersebut dalam bentuk bullet.\n"
-      : "Jika pengguna bertanya event tertentu (NFP, CPI, suku bunga), fokus ke event tersebut.\n";
+        ? "Pengguna menanyakan kalender ekonomi secara umum. Tampilkan seluruh event tanggal tersebut dalam bentuk bullet.\n"
+        : "Jika pengguna bertanya event tertentu (NFP, CPI, suku bunga), fokus ke event tersebut.\n";
 
     const systemCalendarMessage = {
       role: "system",
       content: calendarHasData
         ? wantsHighImpactOnly
           ? `Kalender ekonomi untuk ${tanggalLabel}:\n\n` +
-            `Event berdampak tinggi:\n${calendarSummaryHighImpact}\n\n` +
-            `Daftar lengkap event (${tanggalLabel}) (gunakan jika perlu):\n${calendarSummaryAll}\n\n` +
-            "Catatan untuk model:\n" +
-            extraCalendarInstruction
+          `Event berdampak tinggi:\n${calendarSummaryHighImpact}\n\n` +
+          `Daftar lengkap event (${tanggalLabel}) (gunakan jika perlu):\n${calendarSummaryAll}\n\n` +
+          "Catatan untuk model:\n" +
+          extraCalendarInstruction
           : `Kalender ekonomi untuk ${tanggalLabel}:\n\n` +
-            `Daftar lengkap event (${tanggalLabel}):\n${calendarSummaryAll}\n\n` +
-            `Ringkasan event berdampak tinggi:\n${calendarSummaryHighImpact}\n\n` +
-            "Catatan untuk model:\n" +
-            extraCalendarInstruction
+          `Daftar lengkap event (${tanggalLabel}):\n${calendarSummaryAll}\n\n` +
+          `Ringkasan event berdampak tinggi:\n${calendarSummaryHighImpact}\n\n` +
+          "Catatan untuk model:\n" +
+          extraCalendarInstruction
         : `Sistem tidak berhasil mengambil kalender ekonomi untuk ${tanggalLabel}. Jika pengguna bertanya jadwal rilis, jelaskan keterbatasan data dan jangan mengarang event/jam rilis.`,
     };
 
@@ -731,7 +763,12 @@ export async function POST(req: NextRequest) {
 
           const getNum = (obj: any): number | null => {
             const cand =
-              obj.close ?? obj.Close ?? obj.last ?? obj.Last ?? obj.price ?? obj.Price;
+              obj.close ??
+              obj.Close ??
+              obj.last ??
+              obj.Last ??
+              obj.price ??
+              obj.Price;
             const n = Number(cand);
             return isFinite(n) ? n : null;
           };
@@ -764,11 +801,11 @@ export async function POST(req: NextRequest) {
 
           lines.push(
             `- **${symbol}**: dari sekitar **${fmt(startClose)}** ` +
-              `menjadi sekitar **${fmt(endClose)}**, perubahan ±${fmt(
-                absChange
-              )} poin (~${pctChange.toFixed(
-                2
-              )}%). Secara garis besar instrumen ini ${arah}`
+            `menjadi sekitar **${fmt(endClose)}**, perubahan ±${fmt(
+              absChange
+            )} poin (~${pctChange.toFixed(
+              2
+            )}%). Secara garis besar instrumen ini ${arah}`
           );
         }
 
@@ -808,8 +845,7 @@ export async function POST(req: NextRequest) {
             }
 
             const labelInfo =
-              INSTRUMENT_LABEL[requestedInstrument] ||
-              INSTRUMENT_LABEL.other;
+              INSTRUMENT_LABEL[requestedInstrument] || INSTRUMENT_LABEL.other;
             const instrName =
               requestedInstrument === "other" ? histSymbol : labelInfo.name;
             const unit = labelInfo.unit;
@@ -824,12 +860,8 @@ export async function POST(req: NextRequest) {
               const price = datePriceMap.get(iso);
               if (price != null) {
                 const priceFmt =
-                  Math.abs(price) >= 100
-                    ? price.toFixed(0)
-                    : price.toFixed(2);
-                detailLines.push(
-                  `- ${iso}: sekitar **${priceFmt}** ${unit}.`
-                );
+                  Math.abs(price) >= 100 ? price.toFixed(0) : price.toFixed(2);
+                detailLines.push(`- ${iso}: sekitar **${priceFmt}** ${unit}.`);
               }
             }
 
@@ -856,27 +888,27 @@ export async function POST(req: NextRequest) {
     const extraHistoricalInstruction =
       historicalRelativeDateIso && historicalDaysAgo !== null
         ? "Pengguna menggunakan frasa waktu relatif, misalnya **" +
-          historicalDaysAgo +
-          " hari sebelumnya** dari hari ini (WIB). " +
-          `Anggap tanggal tersebut sebagai kurang-lebih **${historicalRelativeDateIso}**.\n` +
-          "- Jika pertanyaan seperti: 'historical data [instrumen] 5 hari sebelumnya', gunakan data historis instrumen tersebut (jika tersedia) untuk merangkum harga per hari.\n" +
-          "- Jika data per hari untuk periode tersebut tidak lengkap, jelaskan keterbatasan dan jangan mengarang angka.\n"
+        historicalDaysAgo +
+        " hari sebelumnya** dari hari ini (WIB). " +
+        `Anggap tanggal tersebut sebagai kurang-lebih **${historicalRelativeDateIso}**.\n` +
+        "- Jika pertanyaan seperti: 'historical data [instrumen] 5 hari sebelumnya', gunakan data historis instrumen tersebut (jika tersedia) untuk merangkum harga per hari.\n" +
+        "- Jika data per hari untuk periode tersebut tidak lengkap, jelaskan keterbatasan dan jangan mengarang angka.\n"
         : "Jika pengguna menggunakan frasa 'X hari sebelumnya' atau 'X hari lalu', anggap X sebagai jumlah hari mundur dari tanggal hari ini (WIB) dan gunakan data historis untuk mendekati tanggal tersebut.\n";
 
     const systemHistoricalMessage = {
       role: "system",
       content: historicalSummary
         ? "Sistem Data Historis Harga (internal Newsmaker):\n\n" +
-          `Ringkasan pergerakan harga ${historicalRangeLabel} (per simbol utama):\n` +
-          historicalSummary +
-          "\n\n" +
-          (historicalInstrumentWindowSummary
-            ? historicalInstrumentWindowSummary + "\n\n"
-            : "") +
-          "Panduan menjawab:\n" +
-          "- Gunakan saat pengguna bertanya tentang tren beberapa waktu terakhir atau X hari sebelumnya.\n" +
-          "- Jangan mengarang angka historis yang tidak ada di data.\n\n" +
-          extraHistoricalInstruction
+        `Ringkasan pergerakan harga ${historicalRangeLabel} (per simbol utama):\n` +
+        historicalSummary +
+        "\n\n" +
+        (historicalInstrumentWindowSummary
+          ? historicalInstrumentWindowSummary + "\n\n"
+          : "") +
+        "Panduan menjawab:\n" +
+        "- Gunakan saat pengguna bertanya tentang tren beberapa waktu terakhir atau X hari sebelumnya.\n" +
+        "- Jangan mengarang angka historis yang tidak ada di data.\n\n" +
+        extraHistoricalInstruction
         : "Sistem tidak berhasil mengambil data historis harga. Jika pengguna bertanya tentang pergerakan historis, jawab secara konseptual tanpa menyebut angka spesifik.",
     };
 
@@ -959,8 +991,8 @@ export async function POST(req: NextRequest) {
             lang && lang.toLowerCase() === "id"
               ? "bahasa Indonesia"
               : lang
-              ? `bahasa ${lang}`
-              : "";
+                ? `bahasa ${lang}`
+                : "";
           const penulisLabel = authorName ? `, ditulis oleh ${authorName}` : "";
 
           const ringkas =
@@ -969,8 +1001,7 @@ export async function POST(req: NextRequest) {
               : "";
 
           const baseLine =
-            `- ${jamLabel}: **${title}** (${catLabel}${
-              langLabel ? `, ${langLabel}` : ""
+            `- ${jamLabel}: **${title}** (${catLabel}${langLabel ? `, ${langLabel}` : ""
             }${penulisLabel}).` +
             (ringkas ? ` Ringkasan singkat: ${ringkas}` : "") +
             (link ? ` Sumber: ${link}` : "");
@@ -995,32 +1026,32 @@ export async function POST(req: NextRequest) {
       role: "system",
       content: newsSummaryAll
         ? (() => {
-            let txt =
-              "Sistem Berita Pasar (internal Newsmaker.id – endpoint `/api/news-id`):\n\n" +
-              "Ringkasan beberapa berita/analisis TERBARU (maksimal 5 artikel):\n" +
-              newsSummaryAll +
-              "\n\n";
+          let txt =
+            "Sistem Berita Pasar (internal Newsmaker.id – endpoint `/api/news-id`):\n\n" +
+            "Ringkasan beberapa berita/analisis TERBARU (maksimal 5 artikel):\n" +
+            newsSummaryAll +
+            "\n\n";
 
-            if (newsSummaryToday) {
-              txt +=
-                "Highlight berita yang TERBIT HARI INI (WIB):\n" +
-                newsSummaryToday +
-                "\n\n";
-            }
-
+          if (newsSummaryToday) {
             txt +=
-              "Panduan menjawab ketika pengguna bertanya soal BERITA:\n" +
-              "- Jika pengguna bertanya 'berita terbaru tentang apa', pilih 3–5 judul paling relevan dan jelaskan isinya dengan bahasamu sendiri.\n" +
-              "- Jika menyebut instrumen tertentu (emas, minyak, dolar, Nikkei, kripto), prioritaskan berita yang terkait.\n" +
-              "- Jangan menyalin bullet di atas mentah-mentah sebagai jawaban final.\n";
+              "Highlight berita yang TERBIT HARI INI (WIB):\n" +
+              newsSummaryToday +
+              "\n\n";
+          }
 
-            if (isNewsQuery) {
-              txt +=
-                "\nPesan terakhir pengguna tampaknya menanyakan berita terbaru. Fokuskan jawaban pada 1–3 berita utama yang paling relevan.\n";
-            }
+          txt +=
+            "Panduan menjawab ketika pengguna bertanya soal BERITA:\n" +
+            "- Jika pengguna bertanya 'berita terbaru tentang apa', pilih 3–5 judul paling relevan dan jelaskan isinya dengan bahasamu sendiri.\n" +
+            "- Jika menyebut instrumen tertentu (emas, minyak, dolar, Nikkei, kripto), prioritaskan berita yang terkait.\n" +
+            "- Jangan menyalin bullet di atas mentah-mentah sebagai jawaban final.\n";
 
-            return txt;
-          })()
+          if (isNewsQuery) {
+            txt +=
+              "\nPesan terakhir pengguna tampaknya menanyakan berita terbaru. Fokuskan jawaban pada 1–3 berita utama yang paling relevan.\n";
+          }
+
+          return txt;
+        })()
         : "Sistem berita pasar Newsmaker.id saat ini tidak berhasil mengambil data. Jika pengguna bertanya 'berita terbaru', jelaskan bahwa data berita internal sedang tidak dapat diakses dan berikan konteks pasar umum.",
     };
 
@@ -1029,22 +1060,22 @@ export async function POST(req: NextRequest) {
       role: "system",
       content: hasImage
         ? "PENTING: Pesan terakhir pengguna menyertakan GAMBAR/CHART.\n" +
-          "- Prioritaskan analisis visual dari gambar tersebut.\n" +
-          "- Jangan membuka jawaban hanya dengan rangkuman data live/historis/berita tanpa menyebut chart.\n" +
-          "- Data quotes, kalender, historis, dan berita hanya sebagai konteks tambahan.\n"
+        "- Prioritaskan analisis visual dari gambar tersebut.\n" +
+        "- Jangan membuka jawaban hanya dengan rangkuman data live/historis/berita tanpa menyebut chart.\n" +
+        "- Data quotes, kalender, historis, dan berita hanya sebagai konteks tambahan.\n"
         : "PENTING: Pesan terakhir pengguna TIDAK menyertakan gambar.\n" +
-          "- Untuk pertanyaan harga terkini, gunakan data quotes.\n" +
-          "- Untuk tren beberapa waktu terakhir, gunakan data historis.\n" +
-          "- Untuk 'historical data [instrumen] X hari sebelumnya', gunakan ringkasan harian jika tersedia.\n" +
-          "- Untuk 'berita terbaru tentang apa', gunakan ringkasan berita internal.\n",
+        "- Untuk pertanyaan harga terkini, gunakan data quotes.\n" +
+        "- Untuk tren beberapa waktu terakhir, gunakan data historis.\n" +
+        "- Untuk 'historical data [instrumen] X hari sebelumnya', gunakan ringkasan harian jika tersedia.\n" +
+        "- Untuk 'berita terbaru tentang apa', gunakan ringkasan berita internal.\n",
     };
 
     // ====== SUSUN USER CONTENT (TEXT + IMAGE + FILE-TEXT JIKA ADA) ======
 
     const fileContextText = uploadedFileText
       ? `\n\n=== DATA DARI FILE TERLAMPIR ===\n` +
-        `Format bisa berupa teks/CSV/Excel yang sudah diringkas ke tabel.\n\n` +
-        uploadedFileText
+      `Format bisa berupa teks/CSV/Excel yang sudah diringkas ke tabel.\n\n` +
+      uploadedFileText
       : "";
 
     const userContent: any[] = [
@@ -1079,21 +1110,16 @@ export async function POST(req: NextRequest) {
     ];
 
     // ====== PANGGIL OPENAI (RESPONSES API) ======
-    const aiResponse = await openai.responses.create({
+    const aiResponse: any = await openai.responses.create({
       model: OPENAI_MODEL,
       input: messagesForModel,
       store: false,
     });
 
-    const reply =
-      // helper property (convenience)
-      // @ts-ignore
-      (aiResponse as any).output_text ||
-      (aiResponse.output &&
-        aiResponse.output[0] &&
-        aiResponse.output[0].content &&
-        // @ts-ignore
-        aiResponse.output[0].content[0].text) ||
+    // Responses API biasanya sudah sediakan helper output_text
+    const reply: string =
+      aiResponse.output_text ??
+      aiResponse.output?.[0]?.message?.content?.[0]?.text ??
       "NM Ai tidak memberikan respon.";
 
     return NextResponse.json(

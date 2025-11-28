@@ -231,7 +231,7 @@ export default function Home() {
             <img
               src="/assets/Loading_Nm.gif"
               alt="Loading NM"
-              className="h-auto w-[40vw] max-w-[240px]"
+              className="h-auto w-[40vw] max-w-60"
             />
           </div>
         )}
@@ -309,132 +309,135 @@ export default function Home() {
         </header>
 
         {/* CHAT AREA */}
-        <section className="nm-scroll relative flex-1 overflow-y-auto px-3 py-4 md:px-6">
-          <div className="bg-white/50">
-            <div className="relative z-10 flex h-full flex-col">
-              {messages.map((msg) => {
-                const isUser = msg.sender === "user";
-                const isAi = msg.sender === "ai";
+        <section className="nm-scroll bg-gray-200 relative flex-1 overflow-y-auto px-0 lg:px-64">
+          <div className="h-full bg-white">
+            <div className="bg-white">
+              <div className="relative z-10 flex h-full flex-col px-7 py-4">
+                {messages.map((msg) => {
+                  const isUser = msg.sender === "user";
+                  const isAi = msg.sender === "ai";
 
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex w-full ${
-                      isUser ? "justify-end" : "justify-start"
-                    }`}
-                  >
+                  return (
                     <div
-                      className={`flex max-w-full flex-col gap-1 md:max-w-[75%] ${
-                        isUser ? "items-end" : "items-start"
+                      key={msg.id}
+                      className={`flex w-full ${
+                        isUser ? "justify-end" : "justify-start"
                       }`}
                     >
                       <div
-                        className={[
-                          "relative w-full rounded-xl px-4 py-3 text-sm shadow-md md:px-5",
-                          isUser
-                            ? "bg-gradient-to-r from-blue-500/90 to-blue-600/90 text-white backdrop-blur rounded-br-none"
-                            : "bg-white/90 text-zinc-900 backdrop-blur border border-zinc-100 rounded-bl-none",
-                        ].join(" ")}
+                        className={`flex max-w-full flex-col gap-1 md:max-w-[75%] ${
+                          isUser ? "items-end" : "items-start"
+                        }`}
                       >
-                        {isAi && (
-                          <div
-                            className="pointer-events-none absolute inset-0"
-                            style={{
-                              backgroundImage:
-                                "url('/assets/NewsMaker-23-logo.png')",
-                              backgroundSize: "clamp(80px, 50vw, 180px)",
-                              backgroundRepeat: "no-repeat",
-                              backgroundPosition: "center",
-                              opacity: 0.15,
-                            }}
-                          />
-                        )}
-
-                        {isAi ? (
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              p: ({ node, ...props }) => (
-                                <p
-                                  {...props}
-                                  className={
-                                    "mb-1 leading-relaxed " +
-                                    (props.className || "")
-                                  }
-                                />
-                              ),
-                              strong: ({ node, ...props }) => (
-                                <strong
-                                  {...props}
-                                  className={
-                                    "font-semibold " + (props.className || "")
-                                  }
-                                />
-                              ),
-                              ul: ({ node, ...props }) => (
-                                <ul
-                                  {...props}
-                                  className={
-                                    "mb-2 ml-4 list-disc space-y-1 " +
-                                    (props.className || "")
-                                  }
-                                />
-                              ),
-                              li: ({ node, ...props }) => (
-                                <li
-                                  {...props}
-                                  className={
-                                    "leading-relaxed " + (props.className || "")
-                                  }
-                                />
-                              ),
-                            }}
-                          >
-                            {msg.text}
-                          </ReactMarkdown>
-                        ) : (
-                          <p className="whitespace-pre-wrap leading-relaxed">
-                            {msg.text}
-                          </p>
-                        )}
-
-                        {msg.imagePath && isAi && (
-                          <div className="mt-3">
-                            <Image
-                              src={msg.imagePath}
-                              alt="Gambar yang dianalisis"
-                              width={240}
-                              height={160}
-                              className="h-auto w-auto max-w-full rounded-lg border border-zinc-200 object-contain"
+                        <div
+                          className={[
+                            "relative w-full rounded-xl px-4 py-3 text-sm shadow-md md:px-5",
+                            isUser
+                              ? "bg-linear-to-r from-blue-500/90 to-blue-600/90 text-white backdrop-blur rounded-br-none"
+                              : "bg-white/90 text-zinc-900 backdrop-blur border border-zinc-100 rounded-bl-none",
+                          ].join(" ")}
+                        >
+                          {isAi && (
+                            <div
+                              className="pointer-events-none absolute inset-0"
+                              style={{
+                                backgroundImage:
+                                  "url('/assets/NewsMaker-23-logo.png')",
+                                backgroundSize: "clamp(80px, 50vw, 180px)",
+                                backgroundRepeat: "no-repeat",
+                                backgroundPosition: "center",
+                                opacity: 0.15,
+                              }}
                             />
-                          </div>
-                        )}
+                          )}
+
+                          {isAi ? (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                p: ({ node, ...props }) => (
+                                  <p
+                                    {...props}
+                                    className={
+                                      "mb-1 leading-relaxed " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                strong: ({ node, ...props }) => (
+                                  <strong
+                                    {...props}
+                                    className={
+                                      "font-semibold " + (props.className || "")
+                                    }
+                                  />
+                                ),
+                                ul: ({ node, ...props }) => (
+                                  <ul
+                                    {...props}
+                                    className={
+                                      "mb-2 ml-4 list-disc space-y-1 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                li: ({ node, ...props }) => (
+                                  <li
+                                    {...props}
+                                    className={
+                                      "leading-relaxed " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                              }}
+                            >
+                              {msg.text}
+                            </ReactMarkdown>
+                          ) : (
+                            <p className="whitespace-pre-wrap leading-relaxed">
+                              {msg.text}
+                            </p>
+                          )}
+
+                          {msg.imagePath && isAi && (
+                            <div className="mt-3">
+                              <Image
+                                src={msg.imagePath}
+                                alt="Gambar yang dianalisis"
+                                width={240}
+                                height={160}
+                                className="h-auto w-auto max-w-full rounded-lg border border-zinc-200 object-contain"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <span className="text-[10px] text-gray-500 opacity-70 select-none">
+                          {msg.timestamp.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
+                    </div>
+                  );
+                })}
 
-                      <span className="text-[10px] text-gray-500 opacity-70 select-none">
-                        {msg.timestamp.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[60%] rounded-2xl border border-zinc-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur">
+                      <div className="flex gap-1">
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.15s]" />
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400" />
+                      </div>
                     </div>
                   </div>
-                );
-              })}
+                )}
 
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="max-w-[60%] rounded-2xl border border-zinc-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur">
-                    <div className="flex gap-1">
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.15s]" />
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} />
+              </div>
             </div>
           </div>
         </section>
@@ -451,7 +454,7 @@ export default function Home() {
             >
               {/* Attach Button – hanya tampil kalau boleh lampiran */}
               {canAttachFile && (
-                <label className="flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-all hover:bg-zinc-200 md:h-10 md:w-10">
+                <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-all hover:bg-zinc-200 md:h-10 md:w-10">
                   <FontAwesomeIcon icon={faPaperclip} size="sm" />
                   <input
                     type="file"
@@ -481,7 +484,7 @@ export default function Home() {
                 type="submit"
                 disabled={isSendDisabled}
                 title={isSendDisabled ? "Message is empty" : ""}
-                className="flex h-10 w-10 flex-shrink-0 items-center rounded-full justify-center bg-blue-500 text-white transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-blue-500"
+                className="flex h-10 w-10 shrink-0 items-center rounded-full justify-center bg-blue-500 text-white transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-blue-500"
               >
                 <FontAwesomeIcon icon={faArrowUp} size="sm" />
               </button>

@@ -723,7 +723,7 @@ export async function POST(req: NextRequest) {
           };
 
           calendarSummaryAll = events
-            .map((ev) => {
+            .map((ev: any) => {
               const {
                 time,
                 currency,
@@ -745,7 +745,7 @@ export async function POST(req: NextRequest) {
             .join("\n");
 
           const highImpact = events.filter(
-            (ev) =>
+            (ev: any) =>
               typeof ev.impact === "string" &&
               (ev.impact.includes("★★★") ||
                 ev.impact.toLowerCase().includes("high"))
@@ -754,7 +754,7 @@ export async function POST(req: NextRequest) {
           calendarSummaryHighImpact =
             highImpact.length > 0
               ? highImpact
-                  .map((ev) => {
+                  .map((ev: any) => {
                     const { time, currency, impact, event } = ev;
                     return `- Pukul ${time}, ${currency} – ${event} (dampak tinggi ${impact}).`;
                   })
