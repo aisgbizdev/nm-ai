@@ -168,6 +168,7 @@ type InstrumentKey =
   | "gbpusd"
   | "audusd"
   | "eurusd"
+  | "usdidr"
   | "other";
 
 const INSTRUMENT_HINTS: Record<InstrumentKey, string[]> = {
@@ -192,6 +193,7 @@ const INSTRUMENT_HINTS: Record<InstrumentKey, string[]> = {
   gbpusd: ["GBP/USD", "GBPUSD", "CABLE", "POUND"],
   audusd: ["AUD/USD", "AUDUSD", "AUSSIE"],
   eurusd: ["EUR/USD", "EURUSD", "EURO"],
+  usdidr: ["USD/IDR", "USDIDR", "INDO"],
 
   other: [],
 };
@@ -203,15 +205,19 @@ const INSTRUMENT_LABEL: Record<InstrumentKey, { name: string; unit: string }> =
     oil: { name: "minyak (Oil)", unit: "USD per barrel" },
     hsi: { name: "indeks Hang Seng (HSI)", unit: "poin indeks" },
     sni: { name: "indeks Nikkei / Jepang (SNI)", unit: "poin indeks" },
-    usdchf: { name: "pasangan mata uang USD/CHF", unit: "nilai tukar (rate)" },
-    usdjpy: { name: "pasangan mata uang USD/JPY", unit: "nilai tukar (rate)" },
-    gbpusd: { name: "pasangan mata uang GBP/USD", unit: "nilai tukar (rate)" },
-    audusd: { name: "pasangan mata uang AUD/USD", unit: "nilai tukar (rate)" },
-    eurusd: { name: "pasangan mata uang EUR/USD", unit: "nilai tukar (rate)" },
+    usdchf: { name: "Pasangan mata uang USD/CHF", unit: "nilai tukar (rate)" },
+    usdjpy: { name: "Pasangan mata uang USD/JPY", unit: "nilai tukar (rate)" },
+    gbpusd: { name: "Pasangan mata uang GBP/USD", unit: "nilai tukar (rate)" },
+    audusd: { name: "Pasangan mata uang AUD/USD", unit: "nilai tukar (rate)" },
+    eurusd: { name: "Pasangan mata uang EUR/USD", unit: "nilai tukar (rate)" },
+    usdidr: {name:"Pasangan mata uang USD/IDR", unit: "nilai tukar (rate)"},
     other: { name: "instrumen ini", unit: "unit harga" },
   };
 
-// Deteksi instrumen dari teks user
+// 💱 FIXED RATE UNTUK SIMULASI / PERHITUNGAN KONSEPTUAL
+const FIXED_USD_IDR_RATE = 10000;
+
+// Deteksi instrumen dari teks user (single)
 const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
   const p = prompt.toLowerCase();
 
@@ -220,8 +226,7 @@ const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
     p.includes("emas") ||
     p.includes("gold") ||
     p.includes("xau") ||
-    p.includes("lgd") ||
-    p.includes("LGD")
+    p.includes("lgd")
   ) {
     return "gold";
   }
@@ -247,7 +252,7 @@ const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
   }
 
   // HSI / Hang Seng
-  if (p.includes("hsi") || p.includes("hang seng")) {
+  if (p.includes("hsi") || p.includes("hang seng") || p.includes("hangseng")) {
     return "hsi";
   }
 
@@ -294,7 +299,47 @@ const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
     return "eurusd";
   }
 
+  if (p.includes("usd/idr") || p.includes("usdidr") || p.includes("indo") || p.includes("idr") || p.includes("rupiah")) {
+    return "usdidr";
+  }
+
   return "other";
+};
+
+// 🔥 NEW: Deteksi banyak instrumen sekaligus dari 1 prompt
+const detectInstrumentsFromPromptMulti = (prompt: string): InstrumentKey[] => {
+  const p = prompt.toLowerCase();
+  const result: InstrumentKey[] = [];
+
+  const pushUnique = (key: InstrumentKey) => {
+    if (!result.includes(key)) result.push(key);
+  };
+
+  // GOLD / EMAS / LGD
+  if (/(emas|gold|xau|lgd)/.test(p)) pushUnique("gold");
+
+  // SILVER / PERAK / LSI
+  if (/(perak|silver|xag|lsi)/.test(p)) pushUnique("silver");
+
+  // OIL / BCO / BRENT / MINYAK
+  if (/(oil|minyak|bco|brent)/.test(p)) pushUnique("oil");
+
+  // HANG SENG / HSI
+  if (/(hang\s*seng|hangseng|hsi)/.test(p)) pushUnique("hsi");
+
+  // NIKKEI / SNI (bonus)
+  if (/(nikkei|sni|n225|jepang)/.test(p)) pushUnique("sni");
+
+  // Forex (bonus, kalau suatu saat ditanya barengan)
+  if (/(usd\/chf|usdchf|\bchf\b)/.test(p)) pushUnique("usdchf");
+  if (/(usd\/jpy|usdjpy|dolar yen|dollar yen|\byen\b|\bjpy\b)/.test(p))
+    pushUnique("usdjpy");
+  if (/(gbp\/usd|gbpusd|cable|\bpound\b)/.test(p)) pushUnique("gbpusd");
+  if (/(aud\/usd|audusd|aussie)/.test(p)) pushUnique("audusd");
+  if (/(eur\/usd|eurusd|euro)/.test(p)) pushUnique("eurusd");
+  if (/(usd\/idr|usdidr|indo)/.test(p)) pushUnique("usdidr");
+
+  return result;
 };
 
 // Pilih deret historis untuk instrumen tertentu dari bySymbol
@@ -321,6 +366,35 @@ const pickHistoricalSeriesForInstrument = (
   }
 
   return null;
+};
+
+// 🔎 Pilih simbol dari QUOTES untuk instrumen tertentu
+const pickQuoteForInstrument = (
+  rows: any[],
+  instrument: InstrumentKey
+): any | null => {
+  const hints = INSTRUMENT_HINTS[instrument];
+  if (!hints.length) {
+    return rows.length ? rows[0] : null;
+  }
+
+  for (const row of rows) {
+    const sym: string = (
+      row.symbol ||
+      row.Symbol ||
+      row.ticker ||
+      row.Ticker ||
+      ""
+    )
+      .toString()
+      .toUpperCase();
+    if (sym && hints.some((h) => sym.includes(h))) {
+      return row;
+    }
+  }
+
+  // fallback kalau gak ketemu
+  return rows.length ? rows[0] : null;
 };
 
 // Helper konversi history ke string (biar hemat token)
@@ -391,7 +465,7 @@ export async function POST(req: NextRequest) {
 
     const lowerPrompt = userPrompt.toLowerCase();
 
-    // Deteksi instrumen yang dimaksud user (untuk historical)
+    // Deteksi instrumen yang dimaksud user (untuk historical & quotes)
     const requestedInstrument: InstrumentKey =
       detectInstrumentFromPrompt(userPrompt);
 
@@ -510,15 +584,19 @@ export async function POST(req: NextRequest) {
         "- Kamu TIDAK BOLEH membuka setiap jawaban dengan salam tetap seperti 'Halo! Saya NM Ai.'\n" +
         "- Fokus utama adalah menjawab inti pertanyaan dengan singkat, jelas, dan edukatif.\n" +
         "- Hanya pada interaksi pertama di satu sesi, kamu BOLEH menyapa singkat jika dirasa perlu, " +
-        "tapi tidak wajib, dan jangan diulang di pesan berikutnya.\n\n" +
+        "tapi tidak wajib, dan jangan diulang di pesan berikutnya.\n" +
+        "- Kamu juga TIDAK boleh membuka jawaban dengan blok seperti 'Update terbaru:' diikuti waktu sekarang dan kalender ekonomi. Format seperti itu sudah TIDAK dipakai lagi.\n\n" +
+        "⚠️ KEJUJURAN DATA (ANTI NGAWUR):\n" +
+        "- Jika data internal (harga, kalender, berita, historis) di system message mengatakan TIDAK TERSEDIA, kamu **WAJIB** menjawab bahwa data tidak tersedia dan **DILARANG** menebak angka, jam rilis, atau event spesifik.\n" +
+        "- Jika kamu tidak yakin, jawab saja 'data internal NM saat ini tidak cukup untuk menjawab secara spesifik'. Jangan mengarang.\n\n" +
         "Peranmu: jurnalis-ekonom, edukator risiko, dan penjaga etika untuk pengguna Newsmaker.id. " +
         "Gunakan bahasa Indonesia yang rapi, profesional, hangat, dan edukatif.\n\n" +
         "Jika pengguna mengirim **gambar atau chart**, lakukan hal berikut:\n" +
         "- Jelaskan terlebih dulu apa yang tampak di chart (tren, pola, support/resistance, area penting).\n" +
         "- Baru setelah itu, kalau relevan, hubungkan dengan konteks data live atau fundamental.\n" +
         "- Jangan mengabaikan gambar dan langsung menjawab hanya dari data live.\n" +
-        "- Jika model ini ternyata tidak bisa membaca gambar, jujur sampaikan bahwa untuk saat ini NM Ai " +
-        "belum bisa menganalisis gambar dan minta pengguna menjelaskan chart dengan kata-kata.\n\n" +
+        "- Jika model ini ternyata tidak bisa menganalisis gambar, jujur sampaikan bahwa untuk saat ini NM Ai " +
+        "belum bisa membaca gambar dan minta pengguna menjelaskan chart dengan kata-kata.\n\n" +
         (isFirstInteraction
           ? "INI INTERAKSI PERTAMA di sesi ini. Kamu boleh menyapa singkat kalau mau, " +
             "tapi setelah itu langsung masuk ke inti jawaban. Di pesan-pesan berikutnya, " +
@@ -537,9 +615,35 @@ export async function POST(req: NextRequest) {
         `Selain itu, jangan menyebutkan tanggal/jam saat ini secara spontan tanpa diminta.`,
     };
 
+    // ========== 2b) ATURAN ANTI BLOK "UPDATE TERBARU" ==========
+    const systemNoUpdateBlockMessage = {
+      role: "system" as const,
+      content:
+        "ATURAN KHUSUS TENTANG BLOK UPDATE:\n" +
+        "- Jangan pernah membuka jawaban dengan judul atau subjudul seperti 'Update terbaru:', 'Update pasar hari ini:', atau format serupa.\n" +
+        "- Jangan secara otomatis membuat blok yang berisi gabungan: waktu sekarang + kalender ekonomi + event besok, kecuali pengguna meminta secara eksplisit.\n" +
+        "- Jika pengguna bertanya umum (tanpa minta waktu/jam/tanggal), langsung jawab inti pertanyaan tanpa menyebut jam/tanggal dan tanpa label 'Update terbaru'.\n" +
+        "- Jika pengguna minta 'update pasar' atau 'kalender ekonomi', berikan ringkasan secukupnya, tetapi tetap tanpa menulis heading 'Update terbaru:'.\n",
+    };
+
+    // ========== 2c) ATURAN FIXED RATE KURS USD/IDR ==========
+    const systemFxRuleMessage = {
+      role: "system" as const,
+      content:
+        "ATURAN KONVERSI KURS (FIXED RATE UNTUK SIMULASI):\n" +
+        `- Untuk contoh perhitungan margin, nilai kontrak, atau simulasi biaya dalam Rupiah, gunakan asumsi kurs tetap **1 USD = Rp ${FIXED_USD_IDR_RATE.toLocaleString(
+          "id-ID"
+        )}**.\n` +
+        "- Selalu sebutkan dengan jelas bahwa kurs ini adalah *asumsi tetap (fixed rate)*, bukan kurs real-time pasar.\n" +
+        "- Jika pengguna secara eksplisit memberikan kurs lain (misalnya: 'anggap 1 USD = 10.000'), gunakan kurs dari pengguna dan abaikan fixed rate.\n" +
+        "- Jangan mengklaim bahwa fixed rate ini adalah kurs resmi hari ini; gunakan istilah seperti 'contoh simulasi', 'asumsi kurs tetap', atau 'perhitungan konseptual'.\n" +
+        "- Untuk XAUUSD, jika pengguna minta contoh margin standar, kamu boleh menggunakan asumsi: ukuran kontrak 1000 oz per lot, sehingga nilai kontrak = harga per oz × 1000, dan margin = nilai kontrak / leverage (misalnya leverage 1:100 = 1% dari nilai kontrak).\n",
+    };
+
     // ========== 3) FETCH DATA PARALLEL (QUOTES, CALENDAR, HISTORICAL, NEWS) ==========
     let quotesSummary = "";
     let quotesUpdatedAtLocal = "";
+    let quotesRows: any[] = [];
 
     let calendarSummaryAll = "";
     let calendarSummaryHighImpact = "";
@@ -549,7 +653,6 @@ export async function POST(req: NextRequest) {
     let historicalInstrumentWindowSummary = "";
     let historicalFromLabel = "";
 
-    // 🔥 NEW: NEWS (BERITA)
     let newsSummaryAll = "";
     let newsSummaryToday = "";
     let newsHasData = false;
@@ -595,6 +698,7 @@ export async function POST(req: NextRequest) {
 
           // batasi maksimal 50 simbol biar nggak kepanjangan
           const limitedRows = rows.slice(0, 50);
+          quotesRows = limitedRows;
 
           quotesSummary = limitedRows
             .map((q) => {
@@ -663,9 +767,10 @@ export async function POST(req: NextRequest) {
               "Ringkasan harga terkini (angka di bawah hanya referensi internal, rangkai ulang dengan bahasamu sendiri):\n" +
               quotesSummary +
               "\n\n" +
-              "Panduan menjawab:\n" +
-              "- Gunakan angka ini hanya ketika pengguna bertanya harga terkini atau pergerakan terbaru.\n" +
-              "- Jangan menyalin bullet di atas mentah-mentah sebagai jawaban final.\n" +
+              "ATURAN PENTING TENTANG ANGKA:\n" +
+              "- Jika menyebut HARGA TERKINI, gunakan angka **last** apa adanya dari data di atas, boleh ditambah kata 'sekitar', tetapi **JANGAN** mengubahnya menjadi rentang baru (misalnya 4.220–4.250) jika rentang itu tidak ada di data.\n" +
+              "- Jangan mengarang rentang harga atau level spesifik yang tidak muncul di data internal.\n" +
+              "- Jika angka terlihat tidak masuk akal untuk instrumen tertentu, boleh jelaskan arah (naik/turun/stabil) tanpa menyebut angka detail.\n" +
               "- Jika instrumen yang diminta tidak ada, sampaikan dengan sopan dan beri penjelasan edukatif umum.\n"
             );
           })()
@@ -862,7 +967,12 @@ export async function POST(req: NextRequest) {
 
             const getNum = (obj: any): number | null => {
               const cand =
-                obj.close ?? obj.Close ?? obj.last ?? obj.Last ?? obj.price ?? obj.Price;
+                obj.close ??
+                obj.Close ??
+                obj.last ??
+                obj.Last ??
+                obj.price ??
+                obj.Price;
               const n = Number(cand);
               return isFinite(n) ? n : null;
             };
@@ -1058,7 +1168,7 @@ export async function POST(req: NextRequest) {
               const rawDate: string =
                 item.published_at || item.createdAt || item.date || "";
               let waktuWib = "";
-              let tanggalIso = "";
+              let tanggalIsoNews = "";
 
               if (rawDate) {
                 const dt = new Date(rawDate);
@@ -1070,11 +1180,13 @@ export async function POST(req: NextRequest) {
                     hour: "2-digit",
                     minute: "2-digit",
                   });
-                  tanggalIso = formatDateIso(dtJakarta);
+                  tanggalIsoNews = formatDateIso(dtJakarta);
                 }
               }
 
-              const jamLabel = waktuWib ? `pukul ${waktuWib} WIB` : "waktu tidak diketahui";
+              const jamLabel = waktuWib
+                ? `pukul ${waktuWib} WIB`
+                : "waktu tidak diketahui";
               const catLabel =
                 category && category !== "-"
                   ? `kategori **${category.toUpperCase()}**`
@@ -1096,13 +1208,15 @@ export async function POST(req: NextRequest) {
                   : "";
 
               const baseLine =
-                `- ${jamLabel}: **${title}** (${catLabel}${langLabel ? `, ${langLabel}` : ""}${penulisLabel}).` +
+                `- ${jamLabel}: **${title}** (${catLabel}${
+                  langLabel ? `, ${langLabel}` : ""
+                }${penulisLabel}).` +
                 (ringkas ? ` Ringkasan singkat: ${ringkas}` : "") +
                 (link ? ` Sumber: ${link}` : "");
 
               allLines.push(baseLine);
 
-              if (tanggalIso === todayIso) {
+              if (tanggalIsoNews === todayIso) {
                 todayLines.push(baseLine);
               }
             }
@@ -1172,6 +1286,154 @@ export async function POST(req: NextRequest) {
           "- Untuk pertanyaan berita, gunakan ringkasan dari sistem berita internal jika relevan.\n",
     };
 
+    // 🔥🔥 SHORT-CIRCUIT 1: PERTANYAAN HARGA LANGSUNG DARI API, TANPA OLLAMA 🔥🔥
+    const isPriceQuestion =
+      (lowerPrompt.includes("harga ") ||
+        lowerPrompt.startsWith("harga") ||
+        lowerPrompt.includes("level harga") ||
+        lowerPrompt.includes("level emas") ||
+        lowerPrompt.includes("price ") ||
+        lowerPrompt.includes("quote ")) &&
+      quotesRows.length > 0;
+
+    if (isPriceQuestion) {
+      // Deteksi apakah user menyebut beberapa instrumen sekaligus
+      const requestedInstrumentsMulti =
+        detectInstrumentsFromPromptMulti(userPrompt);
+
+      // Kalau tidak ada keyword spesifik, pakai yang single (existing behavior)
+      const instrumentsToShow: InstrumentKey[] =
+        requestedInstrumentsMulti.length > 0
+          ? requestedInstrumentsMulti
+          : [requestedInstrument];
+
+      const lines: string[] = [];
+
+      for (const instr of instrumentsToShow) {
+        const quoteRow = pickQuoteForInstrument(quotesRows, instr);
+        if (!quoteRow) continue;
+
+        const symbol: string =
+          quoteRow.symbol || quoteRow.Symbol || "UNKNOWN";
+        const lastRaw =
+          quoteRow.last ?? quoteRow.close ?? quoteRow.price ?? null;
+        const changeRaw =
+          quoteRow.valueChange ?? quoteRow.change ?? quoteRow.diff ?? 0;
+        const pctRaw =
+          quoteRow.percentChange ??
+          quoteRow.pctChange ??
+          quoteRow.percentage ??
+          0;
+
+        const lastNum = Number(lastRaw);
+        const changeNum = Number(changeRaw);
+        const pctNum = Number(pctRaw);
+
+        const lastText = isFinite(lastNum)
+          ? lastNum.toLocaleString("id-ID", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          : String(lastRaw ?? "-");
+
+        const arahChange =
+          isFinite(changeNum) && changeNum !== 0
+            ? changeNum > 0
+              ? "naik"
+              : "turun"
+            : "relatif stabil";
+
+        const changeText =
+          isFinite(changeNum) && changeNum !== 0
+            ? `${arahChange} sekitar ${Math.abs(changeNum).toLocaleString(
+                "id-ID",
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }
+              )} poin`
+            : "relatif stabil tanpa perubahan signifikan";
+
+        const pctText =
+          isFinite(pctNum) && pctNum !== 0
+            ? ` (~${pctNum.toFixed(2)}%)`
+            : "";
+
+        const labelInfo = INSTRUMENT_LABEL[instr] || INSTRUMENT_LABEL.other;
+
+        // Nama yang lebih enak dibaca di list
+        let displayName = labelInfo.name;
+        if (instr === "gold") displayName = "Gold";
+        if (instr === "silver") displayName = "Silver";
+        if (instr === "oil") displayName = "Oil";
+        if (instr === "hsi") displayName = "Hang Seng";
+        if (instr === "sni") displayName = "Nikkei 225";
+
+        lines.push(
+          `- **${displayName}**: sekitar **${lastText}** (${labelInfo.unit}), ` +
+            `${changeText}${pctText}.`
+        );
+      }
+
+      if (lines.length > 0) {
+        const updatedInfo = quotesUpdatedAtLocal
+          ? ` (pembaruan sekitar ${quotesUpdatedAtLocal} WIB)`
+          : "";
+
+const replyText =
+  `Harga terkini berdasarkan data internal Newsmaker${updatedInfo}:\n\n` +
+  lines.join("\n") +
+  "\n\nJika mau, kamu bisa minta penjelasan faktor yang mempengaruhi salah satu instrumen di atas (fundamental, sentimen, atau teknikal).";
+
+        return NextResponse.json(
+          {
+            reply: replyText,
+            imagePath: null,
+          },
+          { status: 200 }
+        );
+      }
+
+      // Kalau nggak ada satupun instrumen yang ketemu di quotes, biarkan lanjut ke Ollama
+    }
+
+    // 🔥🔥 SHORT-CIRCUIT 2: PERTANYAAN KALENDER EKONOMI LANGSUNG DARI API 🔥🔥
+    if (isCalendarOverview) {
+      if (calendarHasData) {
+        const header = `Kalender ekonomi ${calendarHumanLabel} di sistem Newsmaker:\n\n`;
+        const body = wantsHighImpactOnly
+          ? calendarSummaryHighImpact ||
+            "- Tidak ada event berdampak sangat tinggi (★★★) pada tanggal ini."
+          : calendarSummaryAll ||
+            "- Tidak ada event terdaftar pada tanggal ini di sistem Newsmaker.";
+
+        const note = wantsHighImpactOnly
+          ? "\n\nFokus di atas hanya event berdampak tinggi. Jika ingin melihat semua event, tulis saja: kalender ekonomi hari ini lengkap."
+          : "";
+
+        return NextResponse.json(
+          {
+            reply: header + body + note,
+            imagePath: null,
+          },
+          { status: 200 }
+        );
+      } else {
+        const msg =
+          `Kalender ekonomi ${calendarHumanLabel} di sistem Newsmaker saat ini tidak tersedia atau kosong.\n` +
+          "Jadi, gue nggak bisa menyebut jam dan event spesifik untuk hari ini. " +
+          "Kalau mau, gue bisa jelaskan contoh event ekonomi penting secara umum (misalnya NFP, CPI, FOMC, keputusan suku bunga) tanpa menyebut tanggal dan jam tertentu.";
+
+        return NextResponse.json(
+          {
+            reply: msg,
+            imagePath: null,
+          },
+          { status: 200 }
+        );
+      }
+    }
+
     // ====== SUSUN MESSAGES UNTUK OLLAMA ======
     const ollamaMessages: Array<{
       role: "system" | "user" | "assistant";
@@ -1183,6 +1445,8 @@ export async function POST(req: NextRequest) {
     const systemMessages = [
       systemPersonaMessage,
       systemTimeMessage,
+      systemNoUpdateBlockMessage, // 🚫 larangan blok "Update terbaru"
+      systemFxRuleMessage, // 💱 aturan fixed rate
       systemQuotesMessage,
       systemCalendarMessage,
       systemHistoricalMessage,
@@ -1224,7 +1488,7 @@ export async function POST(req: NextRequest) {
 
     ollamaMessages.push(userMsg);
 
-    // ====== PANGGIL OLLAMA /api/chat ======
+    // ====== PANGGIL OLLAMA /api/chat (DIPERKETAT AGAR TIDAK NGAWUR) ======
     const ollamaRes = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: "POST",
       headers: {
@@ -1234,6 +1498,14 @@ export async function POST(req: NextRequest) {
         model: OLLAMA_MODEL,
         messages: ollamaMessages,
         stream: false,
+        options: {
+          temperature: 0.2,
+          top_p: 0.9,
+          top_k: 40,
+          repeat_penalty: 1.05,
+          num_ctx: 8192,
+          seed: 1,
+        },
       }),
     });
 

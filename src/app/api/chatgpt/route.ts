@@ -1,11 +1,11 @@
-// src/app/api/nm-ai/route.ts
+// src/app/api/chatgpt/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 // ================== OPENAI CLIENT ==================
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // JANGAN hard-code API key
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 // PASTIKAN MODEL MENDUKUNG VISION (mis: gpt-4.1-mini, gpt-4o, gpt-4o-mini, gpt-5, dll)

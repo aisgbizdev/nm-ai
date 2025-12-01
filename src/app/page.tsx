@@ -7,6 +7,7 @@ import {
   faPaperclip,
   faArrowUp,
   faXmark,
+  faAnglesDown,
 } from "@fortawesome/free-solid-svg-icons";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -34,11 +35,85 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const modelMenuRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+
+  const [showScrollDown, setShowScrollDown] = useState(true);
 
   const isGwen = apiRoute === "/api/nm-ai";
   const isStacy = apiRoute === "/api/chatgpt";
   const canAttachFile = isStacy; // Lampiran hanya untuk Stacy
 
+  // === NEW: Menu rekomendasi ala NM Ai Market Navigator ===
+  const navigatorMenu = [
+    {
+      id: "1",
+      title: "Trader Mode",
+      description: "Analisa teknikal, margin, leverage, dan perilaku trader.",
+      example: "Hitung margin XAUUSD 1 lot",
+      pill: "Teknikal",
+    },
+    {
+      id: "2",
+      title: "Investor Path",
+      description:
+        "Analisa fundamental, risiko portofolio, dan strategi jangka panjang.",
+      example: "Bagaimana outlook emas minggu ini?",
+      pill: "Fundamental",
+    },
+    {
+      id: "3",
+      title: "Marketing Insight",
+      description:
+        "Edukasi produk, strategi komunikasi, dan transparansi harga.",
+      example: "Bagaimana menjelaskan leverage ke nasabah?",
+      pill: "Marketing",
+    },
+    {
+      id: "4",
+      title: "Broker Access",
+      description: "Diskusi regulasi, kepatuhan Bappebti, dan model SPA.",
+      example: "Apa syarat margin minimal sistem SPA?",
+      pill: "Regulasi",
+    },
+    {
+      id: "5",
+      title: "Regulatory View",
+      description: "Analisa perilaku pasar & etika perdagangan berjangka.",
+      example: "Bagaimana NM Ai membantu deteksi manipulasi pasar?",
+      pill: "Etika Pasar",
+    },
+    {
+      id: "6",
+      title: "Mentor Lab",
+      description: "Simulasi risiko dan pembelajaran psikologi trading.",
+      example: "Simulasikan ketahanan dana 1000 USD di XAUUSD.",
+      pill: "Psikologi & Risk",
+    },
+    {
+      id: "7",
+      title: "Public Learn",
+      description: "Literasi dasar trading dan manajemen risiko.",
+      example: "Apa bedanya spread dan margin?",
+      pill: "Pemula",
+    },
+    {
+      id: "8",
+      title: "Open Talk",
+      description: "Diskusi santai seputar pasar, tren, atau opini pribadi.",
+      example: "Kenapa gold sering volatil pas rilis data CPI?",
+      pill: "Ngobrol",
+    },
+    {
+      id: "9",
+      title: "AI Sandbox",
+      description:
+        "Uji kemampuan NM Ai atau logika pasar yang lagi bikin penasaran.",
+      example: "Coba jelaskan logika XAUUSD kalau DXY naik.",
+      pill: "Eksperimen",
+    },
+  ];
+
+  // Loader ready
   useEffect(() => {
     setIsMounted(true);
     const timer = setTimeout(() => setIsReady(true), 5000);
@@ -61,6 +136,7 @@ export default function Home() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  // Close model dropdown when click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -73,6 +149,23 @@ export default function Home() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // === NEW: Pantau scroll di opening menu buat hide/show tombol Scroll Down
+  useEffect(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const isAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8; // toleransi dikit
+      setShowScrollDown(!isAtBottom);
+    };
+
+    // cek posisi awal
+    handleScroll();
+
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [messages.length]); // opening card cuma ada waktu messages.length === 0
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canAttachFile) return; // kalau Gwen, abaikan input file
@@ -103,16 +196,21 @@ export default function Home() {
   const handleModelSelect = (value: ApiRoute) => {
     setApiRoute(value);
     if (value === "/api/nm-ai") {
+      // begitu pindah ke Gwen, langsung buang file yang sudah dipilih
       setSelectedFile(null);
     }
     setIsModelOpen(false);
   };
 
-  const handleSendMessage = async () => {
+  // === fungsi kirim pesan yang bisa dipakai default & recommendation
+  const sendMessage = async (overrideText?: string) => {
     const hasFile = canAttachFile && !!selectedFile;
-    if (!inputValue.trim() && !hasFile) return;
 
-    let displayText = inputValue.trim();
+    const rawText = overrideText !== undefined ? overrideText : inputValue;
+
+    if (!rawText.trim() && !hasFile) return;
+
+    let displayText = rawText.trim();
     if (hasFile && selectedFile) {
       const infoLine = `📎 File terlampir: ${selectedFile.name}`;
       displayText = displayText ? `${displayText}\n\n${infoLine}` : infoLine;
@@ -183,6 +281,8 @@ export default function Home() {
     setSelectedFile(null);
   };
 
+  const handleSendMessage = () => sendMessage();
+
   if (!isMounted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-blue-600 p-6">
@@ -197,6 +297,10 @@ export default function Home() {
 
   const hasFile = canAttachFile && !!selectedFile;
   const isSendDisabled = !inputValue.trim() && !hasFile;
+
+  const inputPlaceholder = isGwen
+    ? "Tulis pertanyaan ke NM Ai..."
+    : "Tulis pertanyaan ke Stacy (GPT-5 Nano)...";
 
   return (
     <>
@@ -221,7 +325,7 @@ export default function Home() {
         }
       `}</style>
 
-      <main className="flex h-screen w-full flex-col overflow-hidden bg-white shadow-2xl">
+      <main className="flex h-screen w-full flex-col overflow-hidden bg-gray-50 shadow-2xl">
         {showLoader && (
           <div
             className={`fixed inset-0 z-50 flex items-center justify-center bg-blue-600 transition-opacity duration-500 ${
@@ -235,8 +339,9 @@ export default function Home() {
             />
           </div>
         )}
+
         {/* HEADER */}
-        <header className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 select-none md:px-6 md:py-4">
+        <header className="flex items-center justify-between bg-white border-b border-zinc-200 px-3 py-2 select-none md:px-6 md:py-4 mx-0 lg:mx-64">
           <div className="flex items-center gap-5">
             <a
               href="https://www.newsmaker.id/"
@@ -251,7 +356,7 @@ export default function Home() {
               </h1>
 
               {/* Engine selector */}
-              <div className="relative" ref={modelMenuRef}>
+              <div className="relative mt-1" ref={modelMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsModelOpen((v) => !v)}
@@ -309,10 +414,107 @@ export default function Home() {
         </header>
 
         {/* CHAT AREA */}
-        <section className="nm-scroll bg-gray-200 relative flex-1 overflow-y-auto px-0 lg:px-64">
-          <div className="h-full bg-white">
+        <section className="relative overflow-hidden flex-1 px-0 lg:px-64">
+          <div className="h-full bg-white nm-scroll overflow-y-auto">
             <div className="bg-white">
-              <div className="relative z-10 flex h-full flex-col px-7 py-4">
+              <div className="relative z-10 flex h-full flex-col px-4 py-4 space-y-4">
+                {/* === Default welcome + recommendation menu saat belum ada chat === */}
+                {messages.length === 0 && (
+                  <div className="mx-auto flex w-full flex-col gap-4 rounded-2xl border border-zinc-100 bg-linear-to-br from-slate-50 via-white to-blue-50 p-4 md:p-6 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="flex py-2 px-2 h-fit w-fit items-center justify-center rounded-md bg-blue-500/10">
+                        <Image
+                          src="/assets/LogoNM23_Ai_22.png"
+                          alt="NM Ai"
+                          width={40}
+                          height={40}
+                          className="size-10 object-contain"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm md:text-base font-semibold uppercase tracking-wide text-blue-500">
+                          Selamat Datang di NM Ai
+                        </p>
+                        <p className="text-xs md:text-sm text-zinc-800">
+                          Pilih jalur yang paling cocok, atau langsung tulis
+                          pertanyaan di bawah.
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-zinc-600 leading-relaxed">
+                      Contoh:{" "}
+                      <span className="rounded-full bg-linear-to-r from-sky-100 to-sky-200 px-2 py-0.5">
+                        “Hitung margin XAUUSD 1 lot leverage 1:100”
+                      </span>{" "}
+                      atau{" "}
+                      <span className="rounded-full bg-linear-to-r from-sky-100 to-sky-200 px-2 py-0.5">
+                        “Berita terbaru soal emas hari ini apa?”
+                      </span>
+                    </p>
+
+                    <div className="relative">
+                      <div
+                        ref={scrollAreaRef}
+                        className="grid grid-cols-1 xl:grid-cols-2 h-70 xl:h-full gap-3 overflow-y-auto p-2 border rounded-xl"
+                      >
+                        {navigatorMenu.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => sendMessage(item.example)}
+                            className="group flex flex-col items-start gap-1 rounded-lg border border-zinc-100 bg-white/80 px-3 py-3 text-left text-xs md:text-sm shadow-sm transition hover:scale-101 hover:border-blue-200 hover:bg-blue-50/80 hover:shadow-md cursor-pointer"
+                          >
+                            <div className="flex w-full items-center justify-between gap-2">
+                              <span className="text-sm font-semibold uppercase tracking-wide text-blue-500">
+                                {item.title}
+                              </span>
+                              <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[11px] text-zinc-100">
+                                {item.pill}
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-600">
+                              {item.description}
+                            </p>
+                            <p className="mt-1 text-xs text-blue-600 group-hover:text-blue-700">
+                              → {item.example}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Button Scroll Down Opening Message */}
+                      {/* {showScrollDown && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const el = scrollAreaRef.current;
+                            el?.scrollTo({
+                              top: el.scrollHeight,
+                              behavior: "smooth",
+                            });
+                            // scroll event akan update showScrollDown jadi false kalau sudah di bawah
+                          }}
+                          className="absolute left-1/2 -translate-x-1/2 bottom-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xs bg-white/20 text-white shadow text-xs md:text-sm cursor-pointer select-none hover:bg-white/30 transition xl:hidden"
+                        >
+                          <div className="text-black flex items-center gap-3">
+                            <FontAwesomeIcon
+                              icon={faAnglesDown}
+                              className="text-[10px]"
+                            />
+                            <span>Scroll Down</span>
+                            <FontAwesomeIcon
+                              icon={faAnglesDown}
+                              className="text-[10px]"
+                            />
+                          </div>
+                        </button>
+                      )} */}
+                    </div>
+                  </div>
+                )}
+
+                {/* Chat messages */}
                 {messages.map((msg) => {
                   const isUser = msg.sender === "user";
                   const isAi = msg.sender === "ai";
@@ -443,8 +645,8 @@ export default function Home() {
         </section>
 
         {/* INPUT AREA */}
-        <footer className="border-t border-zinc-200 bg-white px-3 py-2 md:px-6 md:py-3">
-          <div className="w-full md:px-5">
+        <footer className="border-t border-zinc-200 bg-white py-2 mx-0 lg:mx-64">
+          <div className="w-full px-3 md:px-5">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -468,7 +670,7 @@ export default function Home() {
               <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Tulis pertanyaan ke NM Ai..."
+                placeholder={inputPlaceholder}
                 className="max-h-32 flex-1 resize-none py-2 px-6 rounded-full bg-transparent text-base text-gray-900 outline-none border border-gray-300"
                 rows={1}
                 onKeyDown={(e) => {
