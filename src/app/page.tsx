@@ -7,10 +7,20 @@ import {
   faPaperclip,
   faArrowUp,
   faXmark,
+  faTrash,
+  faTriangleExclamation,
   faAnglesDown,
+  faCopy,
 } from "@fortawesome/free-solid-svg-icons";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ensureAnonAuth } from "@/lib/auth";
+import {
+  loadMessages,
+  saveMessage,
+  clearSessionMessages,
+  type ChatMessage,
+} from "@/lib/chatStore";
 
 interface Message {
   id: string;
@@ -32,12 +42,27 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [apiRoute, setApiRoute] = useState<ApiRoute>("/api/nm-ai");
   const [isModelOpen, setIsModelOpen] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+  const [isCopyToastVisible, setIsCopyToastVisible] = useState(false);
+  const [renderScrollDown, setRenderScrollDown] = useState(false);
+  const copyToastTimeout = useRef<NodeJS.Timeout | null>(null);
+  const copyToastHideTimeout = useRef<NodeJS.Timeout | null>(null);
+  const scrollDownHideTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const modelMenuRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [showScrollDown, setShowScrollDown] = useState(true);
+
+  // 🔥 NEW: timer untuk animasi ketikan AI
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isGwen = apiRoute === "/api/nm-ai";
   const isStacy = apiRoute === "/api/chatgpt";
@@ -120,6 +145,85 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Init anonymous session for Firestore
+  useEffect(() => {
+    let cancelled = false;
+
+    const init = async () => {
+      try {
+        const uid = await ensureAnonAuth();
+        if (!cancelled) {
+          setSessionId(uid);
+        }
+      } catch (error) {
+        console.error("Firebase anon auth failed:", error);
+        if (!cancelled) {
+          setFirebaseError("Gagal menghubungkan ke Firebase. Coba muat ulang.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingHistory(false);
+        }
+      }
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load previous messages from Firestore
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let cancelled = false;
+    const mapToUiMessage = (msg: ChatMessage): Message => {
+      const rawDate = (msg.createdAt as any) || null;
+      let timestamp = new Date();
+
+      if (rawDate?.toDate) {
+        timestamp = rawDate.toDate();
+      } else if (typeof rawDate?.seconds === "number") {
+        timestamp = new Date(rawDate.seconds * 1000);
+      }
+
+      return {
+        id:
+          msg.id ||
+          (typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(Date.now())),
+        text: msg.text,
+        sender: msg.role === "ai" ? "ai" : "user",
+        timestamp,
+      };
+    };
+
+    setIsLoadingHistory(true);
+    loadMessages(sessionId)
+      .then((history) => {
+        if (cancelled) return;
+        setMessages(history.map(mapToUiMessage));
+      })
+      .catch((error) => {
+        console.error("Failed to load chat history:", error);
+        if (!cancelled) {
+          setFirebaseError("Gagal memuat riwayat chat.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingHistory(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
   useEffect(() => {
     if (isReady) {
       const fadeTimer = setTimeout(() => setShowLoader(false), 500);
@@ -167,6 +271,44 @@ export default function Home() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, [messages.length]); // opening card cuma ada waktu messages.length === 0
 
+  // Tampilkan tombol "Scroll Down" ketika user tidak di bawah chat utama
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const isAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 12;
+      setShowScrollDown(!isAtBottom);
+    };
+
+    // set kondisi awal
+    handleScroll();
+
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [messages.length, isTyping]);
+
+  // Control render window for scroll-down button to allow exit animation
+  useEffect(() => {
+    if (scrollDownHideTimeout.current) {
+      clearTimeout(scrollDownHideTimeout.current);
+    }
+
+    if (showScrollDown) {
+      setRenderScrollDown(true);
+    } else {
+      scrollDownHideTimeout.current = setTimeout(() => {
+        setRenderScrollDown(false);
+      }, 260);
+    }
+
+    return () => {
+      if (scrollDownHideTimeout.current) {
+        clearTimeout(scrollDownHideTimeout.current);
+      }
+    };
+  }, [showScrollDown]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canAttachFile) return; // kalau Gwen, abaikan input file
     const file = e.target.files?.[0] || null;
@@ -202,8 +344,84 @@ export default function Home() {
     setIsModelOpen(false);
   };
 
+  // 🔥 Helper: tampilkan jawaban AI dengan animasi mengetik
+  const showAiMessageWithTyping = (
+    fullText: string,
+    imagePath?: string | null
+  ) => {
+    // clear animasi sebelumnya kalau masih jalan
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    const id = (Date.now() + 1).toString();
+
+    // 1) Insert message AI kosong dulu
+    const baseMessage: Message = {
+      id,
+      text: "",
+      sender: "ai",
+      timestamp: new Date(),
+      imagePath: imagePath || undefined,
+    };
+
+    setMessages((prev) => [...prev, baseMessage]);
+
+    // 2) Setup typewriter
+    const total = fullText.length;
+    let index = 0;
+
+    const chunkSize = 3; // jumlah karakter per step
+    const speed = 15; // ms per step
+
+    const step = () => {
+      index = Math.min(index + chunkSize, total);
+      const nextText = fullText.slice(0, index);
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                text: nextText,
+              }
+            : m
+        )
+      );
+
+      if (index < total) {
+        typingTimeoutRef.current = setTimeout(step, speed);
+      } else {
+        typingTimeoutRef.current = null;
+      }
+    };
+
+    // mulai animasi
+    step();
+
+    // 3) Simpan ke Firestore langsung pakai fullText (tanpa nunggu animasi)
+    if (sessionId) {
+      saveMessage({
+        sessionId,
+        role: "ai",
+        text: fullText,
+      }).catch((error) => {
+        console.error("Failed to save AI message:", error);
+        setFirebaseError("Gagal menyimpan pesan ke Firebase.");
+      });
+    }
+  };
+
   // === fungsi kirim pesan yang bisa dipakai default & recommendation
   const sendMessage = async (overrideText?: string) => {
+    if (!sessionId) {
+      setFirebaseError(
+        "Menyiapkan koneksi Firebase. Silakan coba lagi sebentar."
+      );
+      return;
+    }
+
     const hasFile = canAttachFile && !!selectedFile;
 
     const rawText = overrideText !== undefined ? overrideText : inputValue;
@@ -226,6 +444,15 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsTyping(true);
+
+    saveMessage({
+      sessionId,
+      role: "user",
+      text: displayText,
+    }).catch((error) => {
+      console.error("Failed to save user message:", error);
+      setFirebaseError("Gagal menyimpan pesan ke Firebase.");
+    });
 
     try {
       const historyPayload = messages.map((m) => ({
@@ -256,15 +483,13 @@ export default function Home() {
 
       const data = await res.json();
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: data.reply || "NM Ai tidak memberikan respon.",
-        sender: "ai",
-        timestamp: new Date(),
-        imagePath: data.imagePath,
-      };
+      const fullReply: string =
+        data.reply && typeof data.reply === "string"
+          ? data.reply
+          : "NM Ai tidak memberikan respon.";
 
-      setMessages((prev) => [...prev, aiMessage]);
+      // 🔥 pakai helper animasi ketikan
+      showAiMessageWithTyping(fullReply, data.imagePath);
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -283,6 +508,84 @@ export default function Home() {
 
   const handleSendMessage = () => sendMessage();
 
+  const handleCopy = async (text: string) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      showCopyToast("Konten berhasil dipindahkan ke clipboard.");
+    } catch (error) {
+      console.error("Gagal menyalin teks:", error);
+      showCopyToast("Gagal menyalin teks.");
+    }
+  };
+
+  const showCopyToast = (text: string) => {
+    if (copyToastTimeout.current) {
+      clearTimeout(copyToastTimeout.current);
+    }
+    if (copyToastHideTimeout.current) {
+      clearTimeout(copyToastHideTimeout.current);
+    }
+
+    setCopyToast(text);
+    // trigger slide-in
+    setIsCopyToastVisible(true);
+
+    // schedule slide-out
+    copyToastTimeout.current = setTimeout(() => {
+      setIsCopyToastVisible(false);
+      // remove node after exit animation completes
+      copyToastHideTimeout.current = setTimeout(() => {
+        setCopyToast(null);
+      }, 260);
+    }, 2000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (copyToastTimeout.current) clearTimeout(copyToastTimeout.current);
+      if (copyToastHideTimeout.current)
+        clearTimeout(copyToastHideTimeout.current);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
+
+  const handleDeleteHistory = () => {
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteHistory = async () => {
+    if (!sessionId) return;
+
+    setIsDeletingHistory(true);
+    setIsLoadingHistory(true);
+    setFirebaseError(null);
+
+    try {
+      await clearSessionMessages(sessionId);
+      setMessages([]);
+      setIsDeleteModalOpen(false);
+    } catch (error) {
+      console.error("Failed to clear chat history:", error);
+      setFirebaseError("Gagal menghapus riwayat chat.");
+    } finally {
+      setIsDeletingHistory(false);
+      setIsLoadingHistory(false);
+    }
+  };
+
   if (!isMounted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-blue-600 p-6">
@@ -296,7 +599,8 @@ export default function Home() {
   }
 
   const hasFile = canAttachFile && !!selectedFile;
-  const isSendDisabled = !inputValue.trim() && !hasFile;
+  const isSendDisabled =
+    (!inputValue.trim() && !hasFile) || isLoadingHistory || !sessionId;
 
   const inputPlaceholder = isGwen
     ? "Tulis pertanyaan ke NM Ai..."
@@ -326,6 +630,11 @@ export default function Home() {
       `}</style>
 
       <main className="flex h-screen w-full flex-col overflow-hidden bg-gray-50 shadow-2xl">
+        {firebaseError && (
+          <div className="mx-0 lg:mx-64 border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            {firebaseError}
+          </div>
+        )}
         {showLoader && (
           <div
             className={`fixed inset-0 z-50 flex items-center justify-center bg-blue-600 transition-opacity duration-500 ${
@@ -337,6 +646,107 @@ export default function Home() {
               alt="Loading NM"
               className="h-auto w-[40vw] max-w-60"
             />
+          </div>
+        )}
+
+        {copyToast && (
+          <div className="fixed top-6 right-6 z-50 max-w-sm">
+            <div
+              role="alert"
+              className="border-s-4 border-blue-700 bg-blue-500/10 backdrop-blur-sm p-4 rounded-lg shadow-lg"
+              style={{
+                animation: `${
+                  isCopyToastVisible
+                    ? "nm-toast-slide-in"
+                    : "nm-toast-slide-out"
+                } 0.25s ease forwards`,
+              }}
+            >
+              <div className="flex items-center gap-2 text-blue-700">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+                  />
+                </svg>
+                <strong className="block leading-tight font-medium text-blue-800">
+                  Info
+                </strong>
+              </div>
+              <p className="mt-1 text-sm text-blue-700">{copyToast}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Delete confirmation modal */}
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl">
+              <div className="flex items-start justify-between px-5 py-4 border-zinc-100">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between">
+                    <div className="flex items-center gap-2 text-red-500">
+                      <FontAwesomeIcon
+                        icon={faTriangleExclamation}
+                        className="text-xl"
+                      />
+
+                      <p className="text-base font-semibold">
+                        Hapus riwayat chat?
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      className="text-zinc-500 transition hover:text-zinc-700 px-1 py-0.5 rounded bg-zinc-200 hover:bg-zinc-300 cursor-pointer"
+                      aria-label="Tutup"
+                    >
+                      <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                  </div>
+
+                  <hr />
+
+                  <div className="py-3">
+                    <p className="text-sm text-zinc-600">
+                      Tindakan ini akan menghapus semua pesan di sesi ini dan
+                      tidak bisa dibatalkan.
+                    </p>
+                  </div>
+
+                  <hr />
+
+                  <div className="flex w-full justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      disabled={isDeletingHistory}
+                      className="w-full rounded-full border border-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDeleteHistory}
+                      disabled={isDeletingHistory}
+                      className="w-full rounded-full border border-red-200 bg-red-500 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
+                    >
+                      {isDeletingHistory ? "Menghapus..." : "Hapus"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -403,19 +813,37 @@ export default function Home() {
             </div>
           </div>
 
-          <Image
-            className="hidden opacity-70 md:block"
-            src="/assets/LogoNM23_Ai_22.png"
-            alt="Newsmaker logo"
-            width={50}
-            height={12}
-            priority
-          />
+          <div className="flex items-center gap-3">
+            {/* Tombol Hapus Riwayat */}
+            <button
+              type="button"
+              onClick={handleDeleteHistory}
+              disabled={!sessionId || isLoadingHistory || messages.length === 0}
+              className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 md:px-3 py-2 md:py-1 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            >
+              <span className="hidden md:block">Hapus Riwayat</span>{" "}
+              <span className="block md:hidden">
+                <FontAwesomeIcon icon={faTrash} />
+              </span>
+            </button>
+
+            <Image
+              className="hidden opacity-70 md:block"
+              src="/assets/LogoNM23_Ai_22.png"
+              alt="Newsmaker logo"
+              width={50}
+              height={12}
+              priority
+            />
+          </div>
         </header>
 
         {/* CHAT AREA */}
         <section className="relative overflow-hidden flex-1 px-0 lg:px-64">
-          <div className="h-full bg-white nm-scroll overflow-y-auto">
+          <div
+            ref={chatScrollRef}
+            className="h-full bg-white nm-scroll overflow-y-auto"
+          >
             <div className="bg-white">
               <div className="relative z-10 flex h-full flex-col px-4 py-4 space-y-4">
                 {/* === Default welcome + recommendation menu saat belum ada chat === */}
@@ -469,7 +897,7 @@ export default function Home() {
                               <span className="text-sm font-semibold uppercase tracking-wide text-blue-500">
                                 {item.title}
                               </span>
-                              <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[11px] text-zinc-100">
+                              <span className="rounded-full bg-blue-200/50 border border-blue-500 px-2 py-0.5 text-[11px] text-blue-500">
                                 {item.pill}
                               </span>
                             </div>
@@ -482,34 +910,6 @@ export default function Home() {
                           </button>
                         ))}
                       </div>
-
-                      {/* Button Scroll Down Opening Message */}
-                      {/* {showScrollDown && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const el = scrollAreaRef.current;
-                            el?.scrollTo({
-                              top: el.scrollHeight,
-                              behavior: "smooth",
-                            });
-                            // scroll event akan update showScrollDown jadi false kalau sudah di bawah
-                          }}
-                          className="absolute left-1/2 -translate-x-1/2 bottom-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xs bg-white/20 text-white shadow text-xs md:text-sm cursor-pointer select-none hover:bg-white/30 transition xl:hidden"
-                        >
-                          <div className="text-black flex items-center gap-3">
-                            <FontAwesomeIcon
-                              icon={faAnglesDown}
-                              className="text-[10px]"
-                            />
-                            <span>Scroll Down</span>
-                            <FontAwesomeIcon
-                              icon={faAnglesDown}
-                              className="text-[10px]"
-                            />
-                          </div>
-                        </button>
-                      )} */}
                     </div>
                   </div>
                 )}
@@ -557,6 +957,7 @@ export default function Home() {
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
+                                // PARAGRAPH
                                 p: ({ node, ...props }) => (
                                   <p
                                     {...props}
@@ -566,6 +967,37 @@ export default function Home() {
                                     }
                                   />
                                 ),
+
+                                // HEADING
+                                h1: ({ node, ...props }) => (
+                                  <h1
+                                    {...props}
+                                    className={
+                                      "mb-2 text-lg font-semibold text-zinc-900 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                h2: ({ node, ...props }) => (
+                                  <h2
+                                    {...props}
+                                    className={
+                                      "mb-2 text-base font-semibold text-zinc-900 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                h3: ({ node, ...props }) => (
+                                  <h3
+                                    {...props}
+                                    className={
+                                      "mb-2 text-sm font-semibold text-zinc-900 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+
+                                // STRONG
                                 strong: ({ node, ...props }) => (
                                   <strong
                                     {...props}
@@ -574,6 +1006,19 @@ export default function Home() {
                                     }
                                   />
                                 ),
+
+                                // Horizontal Line
+                                hr: ({ node, ...props }) => (
+                                  <hr
+                                    {...props}
+                                    className={[
+                                      "my-4 border-0 h-px bg-black",
+                                      props.className || "",
+                                    ].join(" ")}
+                                  />
+                                ),
+
+                                // LIST
                                 ul: ({ node, ...props }) => (
                                   <ul
                                     {...props}
@@ -583,11 +1028,94 @@ export default function Home() {
                                     }
                                   />
                                 ),
+                                ol: ({ node, ...props }) => (
+                                  <ol
+                                    {...props}
+                                    className={
+                                      "mb-2 ml-4 list-decimal space-y-1 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
                                 li: ({ node, ...props }) => (
                                   <li
                                     {...props}
                                     className={
                                       "leading-relaxed " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+
+                                // INLINE / BLOCK CODE
+                                code: ({ node, inline, ...props }) =>
+                                  inline ? (
+                                    <code
+                                      {...props}
+                                      className={
+                                        "rounded bg-zinc-100 px-1 py-[1px] text-[0.75rem] font-mono " +
+                                        (props.className || "")
+                                      }
+                                    />
+                                  ) : (
+                                    <code
+                                      {...props}
+                                      className={
+                                        "block rounded-md bg-zinc-200/95 px-3 py-2 text-[0.75rem] font-mono text-zinc-700 overflow-x-auto " +
+                                        (props.className || "")
+                                      }
+                                    />
+                                  ),
+
+                                // TABLE
+                                table: ({ node, ...props }) => (
+                                  <div className="my-3 w-full overflow-x-auto">
+                                    <table
+                                      {...props}
+                                      className={
+                                        "w-full border-collapse " +
+                                        ((props as any).className || "")
+                                      }
+                                    />
+                                  </div>
+                                ),
+                                thead: ({ node, ...props }) => (
+                                  <thead
+                                    {...props}
+                                    className={
+                                      "bg-zinc-50 " + (props.className || "")
+                                    }
+                                  />
+                                ),
+                                tbody: ({ node, ...props }) => (
+                                  <tbody
+                                    {...props}
+                                    className={props.className || ""}
+                                  />
+                                ),
+                                tr: ({ node, ...props }) => (
+                                  <tr
+                                    {...props}
+                                    className={
+                                      "border-b border-zinc-200 last:border-0 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                th: ({ node, ...props }) => (
+                                  <th
+                                    {...props}
+                                    className={
+                                      "border border-zinc-200 px-2 py-1 text-left font-semibold text-base bg-zinc-50 " +
+                                      (props.className || "")
+                                    }
+                                  />
+                                ),
+                                td: ({ node, ...props }) => (
+                                  <td
+                                    {...props}
+                                    className={
+                                      "border border-zinc-200 px-2 py-1 align-top " +
                                       (props.className || "")
                                     }
                                   />
@@ -615,12 +1143,31 @@ export default function Home() {
                           )}
                         </div>
 
-                        <span className="text-[10px] text-gray-500 opacity-70 select-none">
-                          {msg.timestamp.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                        <div
+                          className={`flex items-center justify-between text-[10px] text-gray-500 opacity-70 select-none w-full`}
+                        >
+                          <span className={`${isAi ? "order-1" : "order-2"}`}>
+                            {msg.timestamp.toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(msg.text)}
+                            className={`text-xs flex items-center gap-1 cursor-pointer ${
+                              isAi ? "order-2" : "order-1"
+                            }`}
+                            aria-label="Salin jawaban AI"
+                          >
+                            <FontAwesomeIcon
+                              icon={faCopy}
+                              className="h-3 w-3"
+                            />
+                            <span>Copy</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -640,6 +1187,28 @@ export default function Home() {
 
                 <div ref={messagesEndRef} />
               </div>
+
+              {renderScrollDown && messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    chatScrollRef.current?.scrollTo({
+                      top: chatScrollRef.current.scrollHeight,
+                      behavior: "smooth",
+                    })
+                  }
+                  className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 text-xs rounded-full bg-blue-300/50 text-black/50 backdrop-blur-xs p-2 shadow-lg transition hover:bg-blue-400/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 border border-blue-500 cursor-pointer"
+                  style={{
+                    animation: `${
+                      showScrollDown
+                        ? "nm-scroll-btn-in 0.25s ease forwards"
+                        : "nm-scroll-btn-out 0.25s ease forwards"
+                    }`,
+                  }}
+                >
+                  <FontAwesomeIcon icon={faAnglesDown} />
+                </button>
+              )}
             </div>
           </div>
         </section>
