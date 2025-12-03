@@ -96,7 +96,7 @@ function calcCamarilla({ H, L, C }: { H: number; L: number; C: number }) {
   const S3 = C - (range * k) / 4;
   const S4 = C - (range * k) / 2;
   const P = (H + L + C) / 3;
-  return { P, R1, R2, R3, S1, S2, S3, S4 } as const;
+  return { P, R1, R2, R3, R4, S1, S2, S3, S4 } as const;
 }
 
 // ---- FIBONACCI (UP / DOWN) ----
