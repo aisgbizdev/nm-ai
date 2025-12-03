@@ -1048,13 +1048,23 @@ export default function Home() {
                                 ),
 
                                 // INLINE / BLOCK CODE
-                                code: ({ node, inline, ...props }) =>
+                                code: ({
+                                  node,
+                                  inline,
+                                  className,
+                                  ...props
+                                }: {
+                                  node?: any;
+                                  inline?: boolean;
+                                  className?: string;
+                                  [key: string]: any;
+                                }) =>
                                   inline ? (
                                     <code
                                       {...props}
                                       className={
                                         "rounded bg-zinc-100 px-1 py-[1px] text-[0.75rem] font-mono " +
-                                        (props.className || "")
+                                        (className || "")
                                       }
                                     />
                                   ) : (
@@ -1062,7 +1072,7 @@ export default function Home() {
                                       {...props}
                                       className={
                                         "block rounded-md bg-zinc-200/95 px-3 py-2 text-[0.75rem] font-mono text-zinc-700 overflow-x-auto " +
-                                        (props.className || "")
+                                        (className || "")
                                       }
                                     />
                                   ),
