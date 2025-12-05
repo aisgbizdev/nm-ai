@@ -43,16 +43,6 @@ const num = (v: any): number => {
   return NaN;
 };
 
-const formatPrice = (v: number): string => {
-  if (!isFinite(v)) return "-";
-  const abs = Math.abs(v);
-  const digits = abs >= 1000 ? 0 : abs >= 100 ? 1 : 2;
-  return v.toLocaleString("id-ID", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
-};
-
 // ---- Pivot: Classic / Woodie / Camarilla ----
 function calcClassic({ H, L, C }: { H: number; L: number; C: number }) {
   const P = (H + L + C) / 3;
