@@ -1,0 +1,15 @@
+# Gunakan image resmi Ollama
+FROM ollama/ollama:latest
+
+# Buat direktori untuk model
+RUN mkdir -p /root/.ollama
+VOLUME ["/root/.ollama"]
+
+# Set Ollama agar bisa diakses dari luar container
+ENV OLLAMA_HOST=0.0.0.0:11434
+
+# Expose port API
+EXPOSE 11434
+
+# Jalankan server Ollama
+ENTRYPOINT ["ollama", "serve"]

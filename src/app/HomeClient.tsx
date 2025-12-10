@@ -1,8 +1,7 @@
+// app/HomeClient.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import LoadingSplash from "@/components/LoadingSplash";
-
 import { ensureAnonAuth } from "@/lib/auth";
 import {
   loadMessages,
@@ -20,12 +19,14 @@ import { CopyToast } from "@/components/chat/CopyToast";
 import { WelcomeNavigator } from "@/components/chat/WelcomeNavigator";
 import { ScrollToBottomButton } from "@/components/chat/ScrollToBottomButton";
 
-const MIN_SPLASH_MS = 5000; // minimal 5 detik splash
-
-export default function Home() {
+export default function HomeClient() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+
+  // ⚠️ untuk hindari hydration mismatch
+  const [isMounted, setIsMounted] = useState(false);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [apiRoute, setApiRoute] = useState<ApiRoute>("/api/nm-ai");
   const [isModelOpen, setIsModelOpen] = useState(false);
@@ -43,11 +44,6 @@ export default function Home() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
 
-  // 🔥 SPLASH STATE
-  const [showSplash, setShowSplash] = useState(true);
-  const [isFadingSplash, setIsFadingSplash] = useState(false);
-  const [isFadingIn, setIsFadingIn] = useState(false);
-
   const copyToastTimeout = useRef<NodeJS.Timeout | null>(null);
   const copyToastHideTimeout = useRef<NodeJS.Timeout | null>(null);
   const scrollDownHideTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -57,6 +53,7 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const modelMenuRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null!);
+
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingRequestRef = useRef<AbortController | null>(null);
@@ -85,26 +82,11 @@ export default function Home() {
     },
   ];
 
-  // ====== SPLASH 5 DETIK + FADE OUT ======
-
+  // ====== LIFECYCLE ======
   useEffect(() => {
-    // Setelah durasi splash → mulai fade out
-    const fadeOutTimer = setTimeout(() => {
-      setIsFadingSplash(true);
-    }, MIN_SPLASH_MS);
-
-    // Setelah fade out selesai → remove dari DOM
-    const hideTimer = setTimeout(() => {
-      setShowSplash(false);
-    }, MIN_SPLASH_MS + 500);
-
-    return () => {
-      clearTimeout(fadeOutTimer);
-      clearTimeout(hideTimer);
-    };
+    setIsMounted(true);
   }, []);
 
-  // ====== TTS SUPPORT CHECK ======
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -115,7 +97,7 @@ export default function Home() {
     }
   }, []);
 
-  // ====== Firebase anon auth ======
+  // Firebase anon auth
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
@@ -137,7 +119,7 @@ export default function Home() {
     };
   }, []);
 
-  // ====== Load messages dari Firebase ======
+  // Load messages
   useEffect(() => {
     if (!sessionId) return;
 
@@ -185,7 +167,6 @@ export default function Home() {
     };
   }, [sessionId]);
 
-  // ====== Scroll ke bawah saat ada pesan baru / typing ======
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -194,7 +175,7 @@ export default function Home() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // ====== Close model dropdown on outside click ======
+  // Close model dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -208,7 +189,7 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ====== Scroll menu rekomendasi ======
+  // Scroll menu rekomendasi
   useEffect(() => {
     const el = scrollAreaRef.current;
     if (!el) return;
@@ -223,7 +204,7 @@ export default function Home() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, [messages.length]);
 
-  // ====== Scroll utama ======
+  // Scroll utama
   useEffect(() => {
     const el = chatScrollRef.current;
     if (!el) return;
@@ -238,7 +219,7 @@ export default function Home() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, [messages.length, isTyping]);
 
-  // ====== Control render scroll-down button ======
+  // Control render scroll-down button
   useEffect(() => {
     if (scrollDownHideTimeout.current) {
       clearTimeout(scrollDownHideTimeout.current);
@@ -259,13 +240,12 @@ export default function Home() {
     };
   }, [showScrollDown]);
 
-  // ====== Sync tinggi textarea ======
   const syncTextareaHeight = () => {
     const el = textareaRef.current;
     if (!el) return;
 
-    const lineHeight = 24;
-    const maxHeight = lineHeight * 7 + 24;
+    const lineHeight = 24; // approximated line height
+    const maxHeight = lineHeight * 7 + 24; // cap ~7 lines
     const minHeight = 56;
 
     el.style.height = "auto";
@@ -277,7 +257,7 @@ export default function Home() {
     syncTextareaHeight();
   }, [inputValue]);
 
-  // ====== Copy toast ======
+  // Copy toast
   const showCopyToast = (text: string) => {
     if (copyToastTimeout.current) clearTimeout(copyToastTimeout.current);
     if (copyToastHideTimeout.current)
@@ -332,7 +312,7 @@ export default function Home() {
     }
   };
 
-  // ====== TTS ======
+  // TTS
   const stopSpeech = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -404,14 +384,13 @@ export default function Home() {
     }
   };
 
-  // cleanup audio URL
   useEffect(() => {
     return () => {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
   }, [audioUrl]);
 
-  // ====== Cleanup global ======
+  // Cleanup
   useEffect(() => {
     return () => {
       if (copyToastTimeout.current) clearTimeout(copyToastTimeout.current);
@@ -445,7 +424,7 @@ export default function Home() {
     };
   }, [isDeleteModalOpen]);
 
-  // ====== File handling ======
+  // File
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canAttachFile) return;
     const file = e.target.files?.[0] || null;
@@ -459,7 +438,7 @@ export default function Home() {
     return -1;
   };
 
-  // ====== AI typing helper ======
+  // AI typing helper
   const showAiMessageWithTyping = (
     fullText: string,
     imagePath?: string | null
@@ -483,8 +462,8 @@ export default function Home() {
 
     const total = fullText.length;
     let index = 0;
-    const chunkSize = 8;
-    const speed = 5;
+    const chunkSize = 3;
+    const speed = 15;
 
     const step = () => {
       index = Math.min(index + chunkSize, total);
@@ -519,7 +498,7 @@ export default function Home() {
     }
   };
 
-  // ====== Send message ======
+  // Send message
   const sendMessage = async (overrideText?: string) => {
     if (!sessionId) {
       setFirebaseError(
@@ -615,7 +594,6 @@ export default function Home() {
     }
   };
 
-  // ====== Regenerate ======
   const regenerateLastAnswer = async () => {
     if (!sessionId) {
       setFirebaseError(
@@ -633,6 +611,7 @@ export default function Home() {
 
     if (!lastUserMessage || !hasAiAfterUser) return;
 
+    // Remove old AI answers after the last user message so the UI shows only the new attempt
     setMessages((prev) => {
       const lastUserIdx = findLastUserIndex(prev);
       if (lastUserIdx < 0) return prev;
@@ -643,6 +622,7 @@ export default function Home() {
     setIsRegenerating(true);
 
     try {
+      // Fresh regenerate: do not send prior history, only the last user prompt
       const historyPayload: Array<{ role: string; content: string }> = [];
 
       const formData = new FormData();
@@ -693,7 +673,6 @@ export default function Home() {
     }
   };
 
-  // ====== Delete history ======
   const handleDeleteHistory = () => setIsDeleteModalOpen(true);
 
   const reinputLastUser = () => {
@@ -731,7 +710,11 @@ export default function Home() {
     }
   };
 
-  // ====== Derived state ======
+  if (!isMounted) {
+    // biarkan Next pakai loading.tsx selama SSR, kita render null dulu di client
+    return null;
+  }
+
   const hasFile = canAttachFile && !!selectedFile;
   const isSendDisabled =
     (!inputValue.trim() && !hasFile) ||
@@ -740,13 +723,13 @@ export default function Home() {
     isRegenerating;
   const canDeleteHistory =
     !!sessionId && !isLoadingHistory && messages.length > 0;
-  const lastUserIndex = findLastUserIndex(messages);
+  const lastUserIdx = findLastUserIndex(messages);
   const hasAiAfterUser =
-    lastUserIndex >= 0 &&
-    messages.slice(lastUserIndex + 1).some((m) => m.sender === "ai");
+    lastUserIdx >= 0 &&
+    messages.slice(lastUserIdx + 1).some((m) => m.sender === "ai");
   const canRegenerate =
     !!sessionId && !isLoadingHistory && hasAiAfterUser && !isTyping;
-  const canReinput = !!sessionId && !isLoadingHistory && lastUserIndex >= 0;
+  const canReinput = !!sessionId && !isLoadingHistory && lastUserIdx >= 0;
   const canInterrupt =
     !!typingMessageId ||
     isTyping ||
@@ -755,20 +738,27 @@ export default function Home() {
 
   return (
     <>
-      {/* 🔵 SPLASH OVERLAY: pakai LoadingSplash + fade out */}
-      {showSplash && (
-        <div
-          className={`
-      fixed inset-0 z-50 
-      transition-opacity duration-500 
-      ${isFadingSplash ? "opacity-0" : ""}
-    `}
-        >
-          <LoadingSplash />
-        </div>
-      )}
+      {/* Global styles (scrollbar) */}
+      <style jsx global>{`
+        .nm-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .nm-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .nm-scroll::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, #6366f1, #a855f7);
+          border-radius: 999px;
+        }
+        .nm-scroll::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, #4f46e5, #9333ea);
+        }
+        .nm-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: #6366f1 transparent;
+        }
+      `}</style>
 
-      {/* 🔥 MAIN UI CHAT */}
       <main className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gray-100 shadow-2xl">
         <audio ref={audioRef} className="hidden" />
 

@@ -1,4 +1,4 @@
-from phi3:latest
+from deepseek-r1
 
 parameter temperature 0.4
 parameter top_p 0.9
