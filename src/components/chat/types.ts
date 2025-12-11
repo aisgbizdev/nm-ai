@@ -6,73 +6,79 @@ export interface UiMessage {
   imagePath?: string;
 }
 
-export type ApiRoute = "/api/nm-ai" | "/api/chatgpt";
+export type ApiRoute = "/api/GwenStacy";
 
 export const navigatorMenu = [
   {
     id: "1",
-    title: "Trader Mode",
-    description: "Analisa teknikal, margin, leverage, dan perilaku trader.",
-    example: "Hitung margin XAUUSD 1 lot",
-    pill: "Teknikal",
+    title: "Margin Lab",
+    description:
+      "Simulasi margin XAUUSD berdasarkan lot, leverage, dan asumsi harga.",
+    example: "Simulasi margin XAUUSD 1 lot leverage 1:100 di harga 4200",
+    pill: "Margin",
   },
   {
     id: "2",
-    title: "Investor Path",
+    title: "Pivot Studio",
     description:
-      "Analisa fundamental, risiko portofolio, dan strategi jangka panjang.",
-    example: "Bagaimana outlook emas minggu ini?",
-    pill: "Fundamental",
+      "Hitung level Pivot Classic, Woodie, dan Camarilla dari data OHLC.",
+    example: "Hitung pivot dari O 4210, H 4250, L 4180, C 4220",
+    pill: "Pivot",
   },
   {
     id: "3",
-    title: "Marketing Insight",
-    description: "Edukasi produk, strategi komunikasi, dan transparansi harga.",
-    example: "Bagaimana menjelaskan leverage ke nasabah?",
-    pill: "Marketing",
+    title: "Fibonacci Zone",
+    description:
+      "Hitung level Fibonacci retracement & projection untuk uptrend/downtrend.",
+    example: "Hitung Fibonacci uptrend dari high 4300 dan low 4200",
+    pill: "Fibonacci",
   },
   {
     id: "4",
-    title: "Broker Access",
-    description: "Diskusi regulasi, kepatuhan Bappebti, dan model SPA.",
-    example: "Apa syarat margin minimal sistem SPA?",
-    pill: "Regulasi",
+    title: "Trading Rules",
+    description:
+      "Lihat ringkasan aturan SPA, margin, equity ratio, dan auto liquidation.",
+    example: "Jelaskan trading rules secara singkat",
+    pill: "Rules",
   },
   {
     id: "5",
-    title: "Regulatory View",
-    description: "Analisa perilaku pasar & etika perdagangan berjangka.",
-    example: "Bagaimana NM Ai membantu deteksi manipulasi pasar?",
-    pill: "Etika Pasar",
+    title: "Trading Rules Table",
+    description:
+      "Tampilkan tabel lengkap trading rules per produk: Index, Commodity, dan Currency.",
+    example: "Tampilkan tabel trading rules semua produk",
+    pill: "Tabel Rules",
   },
   {
     id: "6",
-    title: "Mentor Lab",
-    description: "Simulasi risiko dan pembelajaran psikologi trading.",
-    example: "Simulasikan ketahanan dana 1000 USD di XAUUSD.",
-    pill: "Psikologi & Risk",
+    title: "Price Checker",
+    description:
+      "Cek harga terkini emas, perak, oil, indeks atau pasangan mata uang.",
+    example: "Berapa harga emas dan perak sekarang?",
+    pill: "Harga Live",
   },
   {
     id: "7",
-    title: "Public Learn",
-    description: "Literasi dasar trading dan manajemen risiko.",
-    example: "Apa bedanya spread dan margin?",
-    pill: "Pemula",
+    title: "Calendar Today",
+    description: "Lihat kalender ekonomi hari ini dalam bentuk tabel lengkap.",
+    example: "Tampilkan kalender ekonomi hari ini",
+    pill: "Kalender",
   },
   {
     id: "8",
-    title: "Open Talk",
-    description: "Diskusi santai seputar pasar, tren, atau opini pribadi.",
-    example: "Kenapa gold sering volatil pas rilis data CPI?",
-    pill: "Ngobrol",
+    title: "High Impact Events",
+    description:
+      "Filter kalender ekonomi untuk event berdampak tinggi (high impact / ★★★).",
+    example: "Kalender ekonomi hari ini yang high impact saja",
+    pill: "High Impact",
   },
   {
     id: "9",
-    title: "AI Sandbox",
+    title: "Base Rules Help",
     description:
-      "Uji kemampuan NM Ai atau logika pasar yang lagi bikin penasaran.",
-    example: "Coba jelaskan logika XAUUSD kalau DXY naik.",
-    pill: "Eksperimen",
+      "Panduan singkat apa saja yang bisa dilakukan mode NM Base Rules.",
+    example: "Apa saja yang bisa dilakukan NM Base Rules?",
+    pill: "Panduan",
   },
 ];
 

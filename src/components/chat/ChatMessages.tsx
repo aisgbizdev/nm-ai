@@ -349,7 +349,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                       <FontAwesomeIcon icon={faArrowUpFromBracket} />
                     </button>
 
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() =>
                         isSpeaking ? onStop() : onSpeak(msg.text)
@@ -367,7 +367,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                       }
                     >
                       <FontAwesomeIcon icon={isSpeaking ? faStop : faPlay} />
-                    </button>
+                    </button> */}
                   </div>
                 )}
 

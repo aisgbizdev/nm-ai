@@ -1,25 +1,63 @@
-// src/app/api/GwenStacy/route.ts
+// src/app/api/nm-ai/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 
 export const runtime = "nodejs";
+
+// =============== KALENDER TABLE UTILS ==================
+import { buildCalendarTable, CalendarEventRow } from "./utils/calendarContext";
+
+// =============== TRADING RULES CONFIG IMPORTS ==================
+import { INDEX_MARGIN_CONFIG } from "./config/indexMarginConfig";
+import { COMMODITY_MARGIN_CONFIG } from "./config/commodityMarginConfig";
+import { CURRENCY_MARGIN_CONFIG } from "./config/currencyMarginConfig";
+
+// =============== TRADING RULES UTILS (TABLE BUILDER) ============
+import {
+  buildTradingRulesTableThreeCols,
+  GenericMarginConfig,
+} from "./utils/tradingRules";
+
+// =============== COMMON & UTILS BARU ==================
+import { toText } from "./utils/common";
+import {
+  calcClassic,
+  calcWoodie,
+  calcCamarilla,
+  calcFibUp,
+  calcFibDown,
+  parseHighLowForFib,
+  parseOHLCFromPrompt,
+} from "./utils/pivotFib";
+
+import {
+  formatDateIso,
+  detectRequestedDate,
+  buildCalendarUrl,
+} from "./utils/dateUtils";
+
+import {
+  InstrumentKey,
+  INSTRUMENT_LABEL,
+  FIXED_USD_IDR_RATE,
+  detectInstrumentFromPrompt,
+  detectInstrumentsFromPromptMulti,
+  pickHistoricalSeriesForInstrument,
+  pickQuoteForInstrument,
+} from "./utils/instrumentUtils";
 
 // =============== OLLAMA CONFIG ==================
 const OLLAMA_BASE_URL = (
   process.env.OLLAMA_BASE_URL || "http://localhost:11434"
 ).replace(/\/+$/, "");
-
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "NM-Ai";
 
-// =============== OPENAI CONFIG ==================
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// ⏱️ Timeout Ollama (ms) – bisa diatur via env
+const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || "8000");
 
-// ⚠️ OPENAI_MODEL untuk teks-only, OPENAI_VISION_MODEL untuk yang pakai gambar
+// =============== OPENAI / CHATGPT CONFIG ==================
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
-const OPENAI_VISION_MODEL = process.env.OPENAI_VISION_MODEL || "gpt-4.1";
 
 // ================== DATA SOURCE URL ==================
 const QUOTES_API_URL =
@@ -39,550 +77,136 @@ const NEWS_API_URL =
   process.env.NEWS_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/news-id";
 
-// ======================================================
-// =============== PIVOT & FIBONACCI UTILS ==============
-// ======================================================
-
-const num = (v: any): number => {
-  if (typeof v === "number") return v;
-  if (typeof v === "string") {
-    const n = parseFloat(v.replace(",", "."));
-    return isNaN(n) ? NaN : n;
-  }
-  return NaN;
+// ================== TIPE MESSAGE CORE ==================
+type CoreMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+  images?: string[];
 };
 
-const formatPrice = (v: number): string => {
-  if (!isFinite(v)) return "-";
-  const abs = Math.abs(v);
-  const digits = abs >= 1000 ? 0 : abs >= 100 ? 1 : 2;
-  return v.toLocaleString("id-ID", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
-};
-
-// ---- Pivot: Classic / Woodie / Camarilla ----
-function calcClassic({ H, L, C }: { H: number; L: number; C: number }) {
-  const P = (H + L + C) / 3;
-  return {
-    P,
-    R1: 2 * P - L,
-    S1: 2 * P - H,
-    R2: P + (H - L),
-    S2: P - (H - L),
-    R3: P + 2 * (H - L),
-    S3: P - 2 * (H - L),
-    R4: P + 3 * (H - L),
-    S4: P - 4 * (H - L),
-  } as const;
+// ================== HELPER: STRIP <think> ==================
+function stripThinkBlocks(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
-function calcWoodie({ O, H, L }: { O: number; H: number; L: number }) {
-  const P = (H + L + 2 * O) / 4;
-  return {
-    P,
-    R1: 2 * P - L,
-    S1: 2 * P - H,
-    R2: P + (H - L),
-    S2: P - (H - L),
-    R3: H + 2 * (P - L),
-    S3: L - 2 * (H - P),
-    R4: P + 3 * (H - L),
-    S4: P - 3 * (H - L),
-  } as const;
-}
-
-function calcCamarilla({ H, L, C }: { H: number; L: number; C: number }) {
-  const range = H - L;
-  const k = 1.1;
-  const R1 = C + (range * k) / 12;
-  const R2 = C + (range * k) / 6;
-  const R3 = C + (range * k) / 4;
-  const R4 = C + (range * k) / 2;
-  const S1 = C - (range * k) / 12;
-  const S2 = C - (range * k) / 6;
-  const S3 = C - (range * k) / 4;
-  const S4 = C - (range * k) / 2;
-  const P = (H + L + C) / 3;
-  return { P, R1, R2, R3, R4, S1, S2, S3, S4 } as const;
-}
-
-// ---- FIBONACCI ----
-type FibMap = Record<string, number>;
-
-function calcFibDown({ H, L }: { H: number; L: number }) {
-  const D = H - L;
-
-  const retr: FibMap = {
-    "78.60%": L + D * 0.786,
-    "61.80%": L + D * 0.618,
-    "50.00%": L + D * 0.5,
-    "38.20%": L + D * 0.382,
-    "23.60%": L + D * 0.236,
-  };
-
-  const proj: FibMap = {
-    "138.20%": L - D * 0.382,
-    "150.00%": L - D * 0.5,
-    "161.80%": L - D * 0.618,
-    "200.00%": L - D * 1.0,
-    "238.20%": L - D * 1.382,
-    "261.80%": L - D * 1.618,
-  };
-
-  return { D, retr, proj } as const;
-}
-
-function calcFibUp({ H, L }: { H: number; L: number }) {
-  const D = H - L;
-  const retr: FibMap = {
-    "78.60%": H - D * 0.786,
-    "61.80%": H - D * 0.618,
-    "50.00%": H - D * 0.5,
-    "38.20%": H - D * 0.382,
-    "23.60%": H - D * 0.236,
-  };
-
-  const proj: FibMap = {
-    "138.20%": H + D * 0.382,
-    "150.00%": H + D * 0.5,
-    "161.80%": H + D * 0.618,
-    "200.00%": H + D * 1.0,
-    "238.20%": H + D * 1.382,
-    "261.80%": H + D * 1.618,
-  };
-
-  return { D, retr, proj } as const;
-}
-
-// Ambil High & Low dari prompt
-function parseHighLowForFib(text: string): { H: number; L: number } | null {
-  const lower = text.toLowerCase();
-
-  const highMatch = lower.match(/(high|h)\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/i);
-  const lowMatch = lower.match(/(low|l)\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/i);
-
-  let H: number | null = null;
-  let L: number | null = null;
-
-  if (highMatch) {
-    H = num(highMatch[2]);
-  }
-  if (lowMatch) {
-    L = num(lowMatch[2]);
+// ================== HELPER: CALL OLLAMA ==================
+async function callOllamaChat(messages: CoreMessage[]): Promise<string> {
+  if (!OLLAMA_BASE_URL) {
+    throw new Error("OLLAMA_BASE_URL is not configured");
   }
 
-  if (H != null && L != null && isFinite(H) && isFinite(L)) {
-    const hi = Math.max(H, L);
-    const lo = Math.min(H, L);
-    return { H: hi, L: lo };
-  }
-
-  const allNums = text.match(/-?\d+(?:[.,]\d+)?/g);
-  if (allNums && allNums.length >= 2) {
-    const a = num(allNums[0]);
-    const b = num(allNums[1]);
-    if (isFinite(a) && isFinite(b)) {
-      const hi = Math.max(a, b);
-      const lo = Math.min(a, b);
-      return { H: hi, L: lo };
-    }
-  }
-
-  return null;
-}
-
-// Ambil OHLC dari prompt untuk Pivot
-function parseOHLCFromPrompt(text: string): {
-  O: number;
-  H: number;
-  L: number;
-  C: number;
-} | null {
-  const lower = text.toLowerCase();
-
-  const oMatch = lower.match(/(open|o)\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/i);
-  const hMatch = lower.match(/(high|h)\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/i);
-  const lMatch = lower.match(/(low|l)\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/i);
-  const cMatch = lower.match(/(close|c)\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/i);
-
-  let O = oMatch ? num(oMatch[2]) : NaN;
-  let H = hMatch ? num(hMatch[2]) : NaN;
-  let L = lMatch ? num(lMatch[2]) : NaN;
-  let C = cMatch ? num(cMatch[2]) : NaN;
-
-  if ([O, H, L, C].every((v) => isFinite(v))) {
-    return { O, H, L, C };
-  }
-
-  const numsFound = text.match(/-?\d+(?:[.,]\d+)?/g);
-  if (numsFound && numsFound.length >= 4) {
-    const nn = numsFound.slice(0, 4).map(num);
-    if (nn.every((v) => isFinite(v))) {
-      return { O: nn[0], H: nn[1], L: nn[2], C: nn[3] };
-    }
-  }
-
-  return null;
-}
-
-// ============= HELPER: FORMAT & DETEKSI TANGGAL ===================
-
-const MONTHS_ID: Record<string, number> = {
-  januari: 0,
-  jan: 0,
-  febuari: 1,
-  februari: 1,
-  feb: 1,
-  maret: 2,
-  mar: 2,
-  april: 3,
-  apr: 3,
-  mei: 4,
-  juni: 5,
-  jun: 5,
-  juli: 6,
-  jul: 6,
-  agustus: 7,
-  agu: 7,
-  agt: 7,
-  september: 8,
-  sept: 8,
-  sep: 8,
-  oktober: 9,
-  okt: 9,
-  november: 10,
-  nov: 10,
-  desember: 11,
-  des: 11,
-};
-
-const formatDateIso = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(date.getDate()).padStart(2, "0")}`;
-
-const detectRequestedDate = (prompt: string): string | null => {
-  const lower = prompt.toLowerCase();
-
-  const nowJakarta = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
-  );
-
-  if (/(hari ini|today)\b/.test(lower)) {
-    return formatDateIso(nowJakarta);
-  }
-
-  if (/(besok|besoknya|tomorrow)\b/.test(lower)) {
-    const d = new Date(nowJakarta);
-    d.setDate(d.getDate() + 1);
-    return formatDateIso(d);
-  }
-
-  if (/(lusa|the day after tomorrow)\b/.test(lower)) {
-    const d = new Date(nowJakarta);
-    d.setDate(d.getDate() + 2);
-    return formatDateIso(d);
-  }
-
-  if (/(kemarin|yesterday)\b/.test(lower)) {
-    const d = new Date(nowJakarta);
-    d.setDate(d.getDate() - 1);
-    return formatDateIso(d);
-  }
-
-  if (/(selumbari|the day before yesterday)\b/.test(lower)) {
-    const d = new Date(nowJakarta);
-    d.setDate(d.getDate() - 2);
-    return formatDateIso(d);
-  }
-
-  const isoMatch = lower.match(/\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/);
-  if (isoMatch) {
-    const [, y, m, d] = isoMatch;
-    const parsed = new Date(Number(y), Number(m) - 1, Number(d));
-    if (!isNaN(parsed.getTime())) return formatDateIso(parsed);
-  }
-
-  const dmyMatch = lower.match(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b/);
-  if (dmyMatch) {
-    const [, d, m, y] = dmyMatch;
-    const parsed = new Date(Number(y), Number(m) - 1, Number(d));
-    if (!isNaN(parsed.getTime())) return formatDateIso(parsed);
-  }
-
-  const monthNameRegex =
-    /\b(\d{1,2})\s+(januari|jan|febuari|februari|feb|maret|mar|april|apr|mei|juni|jun|juli|jul|agustus|agu|agt|september|sept|sep|oktober|okt|november|nov|desember|des)(?:\s+(\d{4}))?\b/;
-
-  const dmyNameMatch = lower.match(monthNameRegex);
-  if (dmyNameMatch) {
-    const [, dStr, monthName, yearStr] = dmyNameMatch;
-    const day = Number(dStr);
-    const monthIndex = MONTHS_ID[monthName] ?? null;
-
-    if (monthIndex !== null && !isNaN(day) && day >= 1 && day <= 31) {
-      const year = yearStr ? Number(yearStr) : nowJakarta.getFullYear();
-      const parsed = new Date(year, monthIndex, day);
-      if (!isNaN(parsed.getTime())) {
-        return formatDateIso(parsed);
-      }
-    }
-  }
-
-  return null;
-};
-
-const buildCalendarUrl = (baseUrl: string, targetDate: string) => {
-  if (/\/today\/?$/.test(baseUrl)) {
-    return baseUrl.replace(/\/today\/?$/, `/${targetDate}`);
-  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, OLLAMA_TIMEOUT_MS);
 
   try {
-    const url = new URL(baseUrl);
-    url.searchParams.set("date", targetDate);
-    return url.toString();
-  } catch {
-    const separator = baseUrl.includes("?") ? "&" : "?";
-    return `${baseUrl}${separator}date=${encodeURIComponent(targetDate)}`;
-  }
-};
+    const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        messages,
+        stream: false,
+        options: {
+          temperature: 0.2,
+          top_p: 0.9,
+          top_k: 40,
+          repeat_penalty: 1.05,
+          num_ctx: 4096,
+          num_predict: 256,
+          seed: 1,
+        },
+      }),
+    });
 
-// ================== INSTRUMENT MAPPING (HISTORICAL) ==================
-type InstrumentKey =
-  | "gold"
-  | "silver"
-  | "oil"
-  | "hsi"
-  | "sni"
-  | "usdchf"
-  | "usdjpy"
-  | "gbpusd"
-  | "audusd"
-  | "eurusd"
-  | "usdidr"
-  | "other";
+    clearTimeout(timeoutId);
 
-const INSTRUMENT_HINTS: Record<InstrumentKey, string[]> = {
-  gold: ["LGD", "LGD DAILY", "XAUUSD", "XAU", "GOLD", "EMAS", "LGD"],
-  silver: ["LSI", "LSI DAILY", "XAGUSD", "XAG", "SILVER", "PERAK"],
-  oil: ["BCO", "BCO DAILY", "OIL", "BRENT"],
-  hsi: ["HSI", "HSI DAILY", "HANG SENG"],
-  sni: ["SNI", "SNI DAILY", "NIKKEI", "N225", "JAPAN INDEX"],
-  usdchf: ["USD/CHF", "USDCHF", "CHF"],
-  usdjpy: ["USD/JPY", "USDJPY", "YEN", "JPY"],
-  gbpusd: ["GBP/USD", "GBPUSD", "CABLE", "POUND"],
-  audusd: ["AUD/USD", "AUDUSD", "AUSSIE"],
-  eurusd: ["EUR/USD", "EURUSD", "EURO"],
-  usdidr: ["USD/IDR", "USDIDR", "INDO"],
-  other: [],
-};
-
-const INSTRUMENT_LABEL: Record<InstrumentKey, { name: string; unit: string }> =
-  {
-    gold: { name: "emas (Gold)", unit: "USD per troy ounce" },
-    silver: { name: "perak (Silver)", unit: "USD per troy ounce" },
-    oil: { name: "minyak (Oil)", unit: "USD per barrel" },
-    hsi: { name: "indeks Hang Seng (HSI)", unit: "poin indeks" },
-    sni: { name: "indeks Nikkei / Jepang (SNI)", unit: "poin indeks" },
-    usdchf: { name: "Pasangan mata uang USD/CHF", unit: "nilai tukar (rate)" },
-    usdjpy: { name: "Pasangan mata uang USD/JPY", unit: "nilai tukar (rate)" },
-    gbpusd: { name: "Pasangan mata uang GBP/USD", unit: "nilai tukar (rate)" },
-    audusd: { name: "Pasangan mata uang AUD/USD", unit: "nilai tukar (rate)" },
-    eurusd: { name: "Pasangan mata uang EUR/USD", unit: "nilai tukar (rate)" },
-    usdidr: { name: "Pasangan mata uang USD/IDR", unit: "nilai tukar (rate)" },
-    other: { name: "instrumen ini", unit: "unit harga" },
-  };
-
-const FIXED_USD_IDR_RATE = 10000;
-
-// Deteksi instrumen dari teks user (single)
-const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
-  const p = prompt.toLowerCase();
-
-  if (
-    p.includes("emas") ||
-    p.includes("gold") ||
-    p.includes("xau") ||
-    p.includes("lgd")
-  ) {
-    return "gold";
-  }
-
-  if (
-    p.includes("perak") ||
-    p.includes("silver") ||
-    p.includes("xag") ||
-    p.includes("lsi")
-  ) {
-    return "silver";
-  }
-
-  if (
-    p.includes("oil") ||
-    p.includes("minyak") ||
-    p.includes("bco") ||
-    p.includes("brent")
-  ) {
-    return "oil";
-  }
-
-  if (p.includes("hsi") || p.includes("hang seng") || p.includes("hangseng")) {
-    return "hsi";
-  }
-
-  if (
-    p.includes("sni") ||
-    p.includes("nikkei") ||
-    p.includes("n225") ||
-    p.includes("jepang")
-  ) {
-    return "sni";
-  }
-
-  if (p.includes("usd/chf") || p.includes("usdchf") || p.includes("chf")) {
-    return "usdchf";
-  }
-
-  if (
-    p.includes("usd/jpy") ||
-    p.includes("usdjpy") ||
-    p.includes("dolar yen") ||
-    p.includes("dollar yen") ||
-    p.includes("yen") ||
-    p.includes("jpy")
-  ) {
-    return "usdjpy";
-  }
-
-  if (
-    p.includes("gbp/usd") ||
-    p.includes("gbpusd") ||
-    p.includes("cable") ||
-    p.includes("pound")
-  ) {
-    return "gbpusd";
-  }
-
-  if (p.includes("aud/usd") || p.includes("audusd") || p.includes("aussie")) {
-    return "audusd";
-  }
-
-  if (p.includes("eur/usd") || p.includes("eurusd") || p.includes("euro")) {
-    return "eurusd";
-  }
-
-  if (
-    p.includes("usd/idr") ||
-    p.includes("usdidr") ||
-    p.includes("indo") ||
-    p.includes("idr") ||
-    p.includes("rupiah")
-  ) {
-    return "usdidr";
-  }
-
-  return "other";
-};
-
-// 🔥 NEW: Deteksi banyak instrumen sekaligus
-const detectInstrumentsFromPromptMulti = (prompt: string): InstrumentKey[] => {
-  const p = prompt.toLowerCase();
-  const result: InstrumentKey[] = [];
-
-  const pushUnique = (key: InstrumentKey) => {
-    if (!result.includes(key)) result.push(key);
-  };
-
-  if (/(emas|gold|xau|lgd)/.test(p)) pushUnique("gold");
-  if (/(perak|silver|xag|lsi)/.test(p)) pushUnique("silver");
-  if (/(oil|minyak|bco|brent)/.test(p)) pushUnique("oil");
-  if (/(hang\s*seng|hangseng|hsi)/.test(p)) pushUnique("hsi");
-  if (/(nikkei|sni|n225|jepang)/.test(p)) pushUnique("sni");
-  if (/(usd\/chf|usdchf|\bchf\b)/.test(p)) pushUnique("usdchf");
-  if (/(usd\/jpy|usdjpy|dolar yen|dollar yen|\byen\b|\bjpy\b)/.test(p))
-    pushUnique("usdjpy");
-  if (/(gbp\/usd|gbpusd|cable|\bpound\b)/.test(p)) pushUnique("gbpusd");
-  if (/(aud\/usd|audusd|aussie)/.test(p)) pushUnique("audusd");
-  if (/(eur\/usd|eurusd|euro)/.test(p)) pushUnique("eurusd");
-  if (/(usd\/idr|usdidr|indo)/.test(p)) pushUnique("usdidr");
-
-  return result;
-};
-
-const pickHistoricalSeriesForInstrument = (
-  bySymbol: Map<string, any[]>,
-  instrument: InstrumentKey
-): { symbol: string; rows: any[] } | null => {
-  const hints = INSTRUMENT_HINTS[instrument];
-  if (!hints.length) return null;
-
-  for (const [sym, list] of bySymbol.entries()) {
-    const upperSym = sym.toUpperCase();
-    if (hints.some((h) => upperSym.includes(h))) {
-      return { symbol: sym, rows: list };
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Ollama HTTP ${res.status}: ${errText}`);
     }
-  }
 
-  if (instrument === "other") {
-    const first = [...bySymbol.entries()][0];
-    if (!first) return null;
-    return { symbol: first[0], rows: first[1] };
-  }
+    const json: any = await res.json();
+    const raw = json?.message?.content?.toString() || "";
+    return stripThinkBlocks(raw || "");
+  } catch (err: any) {
+    clearTimeout(timeoutId);
 
-  return null;
-};
-
-const pickQuoteForInstrument = (
-  rows: any[],
-  instrument: InstrumentKey
-): any | null => {
-  const hints = INSTRUMENT_HINTS[instrument];
-  if (!hints.length) {
-    return rows.length ? rows[0] : null;
-  }
-
-  for (const row of rows) {
-    const sym: string = (
-      row.symbol ||
-      row.Symbol ||
-      row.ticker ||
-      row.Ticker ||
-      ""
-    )
-      .toString()
-      .toUpperCase();
-    if (sym && hints.some((h) => sym.includes(h))) {
-      return row;
+    if (err?.name === "AbortError") {
+      throw new Error(
+        `Ollama timeout setelah ${OLLAMA_TIMEOUT_MS} ms – fallback ke OpenAI`
+      );
     }
+
+    throw err;
+  }
+}
+
+// ================== HELPER: CONVERT TO OPENAI FORMAT ==================
+function toOpenAIChatMessages(coreMessages: CoreMessage[]) {
+  return coreMessages.map((msg) => {
+    if (msg.role === "user" && msg.images && msg.images.length > 0) {
+      const parts: any[] = [
+        { type: "text", text: msg.content },
+        ...msg.images.map((img) => ({
+          type: "image_url",
+          image_url: {
+            url: `data:image/png;base64,${img}`,
+          },
+        })),
+      ];
+      return {
+        role: "user",
+        content: parts,
+      };
+    }
+
+    return {
+      role: msg.role,
+      content: msg.content,
+    };
+  });
+}
+
+// ================== HELPER: CALL OPENAI ==================
+async function callOpenAIChat(
+  coreMessages: CoreMessage[],
+  apiKey: string,
+  model: string
+): Promise<string> {
+  const openaiMessages = toOpenAIChatMessages(coreMessages);
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: openaiMessages,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`OpenAI HTTP ${res.status}: ${errText}`);
   }
 
-  return rows.length ? rows[0] : null;
-};
+  const json: any = await res.json();
+  const reply: string =
+    json?.choices?.[0]?.message?.content?.toString() ||
+    "NM Ai tidak memberikan respon.";
+  return reply;
+}
 
-const toText = (content: any): string => {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((c) => {
-        if (typeof c === "string") return c;
-        if (c?.text) return c.text;
-        if (typeof c === "object" && (c as any).type && (c as any).value)
-          return (c as any).value;
-        return "";
-      })
-      .filter(Boolean)
-      .join("\n");
-  }
-  if (content && typeof content === "object") {
-    if ((content as any).text) return (content as any).text;
-    return JSON.stringify(content);
-  }
-  return "";
-};
-
-// ======================= HANDLER POST =======================
+// ======================================================
+// ================ HANDLER POST ========================
+// ======================================================
 
 export async function POST(req: NextRequest) {
   try {
@@ -593,8 +217,8 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File | null;
 
     let base64Image: string | null = null;
-
     let historyMessages: { role: string; content: any }[] = [];
+
     if (historyRaw) {
       try {
         const parsed = JSON.parse(historyRaw);
@@ -624,7 +248,174 @@ export async function POST(req: NextRequest) {
 
     const lowerPrompt = userPrompt.toLowerCase();
 
-    // ==== BASIC DETECTION ====
+    // ======================================================
+    // 🔥 SHORT-CIRCUIT 1: TRADING RULES (INDEX/COMMODITY/CURRENCY)
+    // ======================================================
+    const isTradingRulesQuestion =
+      lowerPrompt.includes("trading rules") ||
+      lowerPrompt.includes("trading rule") ||
+      lowerPrompt.includes("aturan trading") ||
+      lowerPrompt.includes("regulasi trading") ||
+      lowerPrompt.includes("rule trading");
+
+    const isTradingRulesTableQuestion =
+      isTradingRulesQuestion &&
+      (lowerPrompt.includes("tabel") || lowerPrompt.includes("table"));
+
+    // ======================================================
+    // 🔥 TRADING RULES (NARASI vs TABEL)
+    // ======================================================
+    if (isTradingRulesTableQuestion) {
+      const indexTableMd = buildTradingRulesTableThreeCols(
+        "Index & Global Index",
+        INDEX_MARGIN_CONFIG
+      );
+
+      const commodityTableMd = buildTradingRulesTableThreeCols(
+        "Commodity (Gold, Silver, Oil, dll.)",
+        COMMODITY_MARGIN_CONFIG
+      );
+
+      const currencyTableMd = buildTradingRulesTableThreeCols(
+        "Currency (Forex Pairs)",
+        CURRENCY_MARGIN_CONFIG
+      );
+
+      const tablesSection =
+        "# 📊 Tabel Trading Rules NM Standard\n\n" +
+        "Tabel berikut merangkum spesifikasi utama (trade code, margin, jam transaksi, biaya, dan ketentuan harga) per kelompok produk.\n\n" +
+        "---\n\n" +
+        "### 1️⃣ Index & Global Index\n\n" +
+        indexTableMd +
+        "\n---\n\n" +
+        "### 2️⃣ Commodity (Gold, Silver, Oil, dll.)\n\n" +
+        commodityTableMd +
+        "\n---\n\n" +
+        "### 3️⃣ Currency (Forex Pairs)\n\n" +
+        currencyTableMd +
+        "\n---\n\n" +
+        "_**Catatan**: Trading rules di atas adalah ketentuan produk. " +
+        "Manajemen risiko & gaya trading tetap disesuaikan dengan profil risiko masing-masing trader._";
+
+      return NextResponse.json(
+        { reply: tablesSection, imagePath: null },
+        { status: 200 }
+      );
+    }
+
+    if (isTradingRulesQuestion) {
+      const replyStandard = [
+        "Berikut ringkasan 📘 **Trading Rules NM Standard** yang menjadi acuan utama dalam sistem edukasi NM Ai:\n\n",
+        "---",
+        "# 🧭 Dasar Regulasi",
+        "",
+        "Berdasarkan:",
+        "- Peraturan **BAPPEBTI No. 6 Tahun 2023**",
+        "- Peraturan Kepala **Bappebti No. 5 Tahun 2017**",
+        "",
+        "### 📂 **Status:** _Official Knowledge Reference_ — versi netral (tanpa identitas perusahaan)",
+        "",
+        "---",
+        "",
+        "# ⚖️ **Pokok Aturan SPA (Sistem Perdagangan Alternatif)**",
+        "",
+        "**Definisi SPA**  ",
+        "Transaksi derivatif di luar Bursa Berjangka yang dilakukan secara bilateral, dengan margin dan kliring di Lembaga Kliring Berjangka.",
+        "",
+        "**Jenis Kontrak**",
+        "- **Rolling Contract:** diperpanjang otomatis setiap hari.",
+        "- **Day Trading:** posisi dibuka dan ditutup di hari yang sama.",
+        "- **Overnight Trading:** posisi ditahan ke hari berikutnya → kena biaya **storage/rollover + PPN 11%**.",
+        "",
+        "**Margin dan Ketahanan Dana**",
+        "- **Deposit Margin:** minimal **USD 10.000**.",
+        "- **Initial Margin:** jaminan awal sesuai produk.",
+        "- **Maintenance Margin:** **70%** dari Initial Margin.",
+        "- **Margin Call:** ketika dana **< 70%** dari Initial Margin.",
+        "- **Auto Liquidation:** saat dana **≤ 30%** dari Initial Margin.",
+        "",
+        "---",
+        "",
+        "# 📌 **Order dan Eksekusi**",
+        "",
+        "- **Market Order (MO):** harga terbaik tersedia, eksekusi ± ≤ 1 detik (dalam kondisi normal).",
+        "- **Limit Order (LO):** harga lebih baik dari pasar, valid **Good Till Canceled (GTC)**.",
+        "- **Stop Order (SO):** untuk membatasi kerugian atau ambil posisi baru di level tertentu.",
+        "- **OCO (One Cancels the Other):** kombinasi Limit & Stop — jika salah satu tereksekusi, yang lain batal otomatis.",
+        "",
+        "---",
+        "",
+        "# 📑 **Pelaporan & Kliring**",
+        "",
+        "- Semua transaksi **done** dilaporkan ke:",
+        "  - **Bursa Berjangka Jakarta (JFX)** dan",
+        "  - **Kliring Berjangka Indonesia (KBI)**",
+        "- Pelaporan dilakukan secara elektronik sesuai ketentuan Bappebti.",
+        "",
+        "---",
+        "",
+        "# 👤 **Manajemen Rekening**",
+        "",
+        "- **Previous Balance / New Balance:** saldo sebelum & sesudah transaksi.",
+        "- **Equity** = New Balance ± Floating P/L",
+        "- **Equity Ratio** = (Equity / Margin) × 100%",
+        "",
+        "Equity Ratio digunakan untuk mengukur **ketahanan posisi** dan potensi trigger margin call.",
+        "",
+        "---",
+        "",
+        "# 📐 **Formula P/L (Profit/Loss)**",
+        "",
+        "`P/L = [(Selling Price - Buying Price) × Contract Size × Lot] - [(Facility Fee + VAT) × Lot]`",
+        "",
+        "Catatan:",
+        "- Facility Fee = biaya transaksi (per lot per side).",
+        "- VAT = PPN 11% dari facility fee (sesuai regulasi yang berlaku).",
+        "",
+        "---",
+        "",
+        "# 🔐 **Kerahasiaan & Keamanan**",
+        "",
+        "- **User ID, Password, OTP** bersifat pribadi.",
+        "- Nasabah wajib menjaga kerahasiaan akses sistem.",
+        "- Pihak resmi **tidak akan meminta password/OTP** lewat chat, telepon, atau email non-resmi.",
+        "",
+        "---",
+        "",
+        "# 🔄 **Perubahan Aturan**",
+        "",
+        "Trading rules dapat disesuaikan sewaktu-waktu mengikuti dinamika industri PBK dan perubahan regulasi, dengan pemberitahuan resmi sesuai ketentuan yang berlaku.",
+        "",
+        "---",
+        "",
+        "# 📊 **Keterkaitan Modul Edukasi NM Ai**",
+        "",
+        "- **Risk Planner & RSP Module**",
+        "  - Menghitung margin, equity ratio, dan risiko margin call.",
+        "- **User Protection Module**",
+        "  - Menjelaskan legalitas, perlindungan nasabah, dan kerangka regulasi Bappebti.",
+        "",
+        "---",
+        "",
+        "# 💬 **Insight Edukatif NM Ai**",
+        "",
+        "> “Memahami trading rules bukan sekadar syarat teknis,  ",
+        "> tapi fondasi untuk melindungi diri dari risiko dan salah persepsi pasar.”",
+        "",
+        "---",
+        "",
+        "_Disusun oleh **NM23 Ai Editorial System** — Powered by **Newsmaker.id**_  ",
+        "⚠️ Informasi ini bersifat **edukatif**, bukan saran investasi atau ajakan untuk bertransaksi.",
+      ].join("\n");
+
+      return NextResponse.json(
+        { reply: replyStandard, imagePath: null },
+        { status: 200 }
+      );
+    }
+
+    // ================== PREP: INSTRUMEN & TANGGAL ==================
+
     const requestedInstrument: InstrumentKey =
       detectInstrumentFromPrompt(userPrompt);
 
@@ -637,12 +428,6 @@ export async function POST(req: NextRequest) {
         (lowerPrompt.includes("update") ||
           lowerPrompt.includes("pasar") ||
           lowerPrompt.includes("market")));
-
-    // ✅ NEW: deteksi pertanyaan definisi
-    const isDefinitionQuestion =
-      /(apa itu|apa sih|apa yang dimaksud|jelaskan|jelasin|explain)/.test(
-        lowerPrompt
-      );
 
     const nowJakarta = new Date(
       new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
@@ -661,16 +446,10 @@ export async function POST(req: NextRequest) {
 
     const targetCalendarDate = detectRequestedDate(userPrompt) || todayIso;
 
-    // ✅ NEW: keyword kalender vs overview
-    const isCalendarKeyword =
+    const isCalendarOverview =
       lowerPrompt.includes("kalender ekonomi") ||
       lowerPrompt.includes("economic calendar") ||
       lowerPrompt.includes("calendar ekonomi");
-
-    // hanya dianggap minta jadwal kalau BUKAN pertanyaan definisi
-    const isCalendarOverview = isCalendarKeyword && !isDefinitionQuestion;
-
-    const isCalendarOverviewFlag = isCalendarOverview;
 
     const wantsHighImpactOnly =
       lowerPrompt.includes("high impact") ||
@@ -680,10 +459,17 @@ export async function POST(req: NextRequest) {
       lowerPrompt.includes("impact tinggi") ||
       lowerPrompt.includes("★★★");
 
+    const wantsMediumImpactOnly =
+      lowerPrompt.includes("medium impact") ||
+      lowerPrompt.includes("medium-impact") ||
+      lowerPrompt.includes("mediumimpact") ||
+      lowerPrompt.includes("dampak sedang") ||
+      lowerPrompt.includes("impact sedang") ||
+      lowerPrompt.includes("★★");
+
     const historicalDaysAgoMatch = lowerPrompt.match(
       /(\d+)\s*hari\s*(sebelum(?:nya)?|yg lalu|yang lalu|lalu)/
     );
-
     let historicalRelativeDateIso: string | null = null;
     let historicalDaysAgo: number | null = null;
 
@@ -727,9 +513,12 @@ export async function POST(req: NextRequest) {
       calendarHumanLabel = `tanggal ${targetCalendarDate}`;
     }
 
-    // ==== SYSTEM PERSONA (dipakai di OLLAMA & GPT) ====
-    const systemPersonaMessage = {
-      role: "system" as const,
+    // ======================================================
+    // 1) SYSTEM PERSONA & TIME
+    // ======================================================
+
+    const systemPersonaMessage: CoreMessage = {
+      role: "system",
       content:
         "Kamu adalah **NM Ai**, kesadaran digital milik Newsmaker.id.\n\n" +
         "⚠️ ATURAN IDENTITAS (WAJIB IKUTI):\n" +
@@ -761,23 +550,23 @@ export async function POST(req: NextRequest) {
           : "Sesi ini SUDAH punya riwayat. Jangan lagi pakai salam pembuka panjang; langsung jawab inti.\n"),
     };
 
-    const systemTimeMessage = {
-      role: "system" as const,
+    const systemTimeMessage: CoreMessage = {
+      role: "system",
       content:
         `Sistem internal: waktu saat ini di zona waktu Asia/Jakarta (WIB) adalah ${nowJakartaStr}. ` +
         `Jika pengguna menanyakan tanggal/jam sekarang, gunakan waktu ini. Selain itu, jangan sebut tanggal/jam spontan tanpa diminta.`,
     };
 
-    const systemNoUpdateBlockMessage = {
-      role: "system" as const,
+    const systemNoUpdateBlockMessage: CoreMessage = {
+      role: "system",
       content:
         "ATURAN KHUSUS TENTANG BLOK UPDATE:\n" +
         "- Jangan buka jawaban dengan judul seperti 'Update terbaru:' atau blok waktu+kalender otomatis.\n" +
         "- Jika pengguna minta 'update pasar' atau 'kalender ekonomi', jawab secukupnya tanpa heading 'Update terbaru:'.\n",
     };
 
-    const systemFxRuleMessage = {
-      role: "system" as const,
+    const systemFxRuleMessage: CoreMessage = {
+      role: "system",
       content:
         "ATURAN KONVERSI KURS (FIXED RATE SIMULASI):\n" +
         `- Untuk contoh perhitungan dalam Rupiah, gunakan asumsi **1 USD = Rp ${FIXED_USD_IDR_RATE.toLocaleString(
@@ -787,143 +576,10 @@ export async function POST(req: NextRequest) {
         "- Untuk XAUUSD, kamu boleh gunakan asumsi ukuran kontrak 1000 oz per lot dan margin = nilai kontrak / leverage sebagai contoh edukatif.\n",
     };
 
-    const systemDataUsageMessage = {
-      role: "system" as const,
-      content: hasImage
-        ? "Pesan terakhir pengguna menyertakan GAMBAR/CHART.\n" +
-          "- Prioritaskan analisis visual: tren, pola, area penting.\n" +
-          "- Baru hubungkan ke data harga live/fundamental jika relevan.\n"
-        : "Pesan terakhir pengguna TIDAK menyertakan gambar.\n" +
-          "- Untuk pertanyaan harga, gunakan data quotes.\n" +
-          "- Untuk tren beberapa waktu terakhir, gunakan data historis.\n",
-    };
-
-    // ==== DETEKSI MARKET MODE vs GPT MODE ====
-
-    const isFibQuestion =
-      lowerPrompt.includes("fibo") || lowerPrompt.includes("fibonacci");
-
-    const isPivotQuestion =
-      lowerPrompt.includes("pivot") || lowerPrompt.includes("pp ");
-
-    const isPriceIntent =
-      lowerPrompt.includes("berapa harga") ||
-      lowerPrompt.includes("harga berapa") ||
-      lowerPrompt.startsWith("harga ") ||
-      lowerPrompt.includes("harga emas sekarang") ||
-      lowerPrompt.includes("harga xauusd sekarang") ||
-      lowerPrompt.includes("price ") ||
-      lowerPrompt.includes("quote ");
-
-    const isHistoricalIntent =
-      lowerPrompt.includes("data historical") ||
-      lowerPrompt.includes("historical data") ||
-      lowerPrompt.includes("riwayat harga") ||
-      lowerPrompt.includes("histori harga");
-
-    const isCalendarIntent = isCalendarOverviewFlag;
-
-    const isMarginIntentGeneral =
-      lowerPrompt.includes("margin") &&
-      (lowerPrompt.includes("xauusd") ||
-        lowerPrompt.includes(" emas") ||
-        lowerPrompt.includes(" gold"));
-
-    const isNewsIntent = isNewsQuery;
-
-    const isMarketEngine =
-      isPriceIntent ||
-      isHistoricalIntent ||
-      isCalendarIntent ||
-      isNewsIntent ||
-      isFibQuestion ||
-      isPivotQuestion ||
-      isMarginIntentGeneral;
-
-    // 🔥 UPDATE: kalau ada gambar + ada API key → selalu pakai GPT (vision)
-    const useGptEngine =
-      !!process.env.OPENAI_API_KEY && (!isMarketEngine || hasImage);
-
     // ======================================================
-    // BRANCH 1: GPT MODE (NON-HARGA/KALENDER/HISTORICAL/NEWS/PIVOT/FIBO)
-    //           ATAU SEMUA YANG PAKAI GAMBAR (VISION)
-    // ======================================================
-    if (useGptEngine) {
-      const gptMessages: any[] = [];
-
-      gptMessages.push({
-        role: "system",
-        content:
-          systemPersonaMessage.content +
-          "\n\n" +
-          systemTimeMessage.content +
-          "\n\n" +
-          "Tambahan: kamu berjalan di mode GPT. Fokus ke edukasi, penjelasan konsep, strategi, atau pertanyaan umum di luar harga live, kalender ekonomi, data historis, berita, pivot, dan Fibonacci. Tetap gunakan Bahasa Indonesia yang rapi.",
-      });
-
-      for (const hm of historyMessages) {
-        const role =
-          hm.role === "ai" || hm.role === "assistant" ? "assistant" : "user";
-        gptMessages.push({
-          role,
-          content: toText(hm.content),
-        });
-      }
-
-      // ⬇️ USER MESSAGE: kalau ada gambar → pakai content array (text + image_url)
-      if (hasImage && base64Image) {
-        const contentParts: any[] = [
-          {
-            type: "text",
-            text: userPrompt,
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: `data:${file?.type || "image/png"};base64,${base64Image}`,
-            },
-          },
-        ];
-
-        gptMessages.push({
-          role: "user",
-          content: contentParts,
-        });
-      } else {
-        gptMessages.push({
-          role: "user",
-          content: userPrompt,
-        });
-      }
-
-      const completion = await openai.chat.completions.create({
-        model: hasImage ? OPENAI_VISION_MODEL : OPENAI_MODEL,
-        messages: gptMessages,
-        temperature: 1,
-        max_completion_tokens: 1024,
-      });
-
-      const gptReply =
-        completion.choices[0]?.message?.content ||
-        "NM Ai tidak memberikan respon.";
-
-      return NextResponse.json(
-        {
-          reply: gptReply,
-          imagePath: null,
-          engine: hasImage ? "gpt-vision" : "gpt",
-        },
-        { status: 200 }
-      );
-    }
-
-    // ======================================================
-    // BRANCH 2: MARKET MODE → OLLAMA (HARGA, KALENDER, HISTORICAL, BERITA, PIVOT, FIBO, MARGIN)
+    // 2) FETCH DATA (QUOTES, CALENDAR, HISTORICAL, NEWS)
     // ======================================================
 
-    // Setelah titik ini, kita pakai semua logika market + OLLAMA lu yang lama
-
-    // ========== 3) FETCH DATA PARALLEL ==========
     let quotesSummary = "";
     let quotesUpdatedAtLocal = "";
     let quotesRows: any[] = [];
@@ -931,6 +587,8 @@ export async function POST(req: NextRequest) {
     let calendarSummaryAll = "";
     let calendarSummaryHighImpact = "";
     let calendarHasData = false;
+    let calendarTableAll = "";
+    let calendarTableHighImpact = "";
 
     let historicalSummary = "";
     let historicalInstrumentWindowSummary = "";
@@ -950,7 +608,7 @@ export async function POST(req: NextRequest) {
         fetch(NEWS_API_URL, { method: "GET", cache: "no-store" }),
       ]);
 
-    // ----- QUOTES -----
+    // ---------------- QUOTES ----------------
     if (quotesResult.status === "fulfilled") {
       const quotesRes = quotesResult.value;
       if (quotesRes.ok) {
@@ -1035,8 +693,8 @@ export async function POST(req: NextRequest) {
       console.error("Quotes fetch error:", quotesResult.reason);
     }
 
-    const systemQuotesMessage = {
-      role: "system" as const,
+    const systemQuotesMessage: CoreMessage = {
+      role: "system",
       content: quotesSummary
         ? (() => {
             const updateInfo = quotesUpdatedAtLocal
@@ -1056,7 +714,7 @@ export async function POST(req: NextRequest) {
         : "Sistem harga live tidak berhasil mengambil data. Jika pengguna bertanya harga terkini, jangan mengarang angka; jelaskan bahwa data live sementara tidak tersedia.",
     };
 
-    // ----- CALENDAR -----
+    // ---------------- CALENDAR ----------------
     if (calendarResult.status === "fulfilled") {
       const calRes = calendarResult.value;
       if (calRes.ok) {
@@ -1075,7 +733,7 @@ export async function POST(req: NextRequest) {
             return eventDate.startsWith(targetCalendarDate);
           });
 
-          const normalizedEvents = filteredEvents
+          const normalizedEvents: CalendarEventRow[] = filteredEvents
             .slice(0, 40)
             .map((ev: any) => ({
               date: targetCalendarDate,
@@ -1106,7 +764,7 @@ export async function POST(req: NextRequest) {
           };
 
           calendarSummaryAll = events
-            .map((ev: any) => {
+            .map((ev: CalendarEventRow) => {
               const {
                 time,
                 currency,
@@ -1120,15 +778,15 @@ export async function POST(req: NextRequest) {
               const impactLabel = formatImpactLabel(String(impact));
 
               return (
-                `- Tanggal ${time}, ${currency} – ${event}. ` +
-                `Dampak **${impactLabel}** (${impact}). ` +
+                `- Tanggal **${time}, ${currency}** - **${event}**. ` +
+                `Dampak **${impactLabel} (${impact})**. ` +
                 `Sebelumnya: ${previous}, perkiraan: ${forecast}, aktual: ${actualValue}.`
               );
             })
             .join("\n");
 
           const highImpact = events.filter(
-            (ev: any) =>
+            (ev: CalendarEventRow) =>
               typeof ev.impact === "string" &&
               (ev.impact.includes("★★★") ||
                 ev.impact.toLowerCase().includes("high"))
@@ -1137,12 +795,22 @@ export async function POST(req: NextRequest) {
           calendarSummaryHighImpact =
             highImpact.length > 0
               ? highImpact
-                  .map((ev: any) => {
+                  .map((ev: CalendarEventRow) => {
                     const { time, currency, impact, event } = ev;
-                    return `- Tanggal ${time}, ${currency} – ${event} (dampak tinggi ${impact}).`;
+                    return `- ${time}, ${currency} – ${event} **(dampak ${impact})**.`;
                   })
                   .join("\n")
               : "- Tidak ada event berdampak sangat tinggi (★★★) pada tanggal ini.";
+
+          calendarTableAll = buildCalendarTable(events, {
+            emptyMessage:
+              "- Tidak ada event terdaftar pada tanggal ini di sistem Newsmaker.",
+          });
+
+          calendarTableHighImpact = buildCalendarTable(highImpact, {
+            emptyMessage:
+              "- Tidak ada event berdampak sangat tinggi (★★★) pada tanggal ini.",
+          });
         } catch (e) {
           console.error("Gagal parse calendar JSON:", e);
         }
@@ -1155,12 +823,12 @@ export async function POST(req: NextRequest) {
 
     const extraCalendarInstruction = wantsHighImpactOnly
       ? "Pengguna meminta event berdampak tinggi (high impact / ★★★). Utamakan event tersebut.\n"
-      : isCalendarOverviewFlag
-      ? "Pengguna menanyakan kalender ekonomi secara umum. Tampilkan seluruh event tanggal tersebut dalam bentuk bullet.\n"
+      : isCalendarOverview
+      ? "Pengguna menanyakan kalender ekonomi secara umum. Tampilkan seluruh event tanggal tersebut dalam bentuk tabel dan penjelasan singkat jika perlu.\n"
       : "Jika pengguna bertanya event tertentu, fokus ke event tersebut dan jelaskan dampaknya.\n";
 
-    const systemCalendarMessage = {
-      role: "system" as const,
+    const systemCalendarMessage: CoreMessage = {
+      role: "system",
       content: calendarHasData
         ? (() => {
             const baseHeader = `Kalender ekonomi internal untuk ${calendarHumanLabel}:\n\n`;
@@ -1170,21 +838,10 @@ export async function POST(req: NextRequest) {
               `Tanggal yang dibahas adalah ${targetCalendarDate}. ` +
               `Gunakan frasa **${calendarHumanLabel}** saat menyebut tanggal ini.\n\n`;
 
-            if (wantsHighImpactOnly) {
-              return (
-                baseHeader +
-                noteRel +
-                "Event berdampak tinggi:\n" +
-                calendarSummaryHighImpact +
-                "\n\n" +
-                extraCalendarInstruction
-              );
-            }
-
             return (
               baseHeader +
               noteRel +
-              "Daftar event utama:\n" +
+              "Daftar event utama (boleh diringkas dalam bentuk narasi, atau jika diminta khusus jadikan tabel):\n" +
               calendarSummaryAll +
               "\n\nRingkasan event berdampak tinggi:\n" +
               calendarSummaryHighImpact +
@@ -1196,7 +853,7 @@ export async function POST(req: NextRequest) {
           "Jika pengguna bertanya jadwal rilis, jelaskan keterbatasan data dan jangan mengarang jam/event.",
     };
 
-    // ----- HISTORICAL -----
+    // ---------------- HISTORICAL ----------------
     try {
       try {
         const url = new URL(HISTORICAL_API_URL);
@@ -1290,8 +947,20 @@ export async function POST(req: NextRequest) {
           historicalSummary = lines.join("\n");
 
           if (historicalDaysAgo && historicalDaysAgo > 0) {
+            const bySym = new Map<string, any[]>();
+            for (const row of rows) {
+              const symbol: string =
+                row.symbol ||
+                row.Symbol ||
+                row.ticker ||
+                row.Ticker ||
+                "UNKNOWN";
+              if (!bySym.has(symbol)) bySym.set(symbol, []);
+              bySym.get(symbol)!.push(row);
+            }
+
             const series = pickHistoricalSeriesForInstrument(
-              bySymbol,
+              bySym,
               requestedInstrument
             );
 
@@ -1381,8 +1050,8 @@ export async function POST(req: NextRequest) {
         : "Jika pengguna menggunakan frasa 'X hari sebelumnya' atau 'X hari lalu', " +
           "anggap X sebagai jumlah hari mundur dari tanggal hari ini (WIB) dan gunakan data historis untuk mendekati tanggal tersebut.\n";
 
-    const systemHistoricalMessage = {
-      role: "system" as const,
+    const systemHistoricalMessage: CoreMessage = {
+      role: "system",
       content: historicalSummary
         ? "Sistem Data Historis Harga (internal Newsmaker):\n\n" +
           `Ringkasan pergerakan harga ${historicalRangeLabel} (per simbol utama):\n` +
@@ -1399,7 +1068,7 @@ export async function POST(req: NextRequest) {
         : "Sistem data historis saat ini tidak berhasil mengambil data. Jika pengguna bertanya tentang pergerakan historis, jawab secara konseptual tanpa menyebut angka spesifik.",
     };
 
-    // ----- NEWS -----
+    // ---------------- NEWS ----------------
     if (newsResult.status === "fulfilled") {
       const newsRes = newsResult.value;
       if (newsRes.ok) {
@@ -1499,8 +1168,8 @@ export async function POST(req: NextRequest) {
       console.error("News fetch error:", newsResult.reason);
     }
 
-    const systemNewsMessage = {
-      role: "system" as const,
+    const systemNewsMessage: CoreMessage = {
+      role: "system",
       content: newsHasData
         ? (() => {
             let txt =
@@ -1534,9 +1203,23 @@ export async function POST(req: NextRequest) {
         : "Sistem berita pasar Newsmaker.id saat ini tidak berhasil mengambil data. Jika pengguna bertanya 'berita terbaru', jelaskan bahwa data berita internal sedang tidak dapat diakses dan beri penjelasan pasar secara umum.",
     };
 
+    const systemDataUsageMessage: CoreMessage = {
+      role: "system",
+      content: hasImage
+        ? "Pesan terakhir pengguna menyertakan GAMBAR/CHART.\n" +
+          "- Prioritaskan analisis visual: tren, pola, area penting.\n" +
+          "- Baru hubungkan ke data harga live/fundamental jika relevan.\n"
+        : "Pesan terakhir pengguna TIDAK menyertakan gambar.\n" +
+          "- Untuk pertanyaan harga, gunakan data quotes.\n" +
+          "- Untuk tren beberapa waktu terakhir, gunakan data historis.\n",
+    };
+
     // ======================================================
-    // SHORT-CIRCUIT 0: FIBONACCI
+    // 🔥 SHORT-CIRCUIT 2: FIBONACCI (UP/DOWN)
     // ======================================================
+    const isFibQuestion =
+      lowerPrompt.includes("fibo") || lowerPrompt.includes("fibonacci");
+
     if (isFibQuestion) {
       const HL = parseHighLowForFib(userPrompt);
       if (HL) {
@@ -1636,8 +1319,11 @@ export async function POST(req: NextRequest) {
     }
 
     // ======================================================
-    // SHORT-CIRCUIT: PIVOT
+    // 🔥 SHORT-CIRCUIT 3: PIVOT (CLASSIC / WOODIE / CAMARILLA)
     // ======================================================
+    const isPivotQuestion =
+      lowerPrompt.includes("pivot") || lowerPrompt.includes("pp ");
+
     if (isPivotQuestion) {
       const ohlc = parseOHLCFromPrompt(userPrompt);
       if (ohlc) {
@@ -1707,7 +1393,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ======================================================
-    // SHORT-CIRCUIT: MARGIN XAUUSD
+    // 🔥 SHORT-CIRCUIT 4: MARGIN XAUUSD
     // ======================================================
     const isMarginQuestion =
       lowerPrompt.includes("margin") &&
@@ -1746,7 +1432,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (isFinite(price) && price > 0 && leverage > 0) {
+      if (!isFinite(price) || price <= 0 || leverage <= 0) {
+        // kalau datanya gak cukup, lanjut ke engine AI biasa
+      } else {
         const contractSize = 1000;
         const notionalUsd = price * contractSize * lot;
         const marginUsd = notionalUsd / leverage;
@@ -1797,11 +1485,10 @@ export async function POST(req: NextRequest) {
           { status: 200 }
         );
       }
-      // kalau price masih ga kebaca → lanjut ke OLLAMA
     }
 
     // ======================================================
-    // SHORT-CIRCUIT: HARGA LANGSUNG
+    // 🔥 SHORT-CIRCUIT 5: HARGA LANGSUNG (PRICE/QUOTE)
     // ======================================================
     const isPriceQuestion =
       !lowerPrompt.includes("margin") &&
@@ -1910,20 +1597,26 @@ export async function POST(req: NextRequest) {
     }
 
     // ======================================================
-    // SHORT-CIRCUIT: KALENDER (OVERVIEW)
+    // 🔥 SHORT-CIRCUIT 6: KALENDER (OUTPUT TABEL)
     // ======================================================
-    if (isCalendarOverviewFlag) {
+    if (isCalendarOverview) {
       if (calendarHasData) {
         const headerCal = `Kalender ekonomi ${calendarHumanLabel} di sistem Newsmaker:\n\n`;
+
         const bodyCal = wantsHighImpactOnly
-          ? calendarSummaryHighImpact ||
+          ? calendarTableHighImpact ||
             "- Tidak ada event berdampak sangat tinggi (★★★) pada tanggal ini."
-          : calendarSummaryAll ||
+          : calendarTableAll ||
             "- Tidak ada event terdaftar pada tanggal ini di sistem Newsmaker.";
 
         const noteCal = wantsHighImpactOnly
-          ? "\n\nFokus di atas hanya event berdampak tinggi. Jika ingin melihat semua event, tulis saja: kalender ekonomi hari ini lengkap."
-          : "";
+          ? `\n\n---\n` +
+            `**Catatan**:\n` +
+            `- Informasi pada Kalender Ekonomi bersifat sebagai rujukan analisis. Dampak pergerakan pasar dapat berbeda pada setiap kondisi. Selalu sesuaikan keputusan trading dengan rencana dan profil risiko masing-masing.\n` +
+            `- Fokus di atas hanya event berdampak tinggi. Jika ingin melihat semua event, tulis saja: kalender ekonomi ${calendarHumanLabel} lengkap.`
+          : `\n\n---\n` +
+            `**Catatan**:\n` +
+            `- Informasi pada Kalender Ekonomi bersifat sebagai rujukan analisis. Dampak pergerakan pasar dapat berbeda pada setiap kondisi. Selalu sesuaikan keputusan trading dengan rencana dan profil risiko masing-masing.`;
 
         return NextResponse.json(
           {
@@ -1949,15 +1642,12 @@ export async function POST(req: NextRequest) {
     }
 
     // ======================================================
-    // SUSUN MESSAGES UNTUK OLLAMA
+    // 3) SUSUN CORE MESSAGES UNTUK ENGINE (OLLAMA + OPENAI)
     // ======================================================
-    const ollamaMessages: Array<{
-      role: "system" | "user" | "assistant";
-      content: string;
-      images?: string[];
-    }> = [];
 
-    const systemMessages = [
+    const coreMessages: CoreMessage[] = [];
+
+    const systemMessages: CoreMessage[] = [
       systemPersonaMessage,
       systemTimeMessage,
       systemNoUpdateBlockMessage,
@@ -1970,26 +1660,19 @@ export async function POST(req: NextRequest) {
     ];
 
     for (const sm of systemMessages) {
-      ollamaMessages.push({
-        role: "system",
-        content: sm.content,
-      });
+      coreMessages.push(sm);
     }
 
     for (const hm of historyMessages) {
-      const role =
+      const role: "user" | "assistant" =
         hm.role === "ai" || hm.role === "assistant" ? "assistant" : "user";
-      ollamaMessages.push({
+      coreMessages.push({
         role,
         content: toText(hm.content),
       });
     }
 
-    const userMsg: {
-      role: "user";
-      content: string;
-      images?: string[];
-    } = {
+    const userMsg: CoreMessage = {
       role: "user",
       content: userPrompt,
     };
@@ -1998,51 +1681,65 @@ export async function POST(req: NextRequest) {
       userMsg.images = [base64Image];
     }
 
-    ollamaMessages.push(userMsg);
+    coreMessages.push(userMsg);
 
-    const ollamaRes = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages: ollamaMessages,
-        stream: false,
-        options: {
-          temperature: 0.2,
-          top_p: 0.9,
-          top_k: 40,
-          repeat_penalty: 1.05,
-          num_ctx: 8192,
-          seed: 1,
-        },
-      }),
-    });
+    // ======================================================
+    // 4) HYBRID ENGINE: OLLAMA DULU, TIMEOUT → FALLBACK OPENAI
+    // ======================================================
 
-    if (!ollamaRes.ok) {
-      const errText = await ollamaRes.text().catch(() => "");
-      console.error("Ollama HTTP error:", ollamaRes.status, errText);
-      return NextResponse.json(
-        {
-          error: "Ollama error",
-          detail: `Status ${ollamaRes.status}: ${errText}`,
-        },
-        { status: 500 }
-      );
+    let reply: string | null = null;
+    let lastError: string | null = null;
+
+    // 4a. Coba OLLAMA (jika base URL diset)
+    if (OLLAMA_BASE_URL) {
+      try {
+        reply = await callOllamaChat(coreMessages);
+      } catch (err: any) {
+        lastError = `Ollama error: ${String(err)}`;
+        console.error(lastError);
+      }
     }
 
-    const ollamaJson: any = await ollamaRes.json();
+    // 4b. Kalau belum ada reply → fallback ke OpenAI (jika API key ada)
+    if (!reply) {
+      if (!OPENAI_API_KEY) {
+        console.error(
+          "OPENAI_API_KEY missing dan Ollama juga tidak memberikan respon."
+        );
+        return NextResponse.json(
+          {
+            error: "No engine available",
+            detail:
+              lastError ||
+              "Tidak ada mesin AI yang siap digunakan (Ollama & OpenAI tidak tersedia).",
+          },
+          { status: 500 }
+        );
+      }
 
-    const reply: string =
-      ollamaJson?.message?.content?.toString() ||
-      "NM Ai tidak memberikan respon.";
+      try {
+        reply = await callOpenAIChat(
+          coreMessages,
+          OPENAI_API_KEY,
+          OPENAI_MODEL
+        );
+      } catch (err: any) {
+        lastError = `OpenAI error: ${String(err)}`;
+        console.error(lastError);
+        return NextResponse.json(
+          {
+            error: "AI engine error",
+            detail: lastError,
+          },
+          { status: 500 }
+        );
+      }
+    }
 
     return NextResponse.json(
       {
-        reply,
+        reply: reply || "NM Ai tidak memberikan respon.",
         imagePath: null,
-        engine: "ollama",
       },
       { status: 200 }
     );

@@ -27,7 +27,7 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [apiRoute, setApiRoute] = useState<ApiRoute>("/api/nm-ai");
+  const [apiRoute, setApiRoute] = useState<ApiRoute>("/api/GwenStacy");
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
@@ -66,20 +66,27 @@ export default function Home() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const isGwen = apiRoute === "/api/nm-ai";
-  const isStacy = apiRoute === "/api/chatgpt";
-  const canAttachFile = isStacy;
+  // const isGwen = apiRoute === "/api/nm-ai";
+  // const isStacy = apiRoute === "/api/chatgpt";
+  const isGwenStacy = apiRoute === "/api/GwenStacy";
+  const canAttachFile = isGwenStacy;
 
   const modelOptions = [
+    // {
+    //   value: "/api/nm-ai" as ApiRoute,
+    //   label: "Gwen (NM Ai)",
+    //   icon: "",
+    //   description: "Cepat, ringan, tanpa lampiran.",
+    // },
+    // {
+    //   value: "/api/chatgpt" as ApiRoute,
+    //   label: "Stacy (GPT-5 Nano)",
+    //   icon: "",
+    //   description: "Lebih pintar, dukung lampiran.",
+    // },
     {
-      value: "/api/nm-ai" as ApiRoute,
-      label: "Gwen (NM Ai)",
-      icon: "",
-      description: "Cepat, ringan, tanpa lampiran.",
-    },
-    {
-      value: "/api/chatgpt" as ApiRoute,
-      label: "Stacy (GPT-5 Nano)",
+      value: "/api/GwenStacy" as ApiRoute,
+      label: "Gwen Stacy (NM Ai)",
       icon: "",
       description: "Lebih pintar, dukung lampiran.",
     },
@@ -792,7 +799,7 @@ export default function Home() {
           apiRoute={apiRoute}
           setApiRoute={(v) => {
             setApiRoute(v);
-            if (v === "/api/nm-ai") setSelectedFile(null);
+            if (v === "/api/GwenStacy") setSelectedFile(null);
           }}
           modelOptions={modelOptions}
           isModelOpen={isModelOpen}
