@@ -9,6 +9,8 @@ import {
   faRotateRight,
   faArrowUpFromBracket,
   faTriangleExclamation,
+  faAngleDown,
+  faAngleLeft,
 } from "@fortawesome/free-solid-svg-icons";
 
 // 🔹 REGULAR (far)
@@ -37,6 +39,8 @@ export const byPrefixAndName: Record<
     "triangle-exclamation": faTriangleExclamation,
     "rotate-right": faRotateRight,
     "arrow-up-from-bracket": faArrowUpFromBracket,
+    "angle-down": faAngleDown,
+    faAngleLeft: faAngleLeft,
   },
   far: {
     // versi regular buat code-block header:

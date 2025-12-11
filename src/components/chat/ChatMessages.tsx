@@ -311,7 +311,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               </div>
 
               <div
-                className={`flex items-center gap-2 text-[10px] opacity-70 select-none mt-1 w-full ${
+                className={`flex items-center gap-2 text-[10px] opacity-70 select-none mt-1 ${
                   isAi ? "justify-start ms-2" : "justify-end me-2"
                 }`}
               >

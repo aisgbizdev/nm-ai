@@ -3,6 +3,7 @@ import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash, faAngleLeft } from "@fortawesome/free-solid-svg-icons";
 import { ApiRoute } from "./types";
+import { byPrefixAndName } from "@/utils/fa";
 
 interface ModelOption {
   value: ApiRoute;
@@ -70,7 +71,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
                   }`}
                   aria-hidden
                 >
-                  ▼
+                  <FontAwesomeIcon icon={byPrefixAndName.fas["angle-down"]} />
                 </span>
               </button>
 

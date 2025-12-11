@@ -1609,8 +1609,6 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: OPENAI_MODEL,
           messages: openaiMessages,
-          temperature: 0.2,
-          top_p: 0.9,
         }),
       }
     );
