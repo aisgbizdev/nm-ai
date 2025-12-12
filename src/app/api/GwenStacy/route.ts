@@ -1437,7 +1437,7 @@ export async function POST(req: NextRequest) {
       if (!isFinite(price) || price <= 0 || leverage <= 0) {
         // kalau datanya gak cukup, lanjut ke engine AI biasa
       } else {
-        const contractSize = 1000;
+        const contractSize = 100;
         const notionalUsd = price * contractSize * lot;
         const marginUsd = notionalUsd / leverage;
         const kurs = FIXED_USD_IDR_RATE;
@@ -1462,13 +1462,32 @@ export async function POST(req: NextRequest) {
           maximumFractionDigits: 2,
         });
 
+        const daytradeMarginPerLot = 1000;
+        const overnightMarginPerLot = 2000;
+
         const replyMargin =
           `Simulasi margin XAUUSD (Gold):\n\n` +
+          `- Untuk XAUUSD, gunakan asumsi ukuran kontrak $${contractSize.toLocaleString(
+            "id-ID"
+          )} per toz (contoh edukatif).\n` +
+          `- Jaminan ${lot} lot untuk daytrade: $${(
+            daytradeMarginPerLot * lot
+          ).toLocaleString("id-ID", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          })}.\n` +
+          `- Jaminan ${lot} lot untuk overnight: $${(
+            overnightMarginPerLot * lot
+          ).toLocaleString("id-ID", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          })}.\n\n` +
+          `Detail perhitungan sesuai input:\n` +
           `- Lot: ${lot} lot\n` +
           `- Harga: sekitar ${fmtPrice} USD per troy ounce\n` +
-          `- Ukuran kontrak: ${contractSize.toLocaleString(
+          `- Ukuran kontrak: $${contractSize.toLocaleString(
             "id-ID"
-          )} oz per lot\n` +
+          )} per toz\n` +
           `- Leverage: 1:${leverage}\n\n` +
           `Nilai kontrak (notional) ≈ harga × kontrak × lot\n` +
           `= ${fmtPrice} × ${contractSize.toLocaleString("id-ID")} × ${lot}\n` +
