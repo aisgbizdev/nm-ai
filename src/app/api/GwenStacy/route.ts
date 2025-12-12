@@ -573,7 +573,9 @@ export async function POST(req: NextRequest) {
           "id-ID"
         )}** kecuali pengguna memberi kurs lain.\n` +
         "- Jelaskan bahwa kurs ini hanya asumsi tetap (fixed rate), bukan kurs real-time.\n" +
-        "- Untuk XAUUSD, kamu boleh gunakan asumsi ukuran kontrak 1000 oz per lot dan margin = nilai kontrak / leverage sebagai contoh edukatif.\n",
+        "- Untuk XAUUSD, kamu boleh gunakan asumsi ukuran kontrak $100 per toz sebagai contoh edukatif.\n" +
+        "Jaminan 1 lot adalah $1000 untuk daytrade\n" +
+        "Jaminan 1 lot adalah $2000 untuk overnight\n",
     };
 
     // ======================================================
