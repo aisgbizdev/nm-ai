@@ -16,6 +16,7 @@ export interface ChatMessage {
   sessionId: string;
   role: "user" | "ai";
   text: string;
+  imagePath?: string | null;
   createdAt?: any;
 }
 
@@ -26,8 +27,23 @@ export async function saveMessage(msg: ChatMessage) {
     sessionId: msg.sessionId, // opsional, cuma biar keliatan di Console
     role: msg.role,
     text: msg.text,
+    imagePath: msg.imagePath || null,
     createdAt: serverTimestamp(),
   });
+}
+
+// Simpan shareable snippet (text + optional image) dan kembalikan id
+export async function createShareSnippet(payload: {
+  text: string;
+  imagePath?: string | null;
+}) {
+  const sharesCol = collection(db, "shares");
+  const docRef = await addDoc(sharesCol, {
+    text: payload.text,
+    imagePath: payload.imagePath || null,
+    createdAt: serverTimestamp(),
+  });
+  return docRef.id;
 }
 
 // Ambil semua chat by sessionId (order by time ascending)

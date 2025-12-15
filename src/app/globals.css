@@ -238,3 +238,7 @@ body {
 .animate-shimmer {
   animation: shimmer 1.4s ease-in-out infinite;
 }
+
+.z-70 {
+  z-index: 100;
+}

@@ -2,6 +2,7 @@ import {
   FC,
   ChangeEvent,
   KeyboardEvent,
+  ClipboardEvent,
   RefObject,
   useEffect,
   useRef,
@@ -12,6 +13,7 @@ import {
   faArrowUp,
   faPaperclip,
   faStop,
+  faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { byPrefixAndName } from "@/utils/fa";
 
@@ -19,6 +21,7 @@ interface ChatInputProps {
   canAttachFile: boolean;
   selectedFile: File | null;
   onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onClearFile?: () => void;
   inputValue: string;
   setInputValue: (v: string) => void;
   onSend: () => void;
@@ -27,12 +30,14 @@ interface ChatInputProps {
   syncTextareaHeight: () => void;
   onInterrupt?: () => void;
   canInterrupt?: boolean;
+  onPasteFile?: (file: File) => void;
 }
 
 export const ChatInput: FC<ChatInputProps> = ({
   canAttachFile,
   selectedFile,
   onFileChange,
+  onClearFile,
   inputValue,
   setInputValue,
   onSend,
@@ -41,11 +46,14 @@ export const ChatInput: FC<ChatInputProps> = ({
   syncTextareaHeight,
   onInterrupt,
   canInterrupt = false,
+  onPasteFile,
 }) => {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const fadeOutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeInTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const openInfoModal = () => {
     if (fadeOutTimer.current) {
@@ -98,6 +106,21 @@ export const ChatInput: FC<ChatInputProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith("image/")) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [selectedFile]);
+
+  useEffect(() => {
+    if (!selectedFile && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [selectedFile]);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -109,8 +132,25 @@ export const ChatInput: FC<ChatInputProps> = ({
     }
   };
 
+  const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!onPasteFile) return;
+    const items = event.clipboardData?.items;
+    if (!items || items.length === 0) return;
+
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          event.preventDefault();
+          onPasteFile(file);
+        }
+        break;
+      }
+    }
+  };
+
   return (
-    <footer className="pointer-events-none fixed inset-x-0 bottom-0 pb-3 z-40">
+    <footer className="pointer-events-none fixed inset-x-0 bottom-0 pb-3 z-30">
       <div className="mx-auto w-full max-w-5xl px-3 md:px-6">
         {/* Card input chat */}
         <div
@@ -121,9 +161,41 @@ export const ChatInput: FC<ChatInputProps> = ({
         >
           <div className="px-3 pt-3 md:px-4 md:pt-4">
             {canAttachFile && selectedFile && (
-              <p className="mb-2 truncate text-xs text-zinc-500">
-                📎 {selectedFile.name}
-              </p>
+              <div className="mb-3 flex items-center gap-3 rounded-xl border border-dashed border-blue-200/80 bg-blue-50/60 p-2.5">
+                {previewUrl ? (
+                  <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-blue-100 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewUrl}
+                      alt={selectedFile.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-blue-100 bg-white text-blue-500 shadow-sm">
+                    <FontAwesomeIcon icon={faPaperclip} size="sm" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-blue-700">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-blue-500">
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                    onClearFile?.();
+                  }}
+                  className="flex h-9 items-center justify-center rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-blue-600 shadow-sm transition hover:-translate-y-px hover:border-blue-300 hover:bg-blue-50"
+                  aria-label="Batalkan lampiran"
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
+              </div>
             )}
 
             <form
@@ -142,6 +214,7 @@ export const ChatInput: FC<ChatInputProps> = ({
                   <FontAwesomeIcon icon={faPaperclip} size="sm" />
                   <input
                     type="file"
+                    ref={fileInputRef}
                     className="hidden"
                     onChange={onFileChange}
                   />
@@ -160,6 +233,7 @@ export const ChatInput: FC<ChatInputProps> = ({
                 className="min-h-14 max-h-52 flex-1 resize-none rounded-xl border border-zinc-200/80 bg-white/70 px-4 py-3 text-base text-gray-900 shadow-inner outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
                 rows={1}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
               />
 
               <button

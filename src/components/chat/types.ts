@@ -25,14 +25,14 @@ export const navigatorMenu = [
     example: "Hitung pivot dari O 4210, H 4250, L 4180, C 4220",
     pill: "Pivot",
   },
-  // {
-  //   id: "3",
-  //   title: "Fibonacci Zone",
-  //   description:
-  //     "Hitung level Fibonacci retracement & projection untuk uptrend/downtrend.",
-  //   example: "Hitung Fibonacci uptrend dari high 4300 dan low 4200",
-  //   pill: "Fibonacci",
-  // },
+  {
+    id: "3",
+    title: "Fibonacci Zone",
+    description:
+      "Hitung level Fibonacci retracement & projection untuk uptrend/downtrend.",
+    example: "Hitung Fibonacci uptrend dari high 4300 dan low 4200",
+    pill: "Fibonacci",
+  },
   {
     id: "4",
     title: "Trading Rules",
@@ -51,7 +51,7 @@ export const navigatorMenu = [
   },
   {
     id: "6",
-    title: "Price Checker",
+    title: "Price Update",
     description:
       "Cek harga terkini emas, perak, oil, indeks atau pasangan mata uang.",
     example: "Berapa harga emas dan perak sekarang?",

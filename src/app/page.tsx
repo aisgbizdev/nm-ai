@@ -9,6 +9,7 @@ import {
   saveMessage,
   clearSessionMessages,
   type ChatMessage,
+  createShareSnippet,
 } from "@/lib/chatStore";
 
 import { UiMessage, ApiRoute, stripMarkdown } from "@/components/chat/types";
@@ -21,6 +22,12 @@ import { WelcomeNavigator } from "@/components/chat/WelcomeNavigator";
 import { ScrollToBottomButton } from "@/components/chat/ScrollToBottomButton";
 
 const MIN_SPLASH_MS = 5000; // minimal 5 detik splash
+
+// ✅ Hemat token: batasi history yang dikirim ke server
+const MAX_HISTORY = 6;
+const MAX_CHARS_PER_MSG = 700;
+const clamp = (s: string, n: number) =>
+  s.length > n ? s.slice(0, n) + "…" : s;
 
 export default function Home() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -46,7 +53,6 @@ export default function Home() {
   // 🔥 SPLASH STATE
   const [showSplash, setShowSplash] = useState(true);
   const [isFadingSplash, setIsFadingSplash] = useState(false);
-  const [isFadingIn, setIsFadingIn] = useState(false);
 
   const copyToastTimeout = useRef<NodeJS.Timeout | null>(null);
   const copyToastHideTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -61,46 +67,37 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingRequestRef = useRef<AbortController | null>(null);
 
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   // TTS
   const [canSpeak, setCanSpeak] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // const isGwen = apiRoute === "/api/nm-ai";
-  // const isStacy = apiRoute === "/api/chatgpt";
   const isGwenStacy = apiRoute === "/api/GwenStacy";
   const canAttachFile = isGwenStacy;
 
   const modelOptions = [
-    // {
-    //   value: "/api/nm-ai" as ApiRoute,
-    //   label: "Gwen (NM Ai)",
-    //   icon: "",
-    //   description: "Cepat, ringan, tanpa lampiran.",
-    // },
-    // {
-    //   value: "/api/chatgpt" as ApiRoute,
-    //   label: "Stacy (GPT-5 Nano)",
-    //   icon: "",
-    //   description: "Lebih pintar, dukung lampiran.",
-    // },
     {
       value: "/api/GwenStacy" as ApiRoute,
-      label: "Gwen Stacy (NM Ai)",
+      label: "Gwen Stacy",
       icon: "",
       description: "Lebih pintar, dukung lampiran.",
     },
   ];
 
   // ====== SPLASH 5 DETIK + FADE OUT ======
-
   useEffect(() => {
-    // Setelah durasi splash → mulai fade out
     const fadeOutTimer = setTimeout(() => {
       setIsFadingSplash(true);
     }, MIN_SPLASH_MS);
 
-    // Setelah fade out selesai → remove dari DOM
     const hideTimer = setTimeout(() => {
       setShowSplash(false);
     }, MIN_SPLASH_MS + 500);
@@ -168,6 +165,7 @@ export default function Home() {
         text: msg.text,
         sender: msg.role === "ai" ? "ai" : "user",
         timestamp,
+        imagePath: msg.imagePath || undefined,
       };
     };
 
@@ -323,19 +321,46 @@ export default function Home() {
     }
   };
 
-  const handleShare = async (text: string) => {
-    const plainText = stripMarkdown(text);
-    try {
-      if (typeof navigator !== "undefined" && (navigator as any).share) {
-        await (navigator as any).share({ text: plainText });
-        showCopyToast("Tautan/teks dibagikan.");
-        return;
-      }
+  // ✅ FIX TYPE: shareModal butuh "loading"
+  const [shareModal, setShareModal] = useState<{
+    open: boolean;
+    text: string;
+    link: string;
+    loading: boolean;
+  }>({ open: false, text: "", link: "", loading: false });
 
-      await handleCopy(plainText);
+  const handleShare = async (message: UiMessage) => {
+    const plainText = stripMarkdown(message.text);
+    if (!plainText && !message.imagePath) {
+      showCopyToast("Tidak ada konten untuk dibagikan.");
+      return;
+    }
+
+    setShareModal({
+      open: true,
+      text: plainText,
+      link: "",
+      loading: true,
+    });
+
+    try {
+      const shareId = await createShareSnippet({
+        text: plainText,
+        imagePath: message.imagePath || null,
+      });
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const shareUrl = origin ? `${origin}/share/${shareId}` : "";
+
+      setShareModal((prev) => ({
+        ...prev,
+        link: shareUrl,
+        loading: false,
+      }));
     } catch (error) {
-      console.error("Gagal membagikan:", error);
-      showCopyToast("Gagal membagikan konten.");
+      console.error("Gagal membuat link share:", error);
+      setShareModal((prev) => ({ ...prev, loading: false }));
+      showCopyToast("Gagal membuat link share.");
     }
   };
 
@@ -459,6 +484,11 @@ export default function Home() {
     setSelectedFile(file);
   };
 
+  const handlePasteFile = (file: File) => {
+    if (!canAttachFile) return;
+    setSelectedFile(file);
+  };
+
   const findLastUserIndex = (list: UiMessage[]) => {
     for (let i = list.length - 1; i >= 0; i--) {
       if (list[i].sender === "user") return i;
@@ -498,14 +528,7 @@ export default function Home() {
       const nextText = fullText.slice(0, index);
 
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === id
-            ? {
-                ...m,
-                text: nextText,
-              }
-            : m
-        )
+        prev.map((m) => (m.id === id ? { ...m, text: nextText } : m))
       );
 
       if (index < total) {
@@ -519,7 +542,12 @@ export default function Home() {
     step();
 
     if (sessionId) {
-      saveMessage({ sessionId, role: "ai", text: fullText }).catch((error) => {
+      saveMessage({
+        sessionId,
+        role: "ai",
+        text: fullText,
+        imagePath: imagePath || undefined,
+      }).catch((error) => {
         console.error("Failed to save AI message:", error);
         setFirebaseError("Gagal menyimpan pesan ke Firebase.");
       });
@@ -535,15 +563,26 @@ export default function Home() {
       return;
     }
 
-    const hasFile = canAttachFile && !!selectedFile;
+    const fileToSend = selectedFile;
+    const hasFile = canAttachFile && !!fileToSend;
     const rawText = overrideText !== undefined ? overrideText : inputValue;
 
     if (!rawText.trim() && !hasFile) return;
 
     let displayText = rawText.trim();
-    if (hasFile && selectedFile) {
-      const infoLine = `📎 File terlampir: ${selectedFile.name}`;
+    if (hasFile && fileToSend && !fileToSend.type.startsWith("image/")) {
+      const infoLine = `📎 File terlampir: ${fileToSend.name}`;
       displayText = displayText ? `${displayText}\n\n${infoLine}` : infoLine;
+    }
+
+    let imageDataUrl: string | undefined;
+    if (hasFile && fileToSend && fileToSend.type.startsWith("image/")) {
+      try {
+        imageDataUrl = await readFileAsDataUrl(fileToSend);
+      } catch (error) {
+        console.error("Failed to read image file:", error);
+        setFirebaseError("Lampiran gambar gagal dibaca, coba ulang.");
+      }
     }
 
     const userMessage: UiMessage = {
@@ -551,31 +590,37 @@ export default function Home() {
       text: displayText,
       sender: "user",
       timestamp: new Date(),
+      imagePath: imageDataUrl,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
+    setSelectedFile(null);
     setIsTyping(true);
 
-    saveMessage({ sessionId, role: "user", text: displayText }).catch(
-      (error) => {
-        console.error("Failed to save user message:", error);
-        setFirebaseError("Gagal menyimpan pesan ke Firebase.");
-      }
-    );
+    saveMessage({
+      sessionId,
+      role: "user",
+      text: displayText,
+      imagePath: imageDataUrl,
+    }).catch((error) => {
+      console.error("Failed to save user message:", error);
+      setFirebaseError("Gagal menyimpan pesan ke Firebase.");
+    });
 
     try {
-      const historyPayload = messages.map((m) => ({
+      // ✅ Hemat token: history pendek + clamp
+      const historyPayload = messages.slice(-MAX_HISTORY).map((m) => ({
         role: m.sender === "user" ? "user" : "assistant",
-        content: m.text,
+        content: clamp(stripMarkdown(m.text || ""), MAX_CHARS_PER_MSG),
       }));
 
       const formData = new FormData();
       formData.append("prompt", displayText);
       formData.append("history", JSON.stringify(historyPayload));
 
-      if (hasFile && selectedFile) {
-        formData.append("file", selectedFile);
+      if (hasFile && fileToSend) {
+        formData.append("file", fileToSend);
       }
 
       const controller = new AbortController();
@@ -603,9 +648,7 @@ export default function Home() {
 
       showAiMessageWithTyping(fullReply, data.imagePath);
     } catch (error) {
-      if ((error as any)?.name === "AbortError") {
-        return;
-      }
+      if ((error as any)?.name === "AbortError") return;
       const errorMessage: UiMessage = {
         id: (Date.now() + 1).toString(),
         text: `Gagal memproses permintaan: ${
@@ -617,7 +660,6 @@ export default function Home() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
-      setSelectedFile(null);
       pendingRequestRef.current = null;
     }
   };
@@ -650,6 +692,7 @@ export default function Home() {
     setIsRegenerating(true);
 
     try {
+      // ✅ Hemat token: regen tanpa history
       const historyPayload: Array<{ role: string; content: string }> = [];
 
       const formData = new FormData();
@@ -668,7 +711,7 @@ export default function Home() {
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(
-          `API error: ${res.status} ƒ?" ${errorText || "Unknown error"}`
+          `API error: ${res.status} – ${errorText || "Unknown error"}`
         );
       }
 
@@ -681,9 +724,7 @@ export default function Home() {
 
       showAiMessageWithTyping(fullReply, data.imagePath);
     } catch (error) {
-      if ((error as any)?.name === "AbortError") {
-        return;
-      }
+      if ((error as any)?.name === "AbortError") return;
       const errorMessage: UiMessage = {
         id: (Date.now() + 1).toString(),
         text: `Gagal memproses permintaan: ${
@@ -745,15 +786,19 @@ export default function Home() {
     isLoadingHistory ||
     !sessionId ||
     isRegenerating;
+
   const canDeleteHistory =
     !!sessionId && !isLoadingHistory && messages.length > 0;
+
   const lastUserIndex = findLastUserIndex(messages);
   const hasAiAfterUser =
     lastUserIndex >= 0 &&
     messages.slice(lastUserIndex + 1).some((m) => m.sender === "ai");
+
   const canRegenerate =
     !!sessionId && !isLoadingHistory && hasAiAfterUser && !isTyping;
   const canReinput = !!sessionId && !isLoadingHistory && lastUserIndex >= 0;
+
   const canInterrupt =
     !!typingMessageId ||
     isTyping ||
@@ -762,20 +807,18 @@ export default function Home() {
 
   return (
     <>
-      {/* 🔵 SPLASH OVERLAY: pakai LoadingSplash + fade out */}
       {showSplash && (
         <div
           className={`
-      fixed inset-0 z-50 
-      transition-opacity duration-500 
-      ${isFadingSplash ? "opacity-0" : ""}
-    `}
+            fixed inset-0 z-50
+            transition-opacity duration-500
+            ${isFadingSplash ? "opacity-0" : ""}
+          `}
         >
           <LoadingSplash />
         </div>
       )}
 
-      {/* 🔥 MAIN UI CHAT */}
       <main className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gray-100 shadow-2xl">
         <audio ref={audioRef} className="hidden" />
 
@@ -809,7 +852,6 @@ export default function Home() {
           canDeleteHistory={canDeleteHistory}
         />
 
-        {/* CHAT AREA */}
         <section className="relative flex-1 overflow-hidden">
           <div
             ref={chatScrollRef}
@@ -863,6 +905,7 @@ export default function Home() {
           canAttachFile={canAttachFile}
           selectedFile={selectedFile}
           onFileChange={handleFileChange}
+           onClearFile={() => setSelectedFile(null)}
           inputValue={inputValue}
           setInputValue={setInputValue}
           onSend={() => sendMessage()}
@@ -871,7 +914,85 @@ export default function Home() {
           syncTextareaHeight={syncTextareaHeight}
           onInterrupt={interruptResponse}
           canInterrupt={canInterrupt}
+          onPasteFile={handlePasteFile}
         />
+
+        {shareModal.open && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 px-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-zinc-900">
+                    Bagikan jawaban
+                  </h3>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    Salin teks atau tautan khusus untuk pesan ini.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="h-9 w-9 rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                  onClick={() =>
+                    setShareModal({
+                      open: false,
+                      text: "",
+                      link: "",
+                      loading: false,
+                    })
+                  }
+                  aria-label="Tutup"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="text-xs uppercase font-semibold text-zinc-500 mb-1">
+                    Teks
+                  </p>
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 max-h-48 overflow-y-auto whitespace-pre-wrap">
+                    {shareModal.text || "Tidak ada teks."}
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-2 rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700 transition disabled:opacity-50"
+                    onClick={() => handleCopy(shareModal.text)}
+                    disabled={!shareModal.text}
+                  >
+                    Salin teks
+                  </button>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase font-semibold text-zinc-500 mb-1">
+                    Tautan
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={
+                        shareModal.loading
+                          ? "Menyiapkan tautan..."
+                          : shareModal.link || "Tautan belum tersedia"
+                      }
+                      className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800"
+                    />
+                    <button
+                      type="button"
+                      className="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700 transition whitespace-nowrap disabled:opacity-50"
+                      onClick={() => handleCopy(shareModal.link)}
+                      disabled={shareModal.loading || !shareModal.link}
+                    >
+                      {shareModal.loading ? "Menyiapkan..." : "Salin tautan"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );

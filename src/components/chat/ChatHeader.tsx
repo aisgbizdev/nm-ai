@@ -39,7 +39,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-zinc-200/60 bg-white/80 backdrop-blur-sm">
+    <header className="fixed inset-x-0 top-0 z-30 border-b border-zinc-200/60 bg-white/80 backdrop-blur-sm">
       <div className="mx-auto flex w-full items-center justify-between px-3 py-2 select-none md:px-6 md:py-4">
         <div className="flex items-center gap-4 sm:gap-5">
           <a

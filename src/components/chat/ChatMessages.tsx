@@ -1,7 +1,10 @@
-import { FC, RefObject } from "react";
+"use client";
+
+import { FC, RefObject, useEffect, useState } from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faClone,
@@ -10,16 +13,16 @@ import {
   faRotateRight,
   faArrowUpFromBracket,
 } from "@fortawesome/free-solid-svg-icons";
-import { UiMessage } from "./types";
-import rehypeRaw from "rehype-raw";
 import { byPrefixAndName } from "@/utils/fa";
+import { createPortal } from "react-dom";
+import { UiMessage } from "./types";
 
 interface ChatMessagesProps {
   messages: UiMessage[];
   isTyping: boolean;
   canSpeak: boolean;
   onCopy: (text: string) => void;
-  onShare: (text: string) => void;
+  onShare: (message: UiMessage) => void;
   onSpeak: (text: string) => void;
   onStop: () => void;
   isSpeaking: boolean;
@@ -58,6 +61,34 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   const lastUserMessageId =
     [...messages].reverse().find((msg) => msg.sender === "user")?.id || null;
 
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  const closePreview = () => setPreviewSrc(null);
+
+  // Lock scroll saat preview terbuka + ESC untuk close
+  useEffect(() => {
+    if (!previewSrc) return;
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePreview();
+    };
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKey);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [previewSrc]);
+
+  // Flag client (Next.js SSR safety)
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <>
       {messages.map((msg) => {
@@ -93,7 +124,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <blockquote
                           {...props}
                           className={
-                            "border-l-4 border-blue-300 px-5 py-2 ml-8 italic text-[0.95rem] text-zinc-700 my-2 bg-zinc-100 rounded" +
+                            "border-l-4 border-blue-300 px-2 pe-10 py-2 italic text-[0.95rem] text-zinc-700 mt-2 bg-zinc-100 rounded mb-4" +
                             (props.className || "")
                           }
                         />
@@ -102,7 +133,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <p
                           {...props}
                           className={
-                            "mb-1 leading-relaxed " + (props.className || "")
+                            "leading-relaxed " + (props.className || "")
                           }
                         />
                       ),
@@ -191,15 +222,12 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                           ? children.join("")
                           : String(children ?? "");
 
-                        // 🔍 Deteksi apakah ini code block beneran (bukan inline):
                         const isLanguageBlock =
                           typeof className === "string" &&
                           className.includes("language-");
 
-                        // 👉 Default: anggap INLINE, kecuali inline === false DAN dia code block
                         const isInline = inline !== false || !isLanguageBlock;
 
-                        // ===================== INLINE CODE =====================
                         if (isInline) {
                           return (
                             <code
@@ -214,7 +242,6 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                           );
                         }
 
-                        // ===================== BLOCK CODE ======================
                         return (
                           <div className="bg-zinc-800 text-white ml-7 rounded-xl overflow-hidden my-3">
                             <div className="flex text-xs py-1 px-3 items-center justify-between bg-zinc-950 font-mono">
@@ -297,15 +324,38 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                   </p>
                 )}
 
-                {msg.imagePath && isAi && (
+                {msg.imagePath && (
                   <div className="mt-3">
-                    <Image
-                      src={msg.imagePath}
-                      alt="Gambar yang dianalisis"
-                      width={240}
-                      height={160}
-                      className="h-auto w-auto max-w-full rounded-lg border border-zinc-200 object-contain"
-                    />
+                    {isAi ? (
+                      <button
+                        type="button"
+                        className="group relative block cursor-pointer"
+                        onClick={() => setPreviewSrc(msg.imagePath!)}
+                      >
+                        <Image
+                          src={msg.imagePath}
+                          alt="Gambar yang dianalisis"
+                          width={240}
+                          height={160}
+                          className="h-auto w-auto max-w-full rounded-lg border border-zinc-200 object-contain transition hover:scale-[1.015] hover:shadow-lg"
+                        />
+                        <span className="absolute inset-0 rounded-lg bg-black/10 opacity-0 transition group-hover:opacity-100" />
+                      </button>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <button
+                        type="button"
+                        className="group relative block cursor-pointer"
+                        onClick={() => setPreviewSrc(msg.imagePath!)}
+                      >
+                        <img
+                          src={msg.imagePath}
+                          alt="Lampiran pengguna"
+                          className="h-auto max-h-64 w-auto max-w-full rounded-lg border border-zinc-200 object-contain transition hover:scale-[1.015] hover:shadow-lg"
+                        />
+                        <span className="absolute inset-0 rounded-lg bg-black/10 opacity-0 transition group-hover:opacity-100" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -330,7 +380,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                 <button
                   type="button"
                   onClick={() => onCopy(msg.text)}
-                  className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700  h-6 w-6 transition-all"
+                  className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700 h-6 w-6 transition-all"
                   aria-label="Salin jawaban"
                   title="Salin Jawaban"
                 >
@@ -341,33 +391,13 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => onShare(msg.text)}
-                      className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700  h-6 w-6 transition-all"
+                      onClick={() => onShare(msg)}
+                      className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700 h-6 w-6 transition-all"
                       aria-label="Bagikan"
                       title="Bagikan"
                     >
                       <FontAwesomeIcon icon={faArrowUpFromBracket} />
                     </button>
-
-                    {/* <button
-                      type="button"
-                      onClick={() =>
-                        isSpeaking ? onStop() : onSpeak(msg.text)
-                      }
-                      className={`rounded h-6 w-6 flex items-center justify-center transition cursor-pointer ${
-                        isSpeaking
-                          ? "bg-red-100 text-red-600 hover:bg-red-200"
-                          : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                      }`}
-                      aria-label={isSpeaking ? "Stop" : "Dengarkan"}
-                      title={
-                        isSpeaking
-                          ? "Stop Text-to-Speech"
-                          : "Start Text-to-Speech"
-                      }
-                    >
-                      <FontAwesomeIcon icon={isSpeaking ? faStop : faPlay} />
-                    </button> */}
                   </div>
                 )}
 
@@ -402,6 +432,39 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
       )}
 
       <div ref={messagesEndRef} />
+
+      {/* 🔍 PREVIEW OVERLAY via PORTAL ke document.body */}
+      {isClient &&
+        previewSrc &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"
+            onClick={closePreview}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="relative max-h-[90vh] max-w-[95vw]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewSrc}
+                alt="Preview lampiran"
+                className="max-h-[90vh] max-w-[95vw] rounded-xl shadow-2xl object-contain"
+              />
+              <button
+                type="button"
+                className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-white text-zinc-700 shadow-md hover:bg-zinc-100"
+                onClick={closePreview}
+                aria-label="Tutup preview"
+              >
+                ×
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 };
