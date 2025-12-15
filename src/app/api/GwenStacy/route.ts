@@ -435,7 +435,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ===========================
-    // SHORT-CIRCUIT 2: FIBONACCI (AUTO TAMPILKAN UP + DOWN)
+    // SHORT-CIRCUIT 2: FIBONACCI (BISA BOTH / UP SAJA / DOWN SAJA)
     // ===========================
     const isFibQuestion =
       lowerPrompt.includes("fibo") || lowerPrompt.includes("fibonacci");
@@ -443,16 +443,33 @@ export async function POST(req: NextRequest) {
     if (isFibQuestion) {
       const HL = parseHighLowForFib(userPrompt);
 
-      // Kalau user belum kasih High/Low, kasih instruksi singkat
+      // detect mode intent
+      const wantsUpOnly =
+        /\b(uptren|uptrend|tren naik|trend naik)\b/i.test(lowerPrompt) &&
+        !/\b(downtren|downtrend|tren turun|trend turun)\b/i.test(lowerPrompt);
+
+      const wantsDownOnly =
+        /\b(downtren|downtrend|tren turun|trend turun)\b/i.test(lowerPrompt) &&
+        !/\b(uptren|uptrend|tren naik|trend naik)\b/i.test(lowerPrompt);
+
+      const wantsBoth = !wantsUpOnly && !wantsDownOnly;
+
+      // Kalau user belum kasih High/Low
       if (!HL) {
+        const modeHint = wantsUpOnly
+          ? "uptrend"
+          : wantsDownOnly
+          ? "downtrend"
+          : "uptrend & downtrend";
+
         return NextResponse.json(
           {
             reply:
-              "Untuk hitung Fibonacci, gue butuh **High (H)** dan **Low (L)**.\n" +
-              "Contoh format:\n" +
+              `Untuk hitung Fibonacci (${modeHint}), gue butuh **High (H)** dan **Low (L)**.\n` +
+              "Contoh:\n" +
               "- `fibo H=2450 L=2380`\n" +
-              "- `fibonacci high 2450 low 2380`\n\n" +
-              "Kalau udah kirim H & L, gue tampilkan **Uptrend & Downtrend** sekaligus.",
+              "- `fibo uptren H=2450 L=2380`\n" +
+              "- `fibo downtren H=2450 L=2380`\n",
             imagePath: null,
           },
           { status: 200 }
@@ -463,7 +480,7 @@ export async function POST(req: NextRequest) {
       const up = calcFibUp({ H, L });
       const down = calcFibDown({ H, L });
 
-      const fmtFib = (n: number) =>
+      const fmt = (n: number) =>
         isFinite(n)
           ? n.toLocaleString("id-ID", {
               minimumFractionDigits: 2,
@@ -473,65 +490,72 @@ export async function POST(req: NextRequest) {
 
       const D = H - L;
 
+      const title = wantsUpOnly
+        ? "Uptrend"
+        : wantsDownOnly
+        ? "Downtrend"
+        : "Uptrend + Downtrend";
+
+      const makeHdr = (mode: "up" | "down") => {
+        const cols =
+          mode === "up"
+            ? `| Low | High | Diff |\n|---|---|---:|\n| ${fmt(L)} | ${fmt(
+                H
+              )} | ${fmt(D)} |\n\n`
+            : `| High | Low | Diff |\n|---|---|---:|\n| ${fmt(H)} | ${fmt(
+                L
+              )} | ${fmt(D)} |\n\n`;
+
+        return cols;
+      };
+
       const header =
-        `## Fibonacci (Auto: Uptrend + Downtrend)\n\n` +
-        `| Low | High | Diff |\n` +
-        "|---|---|---:|\n" +
-        `| ${fmtFib(L)} | ${fmtFib(H)} | ${fmtFib(D)} |\n\n` +
-        "---\n" +
-        "\n";
+        `## Fibonacci (${title})\n\n` +
+        (wantsUpOnly
+          ? makeHdr("up")
+          : wantsDownOnly
+          ? makeHdr("down")
+          : `### Header Uptrend\n\n${makeHdr(
+              "up"
+            )}---\n\n### Header Downtrend\n\n${makeHdr("down")}`) +
+        `---\n\n`;
 
-      const upTable =
-        "### ✅ Uptrend (Retracement + Projection)\n\n" +
-        "| Up Retracement | Harga | Up Projection | Harga |\n" +
-        "|---|---:|---|---:|\n" +
-        `| 23.6% | ${fmtFib(up.retr["23.60%"])} | 138.2% | ${fmtFib(
-          up.proj["138.20%"]
-        )} |\n` +
-        `| 38.2% | ${fmtFib(up.retr["38.20%"])} | 150.0% | ${fmtFib(
-          up.proj["150.00%"]
-        )} |\n` +
-        `| 50.0% | ${fmtFib(up.retr["50.00%"])} | 161.8% | ${fmtFib(
-          up.proj["161.80%"]
-        )} |\n` +
-        `| 61.8% | ${fmtFib(up.retr["61.80%"])} | 200.0% | ${fmtFib(
-          up.proj["200.00%"]
-        )} |\n` +
-        `| 78.6% | ${fmtFib(up.retr["78.60%"])} | 238.2% | ${fmtFib(
-          up.proj["238.20%"]
-        )} |\n` +
-        `|  |  | 261.8% | ${fmtFib(up.proj["261.80%"])} |\n\n` +
-        "---\n";
+      const upBlock =
+        "### ✅ Uptrend (Retracement)\n\n" +
+        "| Up Retracement | Harga |\n" +
+        "|---|---:|\n" +
+        `| 23.6% | ${fmt(up.retr["23.60%"])} |\n` +
+        `| 38.2% | ${fmt(up.retr["38.20%"])} |\n` +
+        `| 50.0% | ${fmt(up.retr["50.00%"])} |\n` +
+        `| 61.8% | ${fmt(up.retr["61.80%"])} |\n` +
+        `| 78.6% | ${fmt(up.retr["78.60%"])} |\n` +
+        `---\n\n`;
 
-      const downTable =
-        "### ✅ Downtrend (Retracement + Projection)\n\n" +
-        "| Down Retracement | Harga | Down Projection | Harga |\n" +
-        "|---|---:|---|---:|\n" +
-        `| 78.6% | ${fmtFib(down.retr["78.60%"])} | 138.2% | ${fmtFib(
-          down.proj["138.20%"]
-        )} |\n` +
-        `| 61.8% | ${fmtFib(down.retr["61.80%"])} | 150.0% | ${fmtFib(
-          down.proj["150.00%"]
-        )} |\n` +
-        `| 50.0% | ${fmtFib(down.retr["50.00%"])} | 161.8% | ${fmtFib(
-          down.proj["161.80%"]
-        )} |\n` +
-        `| 38.2% | ${fmtFib(down.retr["38.20%"])} | 200.0% | ${fmtFib(
-          down.proj["200.00%"]
-        )} |\n` +
-        `| 23.6% | ${fmtFib(down.retr["23.60%"])} | 238.2% | ${fmtFib(
-          down.proj["238.20%"]
-        )} |\n` +
-        `|  |  | 261.8% | ${fmtFib(down.proj["261.80%"])} |\n\n`;
+      const downBlock =
+        "### ✅ Downtrend (Retracement)\n\n" +
+        "| Down Retracement | Harga |\n" +
+        "|---|---:|\n" +
+        `| 78.6% | ${fmt(down.retr["78.60%"])} |\n` +
+        `| 61.8% | ${fmt(down.retr["61.80%"])} |\n` +
+        `| 50.0% | ${fmt(down.retr["50.00%"])} |\n` +
+        `| 38.2% | ${fmt(down.retr["38.20%"])} |\n` +
+        `| 23.6% | ${fmt(down.retr["23.60%"])} |\n` +
+        `---\n\n`;
 
       const footer =
-        "---\n" +
         "> **Catatan**:\n" +
         "> - Ini output **dua mode sekaligus** biar kamu tinggal pilih sesuai tren.\n" +
-        "> - Jika ingin menggunakan Fibonacci **berikan level High dan Low**.";
+        "> - Jika ingin menggunakan Fibonacci **uptrend** berikan level **low** dan **high**\n" +
+        "> - Jika ingin menggunakan Fibonacci **downtrend** berikan level **high** dan **low**\n";
+
+      const body = wantsUpOnly
+        ? upBlock
+        : wantsDownOnly
+        ? downBlock
+        : upBlock + downBlock;
 
       return NextResponse.json(
-        { reply: header + upTable + downTable + footer, imagePath: null },
+        { reply: header + body + footer, imagePath: null },
         { status: 200 }
       );
     }
