@@ -11,11 +11,7 @@ interface ShareData {
   imagePath?: string | null;
 }
 
-export default function SharePage({
-  params,
-}: {
-  params: { shareId: string };
-}) {
+export default function SharePage({ params }: { params: { shareId: string } }) {
   const { shareId } = params;
   const [data, setData] = useState<ShareData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,10 +50,7 @@ export default function SharePage({
         {data && (
           <div className="space-y-4">
             {data.text && (
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                className="prose prose-sm max-w-none"
-              >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {data.text}
               </ReactMarkdown>
             )}
