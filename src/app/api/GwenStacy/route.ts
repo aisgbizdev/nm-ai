@@ -29,11 +29,7 @@ import {
   parseOHLCFromPrompt,
 } from "./utils/pivotFib";
 
-import {
-  formatDateIso,
-  detectRequestedDate,
-  buildCalendarUrl,
-} from "./utils/dateUtils";
+import { formatDateIso, detectRequestedDate } from "./utils/dateUtils";
 
 import {
   InstrumentKey,
@@ -71,9 +67,15 @@ const QUOTES_API_URL =
   process.env.QUOTES_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/quotes";
 
-const CALENDAR_API_URL =
-  process.env.CALENDAR_API_URL ||
+// ✅ TODAY khusus
+const CALENDAR_TODAY_API_URL =
+  process.env.CALENDAR_TODAY_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/calendar/today";
+
+// ✅ WEEK
+const CALENDAR_WEEK_API_URL =
+  process.env.CALENDAR_WEEK_API_URL ||
+  "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
 
 const HISTORICAL_API_URL =
   process.env.HISTORICAL_API_URL ||
@@ -327,6 +329,59 @@ async function callOpenAIChat(args: {
   }
 }
 
+// ================== CALENDAR NORMALIZER (TODAY & THIS-WEEK) ==================
+function normalizeCalendarResponse(
+  calData: any,
+  fallbackDate: string
+): CalendarEventRow[] {
+  const rows: CalendarEventRow[] = [];
+
+  const pushEv = (ev: any, date: string) => {
+    rows.push({
+      date: ev.date ?? ev.Date ?? date,
+      time: ev.time ?? "-",
+      currency: ev.currency ?? "-",
+      impact: ev.impact ?? "-",
+      event: ev.event ?? ev.title ?? "-",
+      previous: ev.previous ?? "-",
+      forecast: ev.forecast ?? "-",
+      actual: ev.actual ?? "",
+    });
+  };
+
+  const data = calData?.data;
+
+  // Case A: /today => data = [ {time,currency,event,...}, ... ]
+  if (Array.isArray(data) && data.length && (data[0]?.time || data[0]?.event)) {
+    for (const ev of data) pushEv(ev, fallbackDate);
+    return rows;
+  }
+
+  // Case B: /this-week => data = [ {date:'YYYY-MM-DD', data:[...]} ] / [ {date, events:[...]} ]
+  if (Array.isArray(data) && data.length && data[0]?.date) {
+    for (const day of data) {
+      const d = String(day.date || fallbackDate);
+      const events = day.events || day.data || day.items || [];
+      if (Array.isArray(events)) {
+        for (const ev of events) pushEv(ev, d);
+      }
+    }
+    return rows;
+  }
+
+  // Case C: data = { date:'YYYY-MM-DD', data:[...] } or {date, events:[...]}
+  if (data && typeof data === "object" && data.date) {
+    const d = String(data.date || fallbackDate);
+    const events = data.events || data.data || data.items || [];
+    if (Array.isArray(events)) {
+      for (const ev of events) pushEv(ev, d);
+    }
+    return rows;
+  }
+
+  return rows;
+}
+
 // ======================================================
 // ================ HANDLER POST ========================
 // ======================================================
@@ -435,7 +490,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ===========================
-    // SHORT-CIRCUIT 2: FIBONACCI (BISA BOTH / UP SAJA / DOWN SAJA)
+    // SHORT-CIRCUIT 2: FIBONACCI
     // ===========================
     const isFibQuestion =
       lowerPrompt.includes("fibo") || lowerPrompt.includes("fibonacci");
@@ -443,7 +498,6 @@ export async function POST(req: NextRequest) {
     if (isFibQuestion) {
       const HL = parseHighLowForFib(userPrompt);
 
-      // detect mode intent
       const wantsUpOnly =
         /\b(uptren|uptrend|tren naik|trend naik)\b/i.test(lowerPrompt) &&
         !/\b(downtren|downtrend|tren turun|trend turun)\b/i.test(lowerPrompt);
@@ -454,7 +508,6 @@ export async function POST(req: NextRequest) {
 
       const wantsBoth = !wantsUpOnly && !wantsDownOnly;
 
-      // Kalau user belum kasih High/Low
       if (!HL) {
         const modeHint = wantsUpOnly
           ? "uptrend"
@@ -609,7 +662,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ===========================
-    // SHORT-CIRCUIT 4: MARGIN XAUUSD (tetap non-token)
+    // SHORT-CIRCUIT 4: MARGIN XAUUSD
     // ===========================
     const isMarginQuestion =
       lowerPrompt.includes("margin") &&
@@ -617,7 +670,7 @@ export async function POST(req: NextRequest) {
         lowerPrompt.includes(" emas") ||
         lowerPrompt.includes(" gold"));
 
-    // ====== Decide data fetch needs (biar nggak selalu fetch semuanya) ======
+    // ====== Decide data fetch needs ======
     const requestedInstrument: InstrumentKey =
       detectInstrumentFromPrompt(userPrompt);
 
@@ -626,14 +679,15 @@ export async function POST(req: NextRequest) {
     const wantsNews = shouldIncludeNews(userPrompt);
     const wantsHistorical = shouldIncludeHistorical(userPrompt);
 
-    // ================== Waktu Jakarta (untuk perhitungan internal tanggal) ==================
+    // ================== Waktu Jakarta ==================
     const nowJakarta = new Date(
       new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
     );
     const todayIso = formatDateIso(nowJakarta);
 
-    // ================== Parse tanggal kalender bila dibutuhkan ==================
+    // ================== Parse tanggal kalender ==================
     const targetCalendarDate = detectRequestedDate(userPrompt) || todayIso;
+    const isCalendarToday = targetCalendarDate === todayIso;
 
     // ================== Parse "X hari sebelumnya" ==================
     const historicalDaysAgoMatch = lowerPrompt.match(
@@ -653,6 +707,7 @@ export async function POST(req: NextRequest) {
     let calendarHasData = false;
     let calendarTableAll = "";
     let calendarTableHighImpact = "";
+    let calendarDateFilterNote = ""; // ✅ catatan kalau request by-date tapi endpoint cuma week/today
 
     let historicalInstrumentWindowSummary = "";
 
@@ -719,43 +774,59 @@ export async function POST(req: NextRequest) {
     // ---- CALENDAR ----
     if (wantsCalendar) {
       try {
-        const calendarUrl = buildCalendarUrl(
-          CALENDAR_API_URL,
-          targetCalendarDate
-        );
+        const calendarUrl = isCalendarToday
+          ? CALENDAR_TODAY_API_URL
+          : CALENDAR_WEEK_API_URL;
+
         const calRes = await fetch(calendarUrl, {
           method: "GET",
           cache: "no-store",
         });
+
         if (calRes.ok) {
           const calData = await calRes.json();
-          const rawEvents = Array.isArray(calData.data) ? calData.data : [];
 
-          const normalized: CalendarEventRow[] = rawEvents
-            .slice(0, 20) // ✅ hemat token, batasi dari awal
-            .map((ev: any) => ({
-              date: targetCalendarDate,
-              time: ev.time ?? "-",
-              currency: ev.currency ?? "-",
-              impact: ev.impact ?? "-",
-              event: ev.event ?? "-",
-              previous: ev.previous ?? "-",
-              forecast: ev.forecast ?? "-",
-              actual: ev.actual ?? "",
-            }));
+          const allNormalized = normalizeCalendarResponse(
+            calData,
+            isCalendarToday ? todayIso : targetCalendarDate
+          );
 
-          calendarHasData = normalized.length > 0;
+          let normalized = allNormalized;
 
-          const highImpact = normalized.filter(
+          // ✅ kalau user minta tanggal selain hari ini: coba filter dari weekly
+          if (!isCalendarToday) {
+            const hasRealDate = allNormalized.some((x) => !!x.date);
+            const filtered = allNormalized.filter(
+              (x) => x.date === targetCalendarDate
+            );
+
+            if (filtered.length > 0) {
+              normalized = filtered;
+            } else {
+              if (hasRealDate) {
+                calendarDateFilterNote = `Catatan: Data minggu ini tidak menemukan event untuk tanggal ${targetCalendarDate}. Ditampilkan data minggu ini.`;
+              } else {
+                calendarDateFilterNote =
+                  "Catatan: Endpoint this-week tidak menyediakan field tanggal per event, jadi tidak bisa dipilah per hari. Ditampilkan data minggu ini.";
+              }
+              normalized = allNormalized;
+            }
+          }
+
+          const limited = normalized.slice(0, 20); // ✅ hemat token
+          calendarHasData = limited.length > 0;
+
+          const highImpact = limited.filter(
             (ev) =>
               typeof ev.impact === "string" &&
               (ev.impact.includes("★★★") ||
                 ev.impact.toLowerCase().includes("high"))
           );
 
-          calendarTableAll = buildCalendarTable(normalized.slice(0, 10), {
+          calendarTableAll = buildCalendarTable(limited.slice(0, 10), {
             emptyMessage: "- Tidak ada event pada tanggal ini.",
           });
+
           calendarTableHighImpact = buildCalendarTable(highImpact.slice(0, 8), {
             emptyMessage:
               "- Tidak ada event high impact (★★★) pada tanggal ini.",
@@ -777,7 +848,6 @@ export async function POST(req: NextRequest) {
           const histData: any = await histRes.json();
           const rows: any[] = Array.isArray(histData.data) ? histData.data : [];
 
-          // ✅ hemat token: hanya instrumen diminta + window max 7 hari
           const bySym = new Map<string, any[]>();
           for (const row of rows) {
             const symbol: string =
@@ -957,11 +1027,11 @@ export async function POST(req: NextRequest) {
           { status: 200 }
         );
       }
-      // kalau price/leverage nggak kebaca, lanjut ke AI engine (tanpa hilangin short-circuit)
+      // kalau price/leverage nggak kebaca, lanjut ke AI engine
     }
 
     // ===========================
-    // SHORT-CIRCUIT 5: HARGA LANGSUNG (non-token)
+    // SHORT-CIRCUIT 5: HARGA LANGSUNG
     // ===========================
     const isPriceIntent =
       !lowerPrompt.includes("margin") &&
@@ -1017,7 +1087,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ===========================
-    // SHORT-CIRCUIT 6: KALENDER (non-token)
+    // SHORT-CIRCUIT 6: KALENDER
     // ===========================
     const isCalendarOverview =
       lowerPrompt.includes("kalender ekonomi") ||
@@ -1035,9 +1105,14 @@ export async function POST(req: NextRequest) {
         const body = wantsHighImpactOnly
           ? calendarTableHighImpact
           : calendarTableAll;
+
+        const note = calendarDateFilterNote
+          ? `\n\n${calendarDateFilterNote}`
+          : "";
+
         return NextResponse.json(
           {
-            reply: `Kalender ekonomi ${targetCalendarDate} (internal Newsmaker):\n\n${body}`,
+            reply: `Kalender ekonomi ${targetCalendarDate} (internal Newsmaker):\n\n${body}${note}`,
             imagePath: null,
           },
           { status: 200 }
@@ -1059,10 +1134,8 @@ export async function POST(req: NextRequest) {
     // ======================================================
     const coreMessages: CoreMessage[] = [];
 
-    // base persona
     coreMessages.push({ role: "system", content: SYSTEM_PREFIX_LITE });
 
-    // optional FX rules (hanya kalau relevan)
     if (shouldIncludeFxRules(userPrompt)) {
       coreMessages.push({
         role: "system",
@@ -1072,7 +1145,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // selective injections (ringkas)
     if (wantsQuotes && quotesSummary) {
       coreMessages.push({
         role: "system",
@@ -1086,14 +1158,19 @@ export async function POST(req: NextRequest) {
     }
 
     if (wantsCalendar && calendarHasData) {
+      const note = calendarDateFilterNote
+        ? `\n${clampText(calendarDateFilterNote, 160)}`
+        : "";
+
       coreMessages.push({
         role: "system",
         content:
-          `Kalender internal ${targetCalendarDate} (ringkas):\n` +
+          `Kalender internal (ringkas) target ${targetCalendarDate}:\n` +
           clampText(
             wantsHighImpactOnly ? calendarTableHighImpact : calendarTableAll,
             700
-          ),
+          ) +
+          note,
       });
     }
 
@@ -1116,14 +1193,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // history (hemat)
     for (const hm of historyMessages) {
       const role: "user" | "assistant" =
         hm.role === "ai" || hm.role === "assistant" ? "assistant" : "user";
       coreMessages.push({ role, content: clampText(toText(hm.content), 350) });
     }
 
-    // user message
     const userMsg: CoreMessage = { role: "user", content: userPrompt };
     if (hasImage && base64Image) userMsg.images = [base64Image];
     coreMessages.push(userMsg);
@@ -1134,7 +1209,6 @@ export async function POST(req: NextRequest) {
     let reply: string | null = null;
     let lastError: string | null = null;
 
-    // 4a) OLLAMA
     if (OLLAMA_BASE_URL) {
       try {
         reply = await callOllamaChat(coreMessages);
@@ -1144,7 +1218,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4b) OpenAI fallback
     if (!reply) {
       if (!OPENAI_API_KEY) {
         return NextResponse.json(

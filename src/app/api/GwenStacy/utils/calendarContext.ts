@@ -1,9 +1,8 @@
 // src/app/api/nm-ai/utils/calendarContext.ts
-// (kalau lu pisah calendarTable.ts ya tinggal sesuaikan import/export-nya, intinya fungsi ini)
 
 export interface CalendarEventRow {
-  date: string;
-  time: string;
+  date: string; // ISO: YYYY-MM-DD
+  time: string; // "HH.mm" atau "HH:mm" atau "-"
   currency: string;
   impact: string;
   event: string;
@@ -14,6 +13,12 @@ export interface CalendarEventRow {
 
 interface BuildCalendarTableOptions {
   emptyMessage?: string;
+
+  /**
+   * Kalau true => kolom pertama "Time (WIB)" pakai ev.time
+   * Kalau false => kolom pertama "Date" pakai ev.date
+   */
+  useTimeColumn?: boolean;
 }
 
 /**
@@ -27,15 +32,10 @@ function sanitizeCell(value: string | number | null | undefined): string {
 
 /**
  * Parse angka dari string yang mungkin ada %, M, dsb.
- * contoh:
- *  "0.7%"   -> 0.7
- *  "-2.1%"  -> -2.1
- *  "0.6M"   -> 0.6
- *  "-"      -> null
  */
 function parseNumeric(value: string | null | undefined): number | null {
   if (!value) return null;
-  const cleaned = value.replace(/[^\d.\-]/g, ""); // sisain digit, titik, minus
+  const cleaned = value.replace(/[^\d.\-]/g, "");
   if (!cleaned) return null;
   const num = Number(cleaned);
   return Number.isFinite(num) ? num : null;
@@ -52,27 +52,21 @@ function colorizeActual(previousRaw: string, actualRaw: string): string {
   const actNum = parseNumeric(actualRaw);
   const label = sanitizeCell(actualRaw);
 
-  // Kalau ga bisa dibandingkan (data kosong / bukan angka) → tampil standar
-  if (prevNum === null || actNum === null) {
-    return label;
-  }
+  if (prevNum === null || actNum === null) return label;
 
   if (actNum > prevNum) {
-    // hijau
     return `<span style="color:#16a34a;font-weight:600;">${label}</span>`;
   }
-
   if (actNum < prevNum) {
-    // merah
     return `<span style="color:#dc2626;font-weight:600;">${label}</span>`;
   }
-
-  // sama → hitam
   return `<span style="color:#111827;font-weight:600;">${label}</span>`;
 }
 
 /**
  * Bangun tabel kalender dalam FORMAT MARKDOWN TABLE
+ * - Hari ini => useTimeColumn: true (kolom pertama: "Time (WIB)")
+ * - Selain hari ini => useTimeColumn: false (kolom pertama: "Date")
  */
 export function buildCalendarTable(
   rows: CalendarEventRow[],
@@ -80,20 +74,22 @@ export function buildCalendarTable(
 ): string {
   const {
     emptyMessage = "- Tidak ada event terdaftar pada tanggal ini di sistem Newsmaker.",
+    useTimeColumn = true,
   } = options;
 
-  if (!rows || rows.length === 0) {
-    return emptyMessage;
-  }
+  if (!rows || rows.length === 0) return emptyMessage;
 
-  // Header markdown table
+  const firstColName = useTimeColumn ? "Time (WIB)" : "Date";
+
   const headerLines = [
-    "| Time (WIB) | Currency | Impact | Event | Previous | Forecast | Actual |",
+    `| ${firstColName} | Currency | Impact | Event | Previous | Forecast | Actual |`,
     "|------------|----------|--------|-------|----------|----------|--------|",
   ];
 
   const bodyLines = rows.map((ev) => {
-    const time = sanitizeCell(ev.time);
+    const firstColVal = useTimeColumn
+      ? sanitizeCell(ev.time)
+      : sanitizeCell(ev.date);
     const currency = sanitizeCell(ev.currency);
     const impact = sanitizeCell(ev.impact);
     const event = sanitizeCell(ev.event);
@@ -105,7 +101,7 @@ export function buildCalendarTable(
         ? colorizeActual(ev.previous, ev.actual)
         : sanitizeCell(ev.actual);
 
-    return `| ${time} | ${currency} | ${impact} | ${event} | ${previous} | ${forecast} | ${actualColored} |`;
+    return `| ${firstColVal} | ${currency} | ${impact} | ${event} | ${previous} | ${forecast} | ${actualColored} |`;
   });
 
   return [...headerLines, ...bodyLines].join("\n");
