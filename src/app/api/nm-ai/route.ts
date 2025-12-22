@@ -93,11 +93,31 @@ export async function POST(req: NextRequest) {
       lowerPrompt.includes("trading rule") ||
       lowerPrompt.includes("aturan trading") ||
       lowerPrompt.includes("regulasi trading") ||
-      lowerPrompt.includes("rule trading");
+      lowerPrompt.includes("rule trading") ||
+      lowerPrompt.includes("spa") ||
+      lowerPrompt.includes("bappebti") ||
+      lowerPrompt.includes("pbk") ||
+      lowerPrompt.includes("day trade") ||
+      lowerPrompt.includes("overnight") ||
+      lowerPrompt.includes("rollover") ||
+      lowerPrompt.includes("margin call") ||
+      lowerPrompt.includes("auto liquidation") ||
+      lowerPrompt.includes("facility fee") ||
+      lowerPrompt.includes("oco") ||
+      lowerPrompt.includes("market order") ||
+      lowerPrompt.includes("limit order") ||
+      lowerPrompt.includes("stop order") ||
+      lowerPrompt.includes("contract size");
 
     const isTradingRulesTableQuestion =
       isTradingRulesQuestion &&
-      (lowerPrompt.includes("tabel") || lowerPrompt.includes("table"));
+      (lowerPrompt.includes("tabel") ||
+        lowerPrompt.includes("table") ||
+        lowerPrompt.includes("detail") ||
+        lowerPrompt.includes("lengkap") ||
+        lowerPrompt.includes("full") ||
+        lowerPrompt.includes("produk") ||
+        lowerPrompt.includes("per symbol"));
 
     // Fibonacci
     const isFibQuestion =
@@ -201,7 +221,6 @@ export async function POST(req: NextRequest) {
         "- Peraturan **BAPPEBTI No. 6 Tahun 2023**",
         "- Peraturan Kepala **Bappebti No. 5 Tahun 2017**",
         "",
-        "### 📂 **Status:** _Official Knowledge Reference_ — versi netral (tanpa identitas perusahaan)",
         "",
         "---",
         "",

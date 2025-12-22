@@ -14,6 +14,7 @@ import {
   faPaperclip,
   faStop,
   faXmark,
+  faBan,
 } from "@fortawesome/free-solid-svg-icons";
 import { byPrefixAndName } from "@/utils/fa";
 
@@ -244,16 +245,20 @@ export const ChatInput: FC<ChatInputProps> = ({
                     ? "Hentikan respons"
                     : isSendDisabled
                     ? "Message is empty"
-                    : ""
+                    : "Kirim pesan"
                 }
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-all shadow-lg mb-1.5 shadow-blue-500/25 ${
                   canInterrupt
                     ? "bg-red-600 hover:bg-red-700"
+                    : isSendDisabled
+                    ? "bg-gray-400"
                     : "bg-blue-600 hover:bg-blue-700"
-                } disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-blue-600`}
+                } disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 <FontAwesomeIcon
-                  icon={canInterrupt ? faStop : faArrowUp}
+                  icon={
+                    isSendDisabled ? faBan : canInterrupt ? faStop : faArrowUp
+                  }
                   size="sm"
                 />
               </button>

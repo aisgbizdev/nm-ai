@@ -9,11 +9,22 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!, // ✅ pastiin ada G-xxxx
 };
 
-// ⬇⬇⬇ ini penting: kita export app JUGA, bukan cuma db
-export const app =
-  !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
+export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app);
+
+// ✅ Analytics (client-only, dynamic import biar aman dari SSR)
+let _analytics: any = null;
+
+export async function getFirebaseAnalytics() {
+  if (typeof window === "undefined") return null;
+
+  const { isSupported, getAnalytics } = await import("firebase/analytics");
+  if (!(await isSupported())) return null;
+
+  if (_analytics) return _analytics;
+  _analytics = getAnalytics(app);
+  return _analytics;
+}

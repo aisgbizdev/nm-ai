@@ -2,14 +2,13 @@
 
 import { FC, RefObject, useEffect, useState } from "react";
 import Image from "next/image";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import rehypeRaw from "rehype-raw";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faClone,
-  faPlay,
-  faStop,
   faRotateRight,
   faArrowUpFromBracket,
 } from "@fortawesome/free-solid-svg-icons";
@@ -109,7 +108,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
             >
               <div
                 className={[
-                  "relative w-full px-4 py-3 md:px-5 text-base rounded-lg shadow-md",
+                  "relative w-full p-4 text-base rounded-lg shadow-md",
                   isUser
                     ? "bg-linear-to-r from-blue-500/70 to-blue-600/70 text-white backdrop-blur"
                     : "text-zinc-900 bg-white",
@@ -117,59 +116,100 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               >
                 {isAi ? (
                   <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
                     rehypePlugins={[rehypeRaw]}
+                    // ✅ allow data:image/*;base64, tapi tetap aman untuk URL lain
+                    urlTransform={(url) => {
+                      const u = String(url || "").trim();
+                      const isSafeDataImage =
+                        /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(
+                          u
+                        );
+
+                      if (isSafeDataImage) return u;
+                      return defaultUrlTransform(u);
+                    }}
                     components={{
+                      // ✅ Markdown image: ![](data:image/png;base64,....)
+                      img: ({ src, alt }: any) => {
+                        const s = String(src || "").trim();
+                        if (!s) return null;
+
+                        return (
+                          <button
+                            type="button"
+                            className="group relative block cursor-pointer my-2"
+                            onClick={() => setPreviewSrc(s)}
+                            title="Klik untuk preview"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={s}
+                              alt={alt || "gambar"}
+                              className="max-h-80 w-auto max-w-full rounded-lg border border-zinc-200 object-contain transition hover:scale-[1.015] hover:shadow-lg"
+                            />
+                            <span className="absolute inset-0 rounded-lg bg-black/10 opacity-0 transition group-hover:opacity-100" />
+                          </button>
+                        );
+                      },
+
                       blockquote: ({ node, ...props }) => (
                         <blockquote
                           {...props}
-                          className={
-                            "border-l-4 border-blue-300 px-2 pe-10 py-2 italic text-[0.95rem] text-zinc-700 mt-2 bg-zinc-100 rounded mb-4" +
-                            (props.className || "")
-                          }
+                          className={[
+                            "border-l-4 border-blue-300 px-3 pe-10 py-2 italic text-[0.95rem] text-zinc-700 mt-3 mb-4 bg-zinc-100 rounded",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
+
                       p: ({ node, ...props }) => (
                         <p
                           {...props}
-                          className={
-                            "leading-relaxed " + (props.className || "")
-                          }
+                          className={[
+                            "leading-relaxed mb-3 last:mb-0",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
+
                       h1: ({ node, ...props }) => (
                         <h1
                           {...props}
-                          className={
-                            "mb-2 text-lg font-semibold text-zinc-900 " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "mt-4 mb-2 text-2xl font-bold text-zinc-900",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                       h2: ({ node, ...props }) => (
                         <h2
                           {...props}
-                          className={
-                            "mb-2 text-base font-semibold text-zinc-900 " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "mt-4 mb-2 text-xl font-semibold text-zinc-900",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                       h3: ({ node, ...props }) => (
                         <h3
                           {...props}
-                          className={
-                            "mb-2 text-sm font-semibold text-zinc-900 " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "mt-3 mb-2 text-lg font-semibold text-zinc-900",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
+
                       strong: ({ node, ...props }) => (
                         <strong
                           {...props}
-                          className={"font-semibold " + (props.className || "")}
+                          className={["font-bold", props.className || ""].join(
+                            " "
+                          )}
                         />
                       ),
+
                       hr: ({ node, ...props }) => (
                         <hr
                           {...props}
@@ -179,32 +219,35 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                           ].join(" ")}
                         />
                       ),
+
                       ul: ({ node, ...props }) => (
                         <ul
                           {...props}
-                          className={
-                            "mb-2 ml-4 list-disc space-y-1 " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "mb-3 ml-5 list-disc space-y-1",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                       ol: ({ node, ...props }) => (
                         <ol
                           {...props}
-                          className={
-                            "mb-2 pl-4 list-decimal space-y-1 " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "mb-3 ml-5 list-decimal space-y-1",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                       li: ({ node, ...props }) => (
                         <li
                           {...props}
-                          className={
-                            "leading-relaxed " + (props.className || "")
-                          }
+                          className={[
+                            "leading-relaxed",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
+
                       code: ({
                         node: _node,
                         inline,
@@ -232,10 +275,10 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                           return (
                             <code
                               {...props}
-                              className={
-                                "rounded bg-zinc-100 px-1 py-px text-[0.75rem] font-mono " +
-                                (className || "")
-                              }
+                              className={[
+                                "rounded bg-zinc-100 px-1 py-px text-[0.8rem] font-mono",
+                                className || "",
+                              ].join(" ")}
                             >
                               {children}
                             </code>
@@ -259,7 +302,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                                 <span>Salin Kode</span>
                               </button>
                             </div>
-                            <pre className="max-w-full overflow-x-auto text-[0.75rem] font-mono">
+                            <pre className="max-w-full overflow-x-auto text-[0.8rem] font-mono p-3">
                               <code {...props} className={className || ""}>
                                 {children}
                               </code>
@@ -267,21 +310,25 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                           </div>
                         );
                       },
+
                       table: ({ node, ...props }) => (
-                        <div className="bg-zinc-50 p-2 rounded w-full overflow-x-auto">
+                        <div className="bg-zinc-50 p-2 rounded w-full overflow-x-auto my-3">
                           <table
                             {...props}
-                            className={
-                              "w-full border-collapse " +
-                              ((props as any).className || "")
-                            }
+                            className={[
+                              "w-full border-collapse",
+                              (props as any).className || "",
+                            ].join(" ")}
                           />
                         </div>
                       ),
                       thead: ({ node, ...props }) => (
                         <thead
                           {...props}
-                          className={"bg-zinc-100 " + (props.className || "")}
+                          className={[
+                            "bg-zinc-100",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                       tbody: ({ node, ...props }) => (
@@ -290,28 +337,28 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                       tr: ({ node, ...props }) => (
                         <tr
                           {...props}
-                          className={
-                            "border-b border-blue-200 last:border-0 " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "border-b border-blue-200 last:border-0",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                       th: ({ node, ...props }) => (
                         <th
                           {...props}
-                          className={
-                            "border border-blue-200 px-2 py-1 text-left font-semibold text-base bg-blue-100 " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "border border-blue-200 px-2 py-1 text-left font-semibold text-base bg-blue-100",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                       td: ({ node, ...props }) => (
                         <td
                           {...props}
-                          className={
-                            "border border-blue-200 px-2 py-1 align-top " +
-                            (props.className || "")
-                          }
+                          className={[
+                            "border border-blue-200 px-2 py-1 align-top",
+                            props.className || "",
+                          ].join(" ")}
                         />
                       ),
                     }}
@@ -324,6 +371,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                   </p>
                 )}
 
+                {/* imagePath (attachment biasa) */}
                 {msg.imagePath && (
                   <div className="mt-3">
                     {isAi ? (
@@ -342,12 +390,12 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <span className="absolute inset-0 rounded-lg bg-black/10 opacity-0 transition group-hover:opacity-100" />
                       </button>
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <button
                         type="button"
                         className="group relative block cursor-pointer"
                         onClick={() => setPreviewSrc(msg.imagePath!)}
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={msg.imagePath}
                           alt="Lampiran pengguna"

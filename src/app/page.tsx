@@ -905,7 +905,7 @@ export default function Home() {
           canAttachFile={canAttachFile}
           selectedFile={selectedFile}
           onFileChange={handleFileChange}
-           onClearFile={() => setSelectedFile(null)}
+          onClearFile={() => setSelectedFile(null)}
           inputValue={inputValue}
           setInputValue={setInputValue}
           onSend={() => sendMessage()}
@@ -962,32 +962,6 @@ export default function Home() {
                   >
                     Salin teks
                   </button>
-                </div>
-
-                <div>
-                  <p className="text-xs uppercase font-semibold text-zinc-500 mb-1">
-                    Tautan
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={
-                        shareModal.loading
-                          ? "Menyiapkan tautan..."
-                          : shareModal.link || "Tautan belum tersedia"
-                      }
-                      className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800"
-                    />
-                    <button
-                      type="button"
-                      className="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700 transition whitespace-nowrap disabled:opacity-50"
-                      onClick={() => handleCopy(shareModal.link)}
-                      disabled={shareModal.loading || !shareModal.link}
-                    >
-                      {shareModal.loading ? "Menyiapkan..." : "Salin tautan"}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
