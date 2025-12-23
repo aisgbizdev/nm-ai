@@ -40,10 +40,26 @@ function isGibberishResponse(text: string): boolean {
 }
 
 function isNewsRequest(query: string): boolean {
-  const newsKeywords = ['berita', 'news', 'artikel', 'update', 'kabar', 'headline', 'terbaru', 'terakhir', 'breaking', 'latest'];
   const queryLower = query.toLowerCase();
-  return newsKeywords.some(k => queryLower.includes(k)) && 
-         (queryLower.includes('newsmaker') || queryLower.includes('nm'));
+  
+  const exclusionKeywords = ['banding', 'compare', 'versus', 'vs', 'perbedaan', 'difference', 'kelebihan', 'kekurangan', 'pros', 'cons', 'mana yang', 'which is'];
+  if (exclusionKeywords.some(k => queryLower.includes(k))) {
+    return false;
+  }
+  
+  const newsPatterns = [
+    /berita\s+(dari\s+)?newsmaker/i,
+    /news\s+(from\s+)?newsmaker/i,
+    /artikel\s+(dari\s+)?newsmaker/i,
+    /update\s+(dari\s+)?newsmaker/i,
+    /kabar\s+(dari\s+)?newsmaker/i,
+    /minta\s+.*berita/i,
+    /give\s+.*news/i,
+    /latest\s+.*newsmaker/i,
+    /terbaru\s+.*newsmaker/i,
+  ];
+  
+  return newsPatterns.some(p => p.test(queryLower));
 }
 
 function detectLanguage(query: string): 'id' | 'en' {
