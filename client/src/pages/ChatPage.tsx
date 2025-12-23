@@ -5,7 +5,7 @@ import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 
@@ -55,8 +55,12 @@ export default function ChatPage() {
   
   const [inputMessage, setInputMessage] = useState("");
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: sessionData, isLoading: isLoadingChat } = useSession(sessionId);
   
@@ -136,6 +140,95 @@ export default function ChatPage() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        alert("Pilih file gambar (PNG, JPG, dll)");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Ukuran file maksimal 5MB");
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleChartAnalysis = async () => {
+    if (!selectedImage || !sessionId || isAnalyzing || isStreaming) return;
+
+    setIsAnalyzing(true);
+    const formData = new FormData();
+    formData.append("image", selectedImage);
+    formData.append("message", inputMessage || "Analisa chart ini dan berikan rekomendasi trading");
+    formData.append("sessionId", sessionId.toString());
+
+    setInputMessage("");
+    clearImage();
+
+    try {
+      const response = await fetch("/api/analyze-chart", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze chart");
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let streamContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value);
+        const lines = text.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                streamContent += data.content;
+              }
+              if (data.done) {
+                break;
+              }
+            } catch {}
+          }
+        }
+      }
+
+      const { queryClient } = await import("@/lib/queryClient");
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions", sessionId] });
+
+    } catch (error) {
+      console.error("Chart analysis error:", error);
+      alert("Gagal menganalisis chart. Coba lagi.");
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -241,7 +334,7 @@ export default function ChatPage() {
                   key={msg.id}
                   role={msg.role}
                   content={msg.content}
-                  createdAt={msg.createdAt}
+                  createdAt={msg.createdAt || undefined}
                 />
               ))}
               {isStreaming && (
@@ -264,7 +357,42 @@ export default function ChatPage() {
 
       <div className="shrink-0 border-t border-border/30 bg-background px-2 sm:px-4 pt-3 sm:pt-4 pb-3 sm:pb-4">
         <div className="max-w-4xl mx-auto">
+          {imagePreview && (
+            <div className="mb-2 relative inline-block">
+              <img 
+                src={imagePreview} 
+                alt="Chart preview" 
+                className="h-20 sm:h-24 rounded-lg border border-border/50 object-cover"
+              />
+              <button
+                onClick={clearImage}
+                className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1 hover:bg-destructive/80 transition-colors"
+                data-testid="button-remove-image"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <div className="flex items-end gap-1.5 sm:gap-2 bg-card/80 backdrop-blur border border-border/50 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 shadow-lg focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageSelect}
+              accept="image/*"
+              className="hidden"
+              data-testid="input-image"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isStreaming || isAnalyzing}
+              className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 text-muted-foreground hover:text-primary mb-0.5 sm:mb-1"
+              title="Upload Chart untuk Analisis"
+              data-testid="button-upload-chart"
+            >
+              <ImagePlus className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
             <Textarea
               ref={textareaRef}
               value={inputMessage}
@@ -274,26 +402,30 @@ export default function ChatPage() {
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Tanya apapun..."
-              className="min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 py-2.5 sm:py-3 px-3 sm:px-4 text-sm sm:text-base"
+              placeholder={selectedImage ? "Tambah instruksi (opsional)..." : "Tanya apapun..."}
+              className="min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 py-2.5 sm:py-3 px-2 sm:px-3 text-sm sm:text-base"
               rows={1}
               data-testid="input-message"
             />
             <Button 
-              onClick={() => handleSend()} 
-              disabled={!inputMessage.trim() || isStreaming}
+              onClick={() => selectedImage ? handleChartAnalysis() : handleSend()} 
+              disabled={(!inputMessage.trim() && !selectedImage) || isStreaming || isAnalyzing}
               size="icon"
               className={cn(
                 "h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg sm:rounded-xl transition-all mb-0.5 sm:mb-1",
-                inputMessage.trim() ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted text-muted-foreground"
+                (inputMessage.trim() || selectedImage) ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted text-muted-foreground"
               )}
               data-testid="button-send"
             >
-              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+              {isAnalyzing ? (
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+              )}
             </Button>
           </div>
           <p className="text-center text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">
-            NM Ai dapat membuat kesalahan. Periksa info penting.
+            {selectedImage ? "Upload chart untuk analisis teknikal" : "NM Ai dapat membuat kesalahan. Periksa info penting."}
           </p>
         </div>
       </div>

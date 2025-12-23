@@ -5,7 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { openai } from "./replit_integrations/image/client"; 
 import multer from "multer";
-import { streamQuery, loadCoreKnowledge, buildSystemPrompt } from "./ai-engine";
+import { streamQuery, loadCoreKnowledge, buildSystemPrompt, streamChartAnalysis } from "./ai-engine";
 
 const upload = multer({ 
     storage: multer.memoryStorage(),
@@ -193,6 +193,59 @@ export async function registerRoutes(
         console.error("AI Error:", error);
         res.write(`data: ${JSON.stringify({ error: "Failed to generate response" })}\n\n`);
         res.end();
+    }
+  });
+
+  // --- CHART ANALYSIS (Image Upload) ---
+  app.post("/api/analyze-chart", upload.single("image"), async (req, res) => {
+    try {
+      const file = req.file;
+      const { message, sessionId } = req.body;
+      
+      if (!file) {
+        return res.status(400).json({ message: "No image uploaded" });
+      }
+
+      const parsedSessionId = parseInt(sessionId);
+      if (isNaN(parsedSessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+
+      const imageBase64 = file.buffer.toString("base64");
+      const mimeType = file.mimetype || "image/png";
+      const userMessage = message || "Analisa chart ini";
+
+      await storage.createMessage({
+        sessionId: parsedSessionId,
+        role: "user",
+        content: `[Chart Analysis Request] ${userMessage}`
+      });
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      let fullResponse = "";
+
+      for await (const chunk of streamChartAnalysis(imageBase64, userMessage, mimeType)) {
+        fullResponse += chunk;
+        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      }
+
+      if (fullResponse) {
+        await storage.createMessage({
+          sessionId: parsedSessionId,
+          role: "assistant",
+          content: fullResponse
+        });
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true, source: "vision" })}\n\n`);
+      res.end();
+
+    } catch (error) {
+      console.error("Chart analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze chart" });
     }
   });
 
