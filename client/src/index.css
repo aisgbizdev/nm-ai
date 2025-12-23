@@ -5,31 +5,31 @@
 @tailwind utilities;
 
 :root {
-  /* Dark Theme Base - Deep Gunmetal/Black */
-  --background: 224 71% 4%;
+  /* Dark Theme Base - Deep Navy/Black */
+  --background: 222 47% 6%;
   --foreground: 210 40% 98%;
 
   /* Card / Surface Colors */
-  --card: 224 71% 7%;
+  --card: 222 47% 9%;
   --card-foreground: 210 40% 98%;
   
-  --popover: 224 71% 7%;
+  --popover: 222 47% 9%;
   --popover-foreground: 210 40% 98%;
 
-  /* Primary Accent - Gwen's Pink/Magenta */
-  --primary: 326 100% 60%;
+  /* Primary Accent - NM Pink/Magenta (matching logo) */
+  --primary: 330 85% 55%;
   --primary-foreground: 210 40% 98%;
 
-  /* Secondary Accent - Gwen's Cyan/Blue */
-  --secondary: 190 100% 50%;
+  /* Secondary Accent - NM Pink Light */
+  --secondary: 330 70% 65%;
   --secondary-foreground: 222 47% 11%;
 
   /* Muted Colors */
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 222 30% 15%;
+  --muted-foreground: 220 15% 60%;
 
   /* Accents */
-  --accent: 217 33% 17%;
+  --accent: 222 30% 18%;
   --accent-foreground: 210 40% 98%;
 
   /* Destructive */
@@ -37,9 +37,9 @@
   --destructive-foreground: 210 40% 98%;
 
   /* Borders & Inputs */
-  --border: 217 33% 20%;
-  --input: 217 33% 20%;
-  --ring: 326 100% 60%;
+  --border: 222 25% 18%;
+  --input: 222 25% 18%;
+  --ring: 330 85% 55%;
 
   /* Radius */
   --radius: 0.75rem;
