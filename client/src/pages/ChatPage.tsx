@@ -7,7 +7,7 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Send, Menu, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Bot } from "lucide-react";
+import { Plus, Send, Menu, Trash2, MessageSquare, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -239,13 +239,10 @@ function Sidebar({ sessions, currentId, onNewChat, onDelete, open, toggle }: any
             exit={{ width: 0, opacity: 0 }}
             className="flex flex-col border-r border-border bg-card/50 backdrop-blur z-30 h-full relative"
         >
-            <div className="p-4 border-b border-border/50 flex items-center justify-between">
-                <Button onClick={onNewChat} className="flex-1 justify-start gap-2 bg-background/50 hover:bg-background border border-border/50 text-foreground">
+            <div className="p-4 border-b border-border/50">
+                <Button onClick={onNewChat} className="w-full justify-start gap-2 bg-background/50 hover:bg-background border border-border/50 text-foreground">
                     <Plus className="h-4 w-4" />
                     New Chat
-                </Button>
-                <Button variant="ghost" size="icon" onClick={toggle} className="ml-2 md:flex hidden">
-                    <PanelLeftClose className="h-4 w-4 text-muted-foreground" />
                 </Button>
             </div>
 
@@ -283,13 +280,6 @@ function Sidebar({ sessions, currentId, onNewChat, onDelete, open, toggle }: any
                 </div>
             </ScrollArea>
         </motion.aside>
-      )}
-      {!open && (
-         <div className="absolute top-4 left-4 z-30 hidden md:block">
-            <Button variant="outline" size="icon" onClick={toggle} className="bg-background/80 backdrop-blur">
-                <PanelLeft className="h-5 w-5" />
-            </Button>
-         </div>
       )}
     </AnimatePresence>
   );
