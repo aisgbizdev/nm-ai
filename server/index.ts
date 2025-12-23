@@ -1,10 +1,26 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
+
+const corsOptions = {
+  origin: [
+    /\.newsmaker\.id$/,
+    /newsmaker\.id$/,
+    'http://localhost:5000',
+    'http://localhost:3000',
+    process.env.ALLOWED_ORIGIN || ''
+  ].filter(Boolean),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+app.use(cors(corsOptions));
 
 declare module "http" {
   interface IncomingMessage {
