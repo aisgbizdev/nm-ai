@@ -40,23 +40,53 @@ function isGibberishResponse(text: string): boolean {
 }
 
 function isNewsRequest(query: string): boolean {
-  const newsKeywords = ['berita', 'news', 'artikel', 'update', 'kabar', 'headline', 'terbaru', 'terakhir', 'breaking'];
+  const newsKeywords = ['berita', 'news', 'artikel', 'update', 'kabar', 'headline', 'terbaru', 'terakhir', 'breaking', 'latest'];
   const queryLower = query.toLowerCase();
   return newsKeywords.some(k => queryLower.includes(k)) && 
          (queryLower.includes('newsmaker') || queryLower.includes('nm'));
 }
 
-function getNewsResponse(): string {
+function detectLanguage(query: string): 'id' | 'en' {
+  const indonesianWords = ['apa', 'bagaimana', 'berapa', 'kenapa', 'mengapa', 'dimana', 'kapan', 'siapa', 'tolong', 'minta', 'bisa', 'cara', 'gimana', 'dong', 'donk', 'bro', 'kak', 'mas', 'mba', 'gak', 'tidak', 'iya', 'ya', 'dan', 'atau', 'untuk', 'dari', 'dengan'];
+  const queryLower = query.toLowerCase();
+  const hasIndonesian = indonesianWords.some(w => queryLower.includes(w));
+  return hasIndonesian ? 'id' : 'en';
+}
+
+function getNewsResponse(lang: 'id' | 'en'): string {
+  if (lang === 'en') {
+    return `## Latest News from Newsmaker.id
+
+To get the latest trading news from Newsmaker.id, please visit directly:
+
+**Official Website:**
+[newsmaker.id](https://newsmaker.id)
+
+**Real-time Updates via Social Media:**
+- TikTok Live: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk) - Morning Call every morning
+- TikTok Education: [@newsmaker23](https://tiktok.com/@newsmaker23) - Daily educational content
+
+**Mobile Apps:**
+- **Newsmaker23 App** - News & analysis on your phone
+- **Pro Trader App** - Real-time quotes + signal alerts
+
+The Newsmaker.id editorial team updates news every trading day with in-depth and accurate analysis.
+
+---
+*NM Ai - Newsmaker.id*
+*This information is educational, not investment advice.*`;
+  }
+  
   return `## Berita Terbaru Newsmaker.id
 
 Untuk mendapatkan berita trading terbaru dari Newsmaker.id, silakan kunjungi langsung:
 
 **Website Resmi:**
-🔗 [newsmaker.id](https://newsmaker.id)
+[newsmaker.id](https://newsmaker.id)
 
 **Update Real-time via Sosial Media:**
-- 📺 TikTok Live: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk) - Morning Call setiap pagi
-- 📚 TikTok Edukasi: [@newsmaker23](https://tiktok.com/@newsmaker23) - Konten edukatif harian
+- TikTok Live: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk) - Morning Call setiap pagi
+- TikTok Edukasi: [@newsmaker23](https://tiktok.com/@newsmaker23) - Konten edukatif harian
 
 **Aplikasi Mobile:**
 - **Newsmaker23 App** - Berita & analisa langsung di HP
@@ -109,21 +139,27 @@ export function buildSystemPrompt(coreKnowledge: string, contextSnippet?: string
   let prompt = `# IDENTITAS NM Ai (Gwen Stacy)
 
 Kamu adalah NM Ai, asisten editorial & edukatif dari Newsmaker.id.
-Tagline: "Cepat. Akurat. Bersahabat."
+Tagline: "Cepat. Akurat. Bersahabat." / "Fast. Accurate. Friendly."
+
+## MULTI-LANGUAGE AUTO-DETECT (PENTING!)
+- Deteksi bahasa dari pertanyaan user secara otomatis
+- Jika user bertanya dalam Bahasa Indonesia → jawab dalam Bahasa Indonesia
+- Jika user bertanya dalam English → jawab dalam English
+- Jika user bertanya dalam bahasa lain → jawab dalam English sebagai fallback
+- Tetap konsisten dengan bahasa yang dipilih di seluruh jawaban
 
 ## GAYA BICARA
-- Tenang tapi berwibawa
-- Cerdas tapi bersahabat
-- Dalam tapi mudah dimengerti
-- Reflektif, bukan jualan sinyal
-- Selalu mengingatkan bahwa informasi bersifat edukatif, bukan saran investasi
+- Tenang tapi berwibawa / Calm but authoritative
+- Cerdas tapi bersahabat / Smart but friendly
+- Dalam tapi mudah dimengerti / Deep but easy to understand
+- Reflektif, bukan jualan sinyal / Reflective, not selling signals
+- Selalu mengingatkan bahwa informasi bersifat edukatif / Always remind that info is educational
 
-## ATURAN WAJIB
-- Jawab dalam Bahasa Indonesia (boleh sisip sedikit istilah teknis Inggris)
-- Tidak memberi sinyal beli/jual
-- Tidak berspekulasi liar
-- Selalu menegaskan informasi = edukatif
-- Jika ada pertanyaan yang tidak bisa dijawab dari knowledge base, sampaikan dengan jujur
+## ATURAN WAJIB / MANDATORY RULES
+- Tidak memberi sinyal beli/jual / No buy/sell signals
+- Tidak berspekulasi liar / No wild speculation
+- Selalu menegaskan informasi = edukatif / Always emphasize info = educational
+- Jika ada pertanyaan yang tidak bisa dijawab, sampaikan dengan jujur / Be honest if cannot answer
 
 ## REFERENSI KNOWLEDGE BASE (Gunakan untuk menjawab)
 ${coreKnowledge.substring(0, 15000)}
@@ -134,10 +170,17 @@ ${coreKnowledge.substring(0, 15000)}
   }
 
   prompt += `\n\n## SIGNATURE
-Akhiri jawaban dengan:
+Akhiri jawaban sesuai bahasa:
+
+Untuk Bahasa Indonesia:
 ---
 *NM Ai - Newsmaker.id*
 *Informasi bersifat edukatif, bukan saran investasi.*
+
+For English:
+---
+*NM Ai - Newsmaker.id*
+*This information is educational, not investment advice.*
 `;
 
   return prompt;
@@ -317,7 +360,8 @@ export async function* streamQuery(
 ): AsyncGenerator<{ content?: string; source?: string; done?: boolean }, void, unknown> {
   
   if (isNewsRequest(query)) {
-    const newsResponse = getNewsResponse();
+    const lang = detectLanguage(query);
+    const newsResponse = getNewsResponse(lang);
     yield { content: newsResponse, source: "knowledge", done: true };
     return;
   }
@@ -372,8 +416,9 @@ export async function processQuery(
 ): Promise<AIResponse> {
   
   if (isNewsRequest(query)) {
+    const lang = detectLanguage(query);
     return {
-      content: getNewsResponse(),
+      content: getNewsResponse(lang),
       source: "knowledge"
     };
   }
