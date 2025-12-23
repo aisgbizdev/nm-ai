@@ -254,7 +254,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-6 sm:pt-10 pb-3 sm:pb-6 px-2 sm:px-4">
+      <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-background via-background to-transparent pt-6 sm:pt-10 pb-3 sm:pb-6 px-2 sm:px-4">
         <div className="max-w-4xl mx-auto relative">
           <div className="relative flex items-end gap-1.5 sm:gap-2 bg-card/80 backdrop-blur border border-border/50 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 shadow-2xl focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
             <Textarea
