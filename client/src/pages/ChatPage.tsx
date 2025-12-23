@@ -5,7 +5,7 @@ import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 import { format } from "date-fns";
@@ -18,10 +18,10 @@ const MENU_OPTIONS = [
     prompt: "Jelaskan tentang Market Hub dan bagaimana memahami logika pasar berjangka" 
   },
   { 
-    icon: BookOpen, 
-    title: "Trading Rules", 
-    desc: "Regulasi SPA & peraturan Bappebti",
-    prompt: "Jelaskan trading rules SPA berdasarkan peraturan Bappebti" 
+    icon: FileImage, 
+    title: "Analisis Dokumen", 
+    desc: "Upload chart atau laporan keuangan",
+    prompt: "Saya ingin upload gambar chart atau statement trading untuk dianalisis" 
   },
   { 
     icon: Calculator, 
@@ -77,13 +77,13 @@ export default function ChatPage() {
 
 Saya bisa membantu kamu untuk:
 - **Market Hub** - Memahami logika pasar dan strategi trading
-- **Trading Rules** - Regulasi SPA dan peraturan Bappebti
+- **Analisis Dokumen** - Upload gambar chart atau statement untuk dianalisis
 - **Risk Planner** - Simulasi margin dan ketahanan modal
 - **User Protection** - Legalitas dan perlindungan dari penipuan
 - **Kalender Ekonomi** - Jadwal berita dan event penting
-- **Analisis Chart** - Upload gambar chart untuk analisis teknikal
+- **Obrolan Bebas** - Tanya apa saja tentang trading dan finansial
 
-Silakan tanya apa saja tentang trading berjangka!`;
+Silakan tanya atau upload gambar untuk analisis!`;
 
 
   const handleExportChat = () => {
