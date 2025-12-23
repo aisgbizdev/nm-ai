@@ -4,18 +4,12 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { openai } from "./replit_integrations/image/client"; 
-import OpenAI from "openai";
 import multer from "multer";
+import { streamQuery, loadCoreKnowledge, buildSystemPrompt } from "./ai-engine";
 
-// Configure multer for file uploads
 const upload = multer({ 
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-});
-
-const chatOpenAI = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 export async function registerRoutes(
@@ -142,7 +136,7 @@ export async function registerRoutes(
       }
   });
 
-  // --- CHAT STREAMING ---
+  // --- CHAT STREAMING with 3-Tier Engine ---
   app.post(api.chat.stream.path, async (req, res) => {
     const { message, sessionId } = req.body;
     
@@ -155,62 +149,44 @@ export async function registerRoutes(
     const session = await storage.getSession(sessionId);
     if (!session) return res.status(404).json({ message: "Session not found" });
 
-    // Build System Prompt with Knowledge Base
-    let systemPrompt = "You are a helpful AI assistant.";
-    if (session.personaId) {
-        const persona = await storage.getPersona(session.personaId);
-        if (persona) {
-            systemPrompt = persona.systemPrompt;
-
-            // Append Knowledge if exists
-            const knowledgeFiles = await storage.getKnowledgeFiles(session.personaId);
-            if (knowledgeFiles.length > 0) {
-                systemPrompt += "\n\nUse the following knowledge base to answer questions:\n";
-                knowledgeFiles.forEach(f => {
-                    systemPrompt += `\n--- FILE: ${f.filename} ---\n${f.content.substring(0, 5000)}\n`; // Limit context for now
-                });
-            }
-        }
-    }
-
+    const personaId = session.personaId || 1;
+    
     const history = await storage.getMessages(sessionId);
-    const apiMessages = [
-        { role: "system", content: systemPrompt },
-        ...history.slice(-10).map(m => ({
-            role: m.role as "user" | "assistant" | "system",
-            content: m.content
-        }))
-    ];
+    const apiMessages = history.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content
+    }));
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
     let fullResponse = "";
+    let responseSource = "openai";
 
     try {
-        const stream = await chatOpenAI.chat.completions.create({
-            model: "gpt-5.1",
-            messages: apiMessages as any,
-            stream: true,
-            max_completion_tokens: 4096,
-        });
-
-        for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || "";
-            if (content) {
-                fullResponse += content;
-                res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        for await (const chunk of streamQuery(message, apiMessages, personaId)) {
+            if (chunk.content) {
+                fullResponse += chunk.content;
+                res.write(`data: ${JSON.stringify({ content: chunk.content })}\n\n`);
+            }
+            if (chunk.source) {
+                responseSource = chunk.source;
+            }
+            if (chunk.done) {
+                break;
             }
         }
         
-        await storage.createMessage({
-            sessionId,
-            role: "assistant",
-            content: fullResponse
-        });
+        if (fullResponse) {
+            await storage.createMessage({
+                sessionId,
+                role: "assistant",
+                content: fullResponse
+            });
+        }
 
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.write(`data: ${JSON.stringify({ done: true, source: responseSource })}\n\n`);
         res.end();
 
     } catch (error) {

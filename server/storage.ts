@@ -1,10 +1,11 @@
 import { db } from "./db";
 import { 
-  chatSessions, messages, personas, knowledgeFiles,
+  chatSessions, messages, personas, knowledgeFiles, learnedKnowledge,
   type ChatSession, type InsertChatSession, 
   type Message, type InsertMessage,
   type Persona, type InsertPersona,
-  type KnowledgeFile
+  type KnowledgeFile,
+  type LearnedKnowledge, type InsertLearnedKnowledge
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -19,6 +20,11 @@ export interface IStorage {
   // Knowledge
   addKnowledgeFile(personaId: number, filename: string, content: string, fileType: string): Promise<KnowledgeFile>;
   getKnowledgeFiles(personaId: number): Promise<KnowledgeFile[]>;
+  
+  // Learned Knowledge
+  addLearnedKnowledge(data: InsertLearnedKnowledge): Promise<LearnedKnowledge>;
+  getLearnedKnowledge(personaId: number): Promise<LearnedKnowledge[]>;
+  searchLearnedKnowledge(personaId: number, query: string): Promise<LearnedKnowledge | undefined>;
 
   // Sessions
   getAllSessions(): Promise<ChatSession[]>;
@@ -83,6 +89,29 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(knowledgeFiles).where(eq(knowledgeFiles.personaId, personaId));
   }
 
+  // --- Learned Knowledge ---
+  async addLearnedKnowledge(data: InsertLearnedKnowledge): Promise<LearnedKnowledge> {
+      const [learned] = await db.insert(learnedKnowledge).values(data).returning();
+      return learned;
+  }
+
+  async getLearnedKnowledge(personaId: number): Promise<LearnedKnowledge[]> {
+      return await db.select().from(learnedKnowledge)
+          .where(eq(learnedKnowledge.personaId, personaId))
+          .orderBy(desc(learnedKnowledge.createdAt));
+  }
+
+  async searchLearnedKnowledge(personaId: number, query: string): Promise<LearnedKnowledge | undefined> {
+      const all = await this.getLearnedKnowledge(personaId);
+      const queryLower = query.toLowerCase();
+      for (const item of all) {
+          if (item.question.toLowerCase().includes(queryLower) || 
+              queryLower.includes(item.question.toLowerCase().slice(0, 30))) {
+              return item;
+          }
+      }
+      return undefined;
+  }
 
   // --- Sessions ---
   async getAllSessions(): Promise<ChatSession[]> {
