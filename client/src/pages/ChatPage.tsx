@@ -5,8 +5,9 @@ import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, Sparkles, TrendingUp, Calculator, Calendar } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 
 const QUICK_PROMPTS = [
   { icon: TrendingUp, text: "Analisa pasar hari ini", prompt: "Bagaimana kondisi pasar hari ini?" },
@@ -95,13 +96,8 @@ export default function ChatPage() {
     return (
       <div className="flex h-screen bg-background text-foreground items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary via-purple-500 to-secondary flex items-center justify-center shadow-lg shadow-primary/30">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
-              NM Ai
-            </h1>
+          <div className="flex items-center justify-center">
+            <img src={nmLogo} alt="NM Ai" className="h-24 md:h-32 w-auto object-contain" />
           </div>
           <p className="text-xl text-muted-foreground">Gwen Stacy Mode</p>
           <div className="flex items-center justify-center gap-2">
@@ -118,13 +114,8 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
       <header className="h-14 border-b border-border/40 bg-background/80 backdrop-blur flex items-center justify-between px-4 z-20">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary via-purple-500 to-secondary flex items-center justify-center shadow-md shadow-primary/20">
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
+          <img src={nmLogo} alt="NM Ai" className="h-8 w-auto object-contain" />
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-              NM Ai
-            </h1>
             <span className="hidden sm:inline text-sm text-muted-foreground">Gwen Stacy</span>
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50" />
           </div>
@@ -174,9 +165,7 @@ export default function ChatPage() {
               {!sessionData?.messages.length && !isStreaming && (
                 <div className="flex-1 flex flex-col items-center justify-center gap-8 py-16 px-4">
                   <div className="text-center space-y-4">
-                    <div className="h-20 w-20 mx-auto rounded-2xl bg-gradient-to-br from-primary via-purple-500 to-secondary flex items-center justify-center shadow-2xl shadow-primary/30">
-                      <Sparkles className="h-10 w-10 text-white" />
-                    </div>
+                    <img src={nmLogo} alt="NM Ai" className="h-24 mx-auto object-contain" />
                     <div className="space-y-2">
                       <h2 className="text-2xl font-bold text-foreground">Halo! Saya Gwen</h2>
                       <p className="text-muted-foreground max-w-md">
