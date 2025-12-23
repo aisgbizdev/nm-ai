@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
-import { useSession, useCreateSession, useDeleteSession } from "@/hooks/use-chat";
+import { useSession, useCreateSession, useDeleteSession, useSessions } from "@/hooks/use-chat";
 import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, History, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
+import { format } from "date-fns";
 
 const MENU_OPTIONS = [
   { 
@@ -63,14 +64,49 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: sessionData, isLoading: isLoadingChat } = useSession(sessionId);
+  const { data: allSessions } = useSessions();
   
   const createSession = useCreateSession();
   const deleteSession = useDeleteSession();
+  const welcomeSentRef = useRef<number | null>(null);
 
   const { sendMessage, streamingContent, isStreaming } = useStreamChat({
     sessionId,
     onIncomingMessage: () => scrollToBottom(),
   });
+
+  useEffect(() => {
+    if (
+      sessionId && 
+      sessionData && 
+      sessionData.messages?.length === 0 && 
+      !isStreaming && 
+      !pendingPrompt &&
+      welcomeSentRef.current !== sessionId
+    ) {
+      welcomeSentRef.current = sessionId;
+      sendMessage("Halo, perkenalkan dirimu dan jelaskan apa saja yang bisa kamu bantu.");
+    }
+  }, [sessionId, sessionData, isStreaming, pendingPrompt]);
+
+  const handleExportChat = () => {
+    if (!sessionData?.messages?.length) return;
+    
+    const exportText = sessionData.messages.map(msg => {
+      const role = msg.role === "user" ? "Anda" : "Gwen Stacy";
+      const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
+      return `[${time}] ${role}:\n${msg.content}\n`;
+    }).join("\n---\n\n");
+    
+    const header = `NM Ai Chat Export\nTanggal: ${format(new Date(), "dd/MM/yyyy HH:mm")}\n\n${"=".repeat(50)}\n\n`;
+    const blob = new Blob([header + exportText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nm-ai-chat-${format(new Date(), "yyyy-MM-dd-HHmm")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
@@ -274,6 +310,35 @@ export default function ChatPage() {
             </p>
           </div>
 
+          {allSessions && allSessions.length > 0 && (
+            <div className="w-full max-w-2xl space-y-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <History className="h-3.5 w-3.5" />
+                <span className="text-xs font-medium">Riwayat Chat</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {allSessions.slice(0, 4).map((session) => (
+                  <button
+                    key={session.id}
+                    onClick={() => setLocation(`/chat/${session.id}`)}
+                    className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg border border-border/50 bg-card/30 text-left hover:bg-card hover:border-primary/30 transition-all group"
+                    data-testid={`button-history-${session.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-foreground truncate">
+                        {session.title || "Percakapan"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {session.createdAt ? format(new Date(session.createdAt), "dd MMM, HH:mm") : ""}
+                      </p>
+                    </div>
+                    <MessageCircle className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <p className="text-[10px] sm:text-xs text-muted-foreground text-center pb-2">
             NM Ai - Newsmaker.id Editorial Engine 2025
           </p>
@@ -302,16 +367,29 @@ export default function ChatPage() {
             <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50" />
           </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={handleClearChat}
-          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 sm:h-9 sm:w-9"
-          title="Hapus Chat"
-          data-testid="button-clear-chat"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleExportChat}
+            disabled={!sessionData?.messages?.length}
+            className="text-muted-foreground hover:text-foreground h-8 w-8 sm:h-9 sm:w-9"
+            title="Export Chat"
+            data-testid="button-export-chat"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleClearChat}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 sm:h-9 sm:w-9"
+            title="Hapus Chat"
+            data-testid="button-clear-chat"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
       <div 
@@ -338,12 +416,29 @@ export default function ChatPage() {
                   messageId={msg.id}
                 />
               ))}
-              {isStreaming && (
+              {isStreaming && streamingContent && (
                 <ChatMessage 
                   role="assistant"
                   content={streamingContent}
                   isStreaming={true}
                 />
+              )}
+              {isStreaming && !streamingContent && (
+                <div className="flex w-full gap-2 sm:gap-4 px-2 sm:px-4 py-3 sm:py-6 bg-card/30 border-y border-border/10">
+                  <div className="container max-w-4xl mx-auto flex gap-2 sm:gap-4 md:gap-5">
+                    <div className="flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl shadow-lg bg-white/90 overflow-hidden">
+                      <img src={nmLogo} alt="NM Ai" className="h-6 w-6 sm:h-8 sm:w-8 object-contain" />
+                    </div>
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Gwen sedang mengetik</span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </span>
+                    </div>
+                  </div>
+                </div>
               )}
               {!sessionData?.messages.length && !isStreaming && (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-50 gap-4 py-20">
