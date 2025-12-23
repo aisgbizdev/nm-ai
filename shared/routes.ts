@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertChatSessionSchema, insertMessageSchema, chatSessions, messages } from './schema';
+import { insertChatSessionSchema, insertMessageSchema, chatSessions, messages, personas, insertPersonaSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -15,6 +15,33 @@ export const errorSchemas = {
 };
 
 export const api = {
+  personas: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/personas',
+      responses: {
+        200: z.array(z.custom<typeof personas.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/personas',
+      input: insertPersonaSchema,
+      responses: {
+        201: z.custom<typeof personas.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: { // Untuk update instruksi Gwen Stacy
+        method: 'PUT' as const,
+        path: '/api/personas/:id',
+        input: insertPersonaSchema.partial(),
+        responses: {
+          200: z.custom<typeof personas.$inferSelect>(),
+          404: errorSchemas.notFound,
+        },
+    }
+  },
   sessions: {
     list: {
       method: 'GET' as const,
@@ -36,7 +63,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/sessions/:id',
       responses: {
-        200: z.custom<typeof chatSessions.$inferSelect & { messages: typeof messages.$inferSelect[] }>(),
+        200: z.custom<typeof chatSessions.$inferSelect & { messages: typeof messages.$inferSelect[], persona: typeof personas.$inferSelect | null }>(),
         404: errorSchemas.notFound,
       },
     },
@@ -49,22 +76,6 @@ export const api = {
       },
     }
   },
-  messages: {
-    create: {
-      method: 'POST' as const,
-      path: '/api/sessions/:id/messages',
-      input: z.object({
-        content: z.string(),
-        role: z.enum(["user", "assistant"]),
-      }),
-      responses: {
-        201: z.custom<typeof messages.$inferSelect>(),
-        400: errorSchemas.validation,
-        404: errorSchemas.notFound,
-      },
-    },
-  },
-  // Endpoint khusus untuk AI streaming response
   chat: {
     stream: {
       method: 'POST' as const,
@@ -72,9 +83,7 @@ export const api = {
       input: z.object({
         message: z.string(),
         sessionId: z.number(),
-        model: z.string().optional(), // gpt-5.1, ollama, etc.
       }),
-      // Response is SSE stream, not JSON
       responses: {}, 
     }
   }
