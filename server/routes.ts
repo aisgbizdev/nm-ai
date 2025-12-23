@@ -196,6 +196,47 @@ export async function registerRoutes(
     }
   });
 
+  // --- MESSAGE FEEDBACK ---
+  app.post("/api/messages/:messageId/feedback", async (req, res) => {
+    try {
+      const messageId = parseInt(req.params.messageId);
+      if (isNaN(messageId)) {
+        return res.status(400).json({ message: "Invalid message ID" });
+      }
+      
+      const { feedback, comment } = req.body;
+      if (!feedback || !["up", "down"].includes(feedback)) {
+        return res.status(400).json({ message: "Feedback must be 'up' or 'down'" });
+      }
+      
+      const result = await storage.submitFeedback({
+        messageId,
+        feedback,
+        comment: comment || null
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Feedback error:", error);
+      res.status(500).json({ message: "Failed to submit feedback" });
+    }
+  });
+
+  app.get("/api/messages/:messageId/feedback", async (req, res) => {
+    try {
+      const messageId = parseInt(req.params.messageId);
+      if (isNaN(messageId)) {
+        return res.status(400).json({ message: "Invalid message ID" });
+      }
+      
+      const feedback = await storage.getFeedback(messageId);
+      res.json(feedback || null);
+    } catch (error) {
+      console.error("Get feedback error:", error);
+      res.status(500).json({ message: "Failed to get feedback" });
+    }
+  });
+
   // --- CHART ANALYSIS (Image Upload) ---
   app.post("/api/analyze-chart", upload.single("image"), async (req, res) => {
     try {

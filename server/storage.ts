@@ -1,13 +1,14 @@
 import { db } from "./db";
 import { 
-  chatSessions, messages, personas, knowledgeFiles, learnedKnowledge,
+  chatSessions, messages, personas, knowledgeFiles, learnedKnowledge, messageFeedback,
   type ChatSession, type InsertChatSession, 
   type Message, type InsertMessage,
   type Persona, type InsertPersona,
   type KnowledgeFile,
-  type LearnedKnowledge, type InsertLearnedKnowledge
+  type LearnedKnowledge, type InsertLearnedKnowledge,
+  type MessageFeedback, type InsertMessageFeedback
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // Personas
@@ -35,6 +36,10 @@ export interface IStorage {
   // Messages
   getMessages(sessionId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+  
+  // Feedback
+  submitFeedback(data: InsertMessageFeedback): Promise<MessageFeedback>;
+  getFeedback(messageId: number): Promise<MessageFeedback | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -144,6 +149,26 @@ export class DatabaseStorage implements IStorage {
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
     const [message] = await db.insert(messages).values(insertMessage).returning();
     return message;
+  }
+
+  // --- Feedback ---
+  async submitFeedback(data: InsertMessageFeedback): Promise<MessageFeedback> {
+    const existing = await this.getFeedback(data.messageId);
+    if (existing) {
+      const [updated] = await db.update(messageFeedback)
+        .set({ feedback: data.feedback, comment: data.comment })
+        .where(eq(messageFeedback.messageId, data.messageId))
+        .returning();
+      return updated;
+    }
+    const [feedback] = await db.insert(messageFeedback).values(data).returning();
+    return feedback;
+  }
+
+  async getFeedback(messageId: number): Promise<MessageFeedback | undefined> {
+    const [feedback] = await db.select().from(messageFeedback)
+      .where(eq(messageFeedback.messageId, messageId));
+    return feedback;
   }
 }
 
