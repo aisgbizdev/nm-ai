@@ -28,8 +28,7 @@ const MENU_OPTIONS = [
     icon: FileImage, 
     title: "Analisis Dokumen", 
     desc: "Upload chart atau laporan keuangan",
-    prompt: "",
-    action: "upload" 
+    prompt: "Saya ingin menganalisis dokumen. Silakan upload gambar chart atau statement trading menggunakan tombol gambar di bawah."
   },
   { 
     icon: Calculator, 
@@ -140,7 +139,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
     }
   }, [sessionId, pendingPrompt, isStreaming]);
 
-  const handleMenuClick = async (prompt: string, action?: string) => {
+  const handleMenuClick = async (prompt: string) => {
     try {
       const newSession = await createSession.mutateAsync({
         title: "New Conversation",
@@ -148,11 +147,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
       });
       setLocation(`/chat/${newSession.id}`);
       
-      if (action === "upload") {
-        setTimeout(() => {
-          fileInputRef.current?.click();
-        }, 300);
-      } else if (prompt) {
+      if (prompt) {
         setPendingPrompt(prompt);
       }
     } catch (err) {
@@ -331,7 +326,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
             {MENU_OPTIONS.map((item, idx) => (
               <button
                 key={idx}
-                onClick={() => handleMenuClick(item.prompt, (item as any).action)}
+                onClick={() => handleMenuClick(item.prompt)}
                 className="flex flex-col items-start gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-border/50 bg-card/50 text-left hover:bg-card hover:border-primary/30 transition-all active:scale-[0.98] group"
                 data-testid={`button-menu-${idx}`}
               >
