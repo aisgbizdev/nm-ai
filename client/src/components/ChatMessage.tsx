@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { User } from "lucide-react";
@@ -51,11 +52,11 @@ export function ChatMessage({ role, content, createdAt, isStreaming }: ChatMessa
             "prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 max-w-none break-words",
             "prose-headings:text-foreground prose-strong:text-foreground prose-code:text-primary",
             "text-sm sm:text-base",
-            "[&_table]:w-full [&_table]:border-collapse [&_table]:text-xs sm:[&_table]:text-sm [&_th]:border [&_th]:border-border [&_th]:p-1 sm:[&_th]:p-2 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-1 sm:[&_td]:p-2",
+            "[&_table]:w-full [&_table]:border-collapse [&_table]:text-xs sm:[&_table]:text-sm [&_table]:block [&_table]:overflow-x-auto [&_th]:border [&_th]:border-border [&_th]:p-1.5 sm:[&_th]:p-2 [&_th]:bg-muted [&_th]:whitespace-nowrap [&_td]:border [&_td]:border-border [&_td]:p-1.5 sm:[&_td]:p-2 [&_td]:whitespace-nowrap",
             "[&_pre]:text-xs sm:[&_pre]:text-sm [&_pre]:overflow-x-auto",
             "[&_ol]:pl-4 sm:[&_ol]:pl-6 [&_ul]:pl-4 sm:[&_ul]:pl-6"
           )}>
-            <ReactMarkdown>{content || (isStreaming ? "" : "")}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || (isStreaming ? "" : "")}</ReactMarkdown>
             {isStreaming && (
               <span className="inline-flex items-center gap-0.5 sm:gap-1 ml-1">
                 <motion.span 
