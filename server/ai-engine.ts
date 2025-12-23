@@ -16,6 +16,59 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const KNOWLEDGE_CORE_PATH = path.join(process.cwd(), "knowledge", "core");
 
+function isGibberishResponse(text: string): boolean {
+  if (!text || text.length < 20) return true;
+  
+  const words = text.split(/\s+/);
+  if (words.length < 3) return true;
+  
+  const meaningfulWords = words.filter(w => w.length >= 2);
+  if (meaningfulWords.length < words.length * 0.5) return true;
+  
+  const indonesianWords = ['dan', 'atau', 'yang', 'untuk', 'dari', 'dengan', 'ini', 'itu', 'adalah', 'dalam', 'pada', 'ke', 'di', 'tersebut', 'akan', 'jika', 'bisa', 'dapat', 'ada', 'tidak', 'harga', 'trading', 'market', 'analisa'];
+  const hasIndonesian = indonesianWords.some(w => text.toLowerCase().includes(w));
+  
+  const repeatingPattern = /(.{3,})\1{3,}/i;
+  if (repeatingPattern.test(text)) return true;
+  
+  const weirdChars = text.match(/[^\w\s.,!?():\-\[\]@#$%&*+='"<>/\\;`~|{}àáâãäåæçèéêëìíîïðñòóôõöùúûüýÿ]/g);
+  if (weirdChars && weirdChars.length > text.length * 0.1) return true;
+  
+  if (!hasIndonesian && !text.includes(' ')) return true;
+  
+  return false;
+}
+
+function isNewsRequest(query: string): boolean {
+  const newsKeywords = ['berita', 'news', 'artikel', 'update', 'kabar', 'headline', 'terbaru', 'terakhir', 'breaking'];
+  const queryLower = query.toLowerCase();
+  return newsKeywords.some(k => queryLower.includes(k)) && 
+         (queryLower.includes('newsmaker') || queryLower.includes('nm'));
+}
+
+function getNewsResponse(): string {
+  return `## Berita Terbaru Newsmaker.id
+
+Untuk mendapatkan berita trading terbaru dari Newsmaker.id, silakan kunjungi langsung:
+
+**Website Resmi:**
+🔗 [newsmaker.id](https://newsmaker.id)
+
+**Update Real-time via Sosial Media:**
+- 📺 TikTok Live: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk) - Morning Call setiap pagi
+- 📚 TikTok Edukasi: [@newsmaker23](https://tiktok.com/@newsmaker23) - Konten edukatif harian
+
+**Aplikasi Mobile:**
+- **Newsmaker23 App** - Berita & analisa langsung di HP
+- **Pro Trader App** - Quotes real-time + signal alerts
+
+Tim editorial Newsmaker.id update berita setiap hari perdagangan dengan analisa yang mendalam dan akurat.
+
+---
+*NM Ai - Newsmaker.id*
+*Informasi bersifat edukatif, bukan saran investasi.*`;
+}
+
 export interface AIResponse {
   content: string;
   source: "calculator" | "knowledge" | "learned" | "ollama" | "openai";
@@ -263,6 +316,12 @@ export async function* streamQuery(
   personaId: number
 ): AsyncGenerator<{ content?: string; source?: string; done?: boolean }, void, unknown> {
   
+  if (isNewsRequest(query)) {
+    const newsResponse = getNewsResponse();
+    yield { content: newsResponse, source: "knowledge", done: true };
+    return;
+  }
+  
   const calcResult = await handleCalculation(query);
   if (calcResult.handled && calcResult.reply) {
     await saveToLearnedKnowledge(personaId, query, calcResult.reply, "calculator");
@@ -286,11 +345,14 @@ export async function* streamQuery(
   
   const ollamaResult = await callOllamaWithTimeout(messages, systemPrompt);
   
-  if (ollamaResult.success && ollamaResult.content) {
+  if (ollamaResult.success && ollamaResult.content && !isGibberishResponse(ollamaResult.content)) {
     source = "ollama";
     fullResponse = ollamaResult.content;
     yield { content: ollamaResult.content, source: "ollama" };
   } else {
+    if (ollamaResult.success && ollamaResult.content) {
+      console.log("Ollama response detected as gibberish, falling back to OpenAI");
+    }
     for await (const chunk of streamOpenAI(messages, systemPrompt)) {
       fullResponse += chunk;
       yield { content: chunk, source: "openai" };
@@ -308,6 +370,14 @@ export async function processQuery(
   messages: { role: string; content: string }[],
   personaId: number
 ): Promise<AIResponse> {
+  
+  if (isNewsRequest(query)) {
+    return {
+      content: getNewsResponse(),
+      source: "knowledge"
+    };
+  }
+  
   const calcResult = await handleCalculation(query);
   if (calcResult.handled && calcResult.reply) {
     await saveToLearnedKnowledge(personaId, query, calcResult.reply, "calculator");
@@ -332,12 +402,16 @@ export async function processQuery(
   
   const ollamaResult = await callOllamaWithTimeout(messages, systemPrompt);
   
-  if (ollamaResult.success && ollamaResult.content) {
+  if (ollamaResult.success && ollamaResult.content && !isGibberishResponse(ollamaResult.content)) {
     await saveToLearnedKnowledge(personaId, query, ollamaResult.content, "ollama");
     return {
       content: ollamaResult.content,
       source: "ollama"
     };
+  }
+  
+  if (ollamaResult.success && ollamaResult.content) {
+    console.log("Ollama response detected as gibberish, falling back to OpenAI");
   }
   
   const openaiResponse = await callOpenAI(messages, systemPrompt);
