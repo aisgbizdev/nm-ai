@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
 import { handleCalculation } from "./calculators";
+import { fetchNews, formatNewsForChat, isNewsRequest as checkNewsIntent } from "./newsFetcher";
 
 const openaiClient = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -48,18 +49,22 @@ function isNewsRequest(query: string): boolean {
   }
   
   const newsPatterns = [
-    /berita\s+(dari\s+)?newsmaker/i,
-    /news\s+(from\s+)?newsmaker/i,
-    /artikel\s+(dari\s+)?newsmaker/i,
-    /update\s+(dari\s+)?newsmaker/i,
-    /kabar\s+(dari\s+)?newsmaker/i,
-    /minta\s+.*berita/i,
-    /give\s+.*news/i,
-    /latest\s+.*newsmaker/i,
-    /terbaru\s+.*newsmaker/i,
+    /berita/i,
+    /news/i,
+    /kabar/i,
+    /update.*pasar/i,
+    /update.*market/i,
+    /apa.*terjadi/i,
+    /what.*happening/i,
+    /headline/i,
+    /terbaru/i,
+    /latest/i,
+    /info.*hari ini/i,
+    /situasi.*pasar/i,
+    /kondisi.*pasar/i,
   ];
   
-  return newsPatterns.some(p => p.test(queryLower));
+  return newsPatterns.some(p => p.test(queryLower)) || checkNewsIntent(query);
 }
 
 function detectLanguage(query: string): 'id' | 'en' {
@@ -504,10 +509,18 @@ export async function* streamQuery(
 ): AsyncGenerator<{ content?: string; source?: string; done?: boolean }, void, unknown> {
   
   if (isNewsRequest(query)) {
-    const lang = detectLanguage(query);
-    const newsResponse = getNewsResponse(lang);
-    yield { content: newsResponse, source: "knowledge", done: true };
-    return;
+    try {
+      const news = await fetchNews();
+      const newsResponse = formatNewsForChat(news, 3);
+      yield { content: newsResponse, source: "news", done: true };
+      return;
+    } catch (err) {
+      console.error("News fetch error:", err);
+      const lang = detectLanguage(query);
+      const fallbackResponse = getNewsResponse(lang);
+      yield { content: fallbackResponse, source: "knowledge", done: true };
+      return;
+    }
   }
   
   const calcResult = await handleCalculation(query);
@@ -560,11 +573,20 @@ export async function processQuery(
 ): Promise<AIResponse> {
   
   if (isNewsRequest(query)) {
-    const lang = detectLanguage(query);
-    return {
-      content: getNewsResponse(lang),
-      source: "knowledge"
-    };
+    try {
+      const news = await fetchNews();
+      return {
+        content: formatNewsForChat(news, 3),
+        source: "news"
+      };
+    } catch (err) {
+      console.error("News fetch error:", err);
+      const lang = detectLanguage(query);
+      return {
+        content: getNewsResponse(lang),
+        source: "knowledge"
+      };
+    }
   }
   
   const calcResult = await handleCalculation(query);
