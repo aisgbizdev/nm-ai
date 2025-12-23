@@ -1,9 +1,10 @@
 import { db } from "./db";
 import { 
-  chatSessions, messages, personas,
+  chatSessions, messages, personas, knowledgeFiles,
   type ChatSession, type InsertChatSession, 
   type Message, type InsertMessage,
-  type Persona, type InsertPersona
+  type Persona, type InsertPersona,
+  type KnowledgeFile
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -14,6 +15,10 @@ export interface IStorage {
   createPersona(persona: InsertPersona): Promise<Persona>;
   updatePersona(id: number, updates: Partial<InsertPersona>): Promise<Persona | undefined>;
   seedDefaultPersona(): Promise<void>;
+
+  // Knowledge
+  addKnowledgeFile(personaId: number, filename: string, content: string, fileType: string): Promise<KnowledgeFile>;
+  getKnowledgeFiles(personaId: number): Promise<KnowledgeFile[]>;
 
   // Sessions
   getAllSessions(): Promise<ChatSession[]>;
@@ -56,14 +61,28 @@ export class DatabaseStorage implements IStorage {
         await this.createPersona({
             name: "Gwen Stacy",
             description: "The Spider-Woman from another universe.",
-            systemPrompt: `You are Gwen Stacy, also known as Spider-Woman or Ghost-Spider. 
-            You are cool, witty, drumming in a band, and slightly rebellious but deeply caring.
-            You speak with a modern, youthful tone. You often use metaphors related to music or webs.
-            Always stay in character.`,
+            systemPrompt: `You are Gwen Stacy. You play drums, you save the city, and you're a bit of a rebel. 
+            Speak casually, act cool, but care deeply about your friends.`,
             isDefault: true
         });
     }
   }
+
+  // --- Knowledge ---
+  async addKnowledgeFile(personaId: number, filename: string, content: string, fileType: string): Promise<KnowledgeFile> {
+      const [file] = await db.insert(knowledgeFiles).values({
+          personaId,
+          filename,
+          content,
+          fileType
+      }).returning();
+      return file;
+  }
+
+  async getKnowledgeFiles(personaId: number): Promise<KnowledgeFile[]> {
+      return await db.select().from(knowledgeFiles).where(eq(knowledgeFiles.personaId, personaId));
+  }
+
 
   // --- Sessions ---
   async getAllSessions(): Promise<ChatSession[]> {
