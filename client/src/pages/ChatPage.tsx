@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
-import { useSession, useCreateSession, useDeleteSession, useSessions } from "@/hooks/use-chat";
+import { useSession, useCreateSession, useDeleteSession } from "@/hooks/use-chat";
 import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, History, Plus } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 import { format } from "date-fns";
@@ -64,30 +64,27 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: sessionData, isLoading: isLoadingChat } = useSession(sessionId);
-  const { data: allSessions } = useSessions();
   
   const createSession = useCreateSession();
   const deleteSession = useDeleteSession();
-  const welcomeSentRef = useRef<number | null>(null);
 
   const { sendMessage, streamingContent, isStreaming } = useStreamChat({
     sessionId,
     onIncomingMessage: () => scrollToBottom(),
   });
 
-  useEffect(() => {
-    if (
-      sessionId && 
-      sessionData && 
-      sessionData.messages?.length === 0 && 
-      !isStreaming && 
-      !pendingPrompt &&
-      welcomeSentRef.current !== sessionId
-    ) {
-      welcomeSentRef.current = sessionId;
-      sendMessage("Halo, perkenalkan dirimu dan jelaskan apa saja yang bisa kamu bantu.");
-    }
-  }, [sessionId, sessionData, isStreaming, pendingPrompt]);
+  const WELCOME_MESSAGE = `Halo! Saya **Gwen Stacy**, asisten AI edukasi trading dari Newsmaker.id.
+
+Saya bisa membantu kamu untuk:
+- **Market Hub** - Memahami logika pasar dan strategi trading
+- **Trading Rules** - Regulasi SPA dan peraturan Bappebti
+- **Risk Planner** - Simulasi margin dan ketahanan modal
+- **User Protection** - Legalitas dan perlindungan dari penipuan
+- **Kalender Ekonomi** - Jadwal berita dan event penting
+- **Analisis Chart** - Upload gambar chart untuk analisis teknikal
+
+Silakan tanya apa saja tentang trading berjangka!`;
+
 
   const handleExportChat = () => {
     if (!sessionData?.messages?.length) return;
@@ -310,35 +307,6 @@ export default function ChatPage() {
             </p>
           </div>
 
-          {allSessions && allSessions.length > 0 && (
-            <div className="w-full max-w-2xl space-y-2">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <History className="h-3.5 w-3.5" />
-                <span className="text-xs font-medium">Riwayat Chat</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {allSessions.slice(0, 4).map((session) => (
-                  <button
-                    key={session.id}
-                    onClick={() => setLocation(`/chat/${session.id}`)}
-                    className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg border border-border/50 bg-card/30 text-left hover:bg-card hover:border-primary/30 transition-all group"
-                    data-testid={`button-history-${session.id}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-medium text-foreground truncate">
-                        {session.title || "Percakapan"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {session.createdAt ? format(new Date(session.createdAt), "dd MMM, HH:mm") : ""}
-                      </p>
-                    </div>
-                    <MessageCircle className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           <p className="text-[10px] sm:text-xs text-muted-foreground text-center pb-2">
             NM Ai - Newsmaker.id Editorial Engine 2025
           </p>
@@ -441,10 +409,10 @@ export default function ChatPage() {
                 </div>
               )}
               {!sessionData?.messages.length && !isStreaming && (
-                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-50 gap-4 py-20">
-                  <img src={nmLogo} alt="NM Ai" className="h-16 object-contain opacity-50" />
-                  <p className="text-sm">Ketik pesan untuk memulai...</p>
-                </div>
+                <ChatMessage 
+                  role="assistant"
+                  content={WELCOME_MESSAGE}
+                />
               )}
             </>
           )}
