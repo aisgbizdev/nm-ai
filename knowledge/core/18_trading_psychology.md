@@ -176,6 +176,88 @@ Setelah trade:
 6. Setelah minum alkohol
 7. Saat tidak punya trading plan
 
+## Cognitive Biases dalam Trading
+
+Bias kognitif adalah "jebakan pikiran" yang mempengaruhi keputusan trading secara tidak rasional.
+
+### 1. Loss Aversion (Keengganan Rugi)
+**Definisi:** Ketakutan terhadap kerugian lebih besar daripada keinginan memperoleh keuntungan.
+
+**Dampak:**
+- Menahan posisi rugi terlalu lama, berharap harga kembali
+- Terlalu cepat mengambil profit karena takut berubah jadi loss
+- Tidak mau cut loss padahal setup sudah invalid
+
+**Solusi:**
+- Set stop loss SEBELUM entry dan patuhi
+- Ingat: cut loss kecil hari ini mencegah loss besar besok
+- Lihat loss sebagai "biaya bisnis" trading
+
+### 2. Herding Behaviour (Perilaku Ikut-ikutan)
+**Definisi:** Kecenderungan mengikuti keputusan mayoritas pasar tanpa analisis independen.
+
+**Dampak:**
+- Membentuk tren harga yang ekstrem (bubble)
+- Gelembung harga yang pecah menjadi koreksi mendadak
+- Entry di puncak, exit di dasar
+
+**Solusi:**
+- Buat analisis sendiri sebelum lihat opini orang lain
+- "Be fearful when others are greedy, greedy when others are fearful"
+- Jangan entry hanya karena semua orang bilang bullish/bearish
+
+### 3. Anchoring (Jangkar Mental)
+**Definisi:** Terpaku pada informasi awal atau referensi harga tertentu sebagai acuan keputusan.
+
+**Dampak:**
+- Sulit beradaptasi dengan perubahan tren atau sinyal baru
+- "Harga pasti balik ke level X" padahal market sudah berubah
+- Tidak mau admit wrong karena sudah "commit" ke analisis awal
+
+**Solusi:**
+- Update analisis secara berkala dengan data terbaru
+- Harga tidak "harus" kemana-mana
+- Fokus pada what IS happening, bukan what SHOULD happen
+
+### 4. Recency Bias (Bias Kekinian)
+**Definisi:** Lebih mempercayai informasi atau tren terbaru daripada data historis jangka panjang.
+
+**Dampak:**
+- Membuat keputusan reaktif berdasarkan berita/sentimen sesaat
+- Overreact terhadap pergerakan harga jangka pendek
+- Mengabaikan trend jangka panjang yang lebih signifikan
+
+**Solusi:**
+- Selalu lihat multiple timeframe (daily, weekly, monthly)
+- Jangan trading berdasarkan berita breaking saja
+- Evaluasi apakah informasi ini mengubah BIG PICTURE atau tidak
+
+### 5. Confirmation Bias (Bias Konfirmasi)
+**Definisi:** Hanya mencari dan percaya pada informasi yang mendukung keyakinan atau analisis yang sudah dibuat.
+
+**Dampak:**
+- Mengabaikan data atau sinyal yang bertentangan
+- Meningkatkan risiko kerugian karena blind spot
+- Tidak mau review atau koreksi analisis yang salah
+
+**Solusi:**
+- Aktif cari alasan MENGAPA analisis Anda bisa SALAH
+- Dengarkan pendapat yang berlawanan
+- Set invalidation point SEBELUM entry
+
+### 6. Gambler's Fallacy (Kekeliruan Penjudi)
+**Definisi:** Percaya bahwa hasil sebelumnya mempengaruhi probabilitas hasil berikutnya dalam kejadian independen.
+
+**Dampak:**
+- "Sudah loss 5x, pasti yang ke-6 profit" → double down
+- "Sudah profit 5x berturut, saatnya all-in" → overleveraging
+- Tidak memahami bahwa setiap trade adalah event independen
+
+**Solusi:**
+- Setiap trade adalah probabilitas baru
+- Winning/losing streak tidak mengubah edge sistem
+- Stick to position sizing rules ALWAYS
+
 ## Quotes untuk Diingat
 
 > "The goal of a successful trader is to make the best trades. Money is secondary." - Alexander Elder
