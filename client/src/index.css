@@ -16,20 +16,20 @@
   --popover: 222 47% 9%;
   --popover-foreground: 210 40% 98%;
 
-  /* Primary Accent - NM Pink/Magenta (matching logo) */
-  --primary: 330 85% 55%;
-  --primary-foreground: 210 40% 98%;
+  /* Primary Accent - NM Deep Indigo (matching logo) */
+  --primary: 218 76% 46%;
+  --primary-foreground: 0 0% 100%;
 
-  /* Secondary Accent - NM Pink Light */
-  --secondary: 330 70% 65%;
+  /* Secondary Accent - NM Cyan/Blue (logo highlight) */
+  --secondary: 205 92% 58%;
   --secondary-foreground: 222 47% 11%;
 
   /* Muted Colors */
   --muted: 222 30% 15%;
   --muted-foreground: 220 15% 60%;
 
-  /* Accents */
-  --accent: 222 30% 18%;
+  /* Accents - Royal Blue */
+  --accent: 213 83% 46%;
   --accent-foreground: 210 40% 98%;
 
   /* Destructive */
@@ -39,7 +39,7 @@
   /* Borders & Inputs */
   --border: 222 25% 18%;
   --input: 222 25% 18%;
-  --ring: 330 85% 55%;
+  --ring: 218 76% 46%;
 
   /* Radius */
   --radius: 0.75rem;

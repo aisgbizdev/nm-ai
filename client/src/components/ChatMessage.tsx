@@ -65,7 +65,7 @@ export function ChatMessage({ role, content, createdAt, isStreaming }: ChatMessa
                   transition={{ duration: 1, repeat: Infinity, delay: 0 }}
                 />
                 <motion.span 
-                  className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500"
+                  className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-secondary"
                   animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
                 />
