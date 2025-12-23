@@ -60,6 +60,7 @@ export default function ChatPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [chartStreamingContent, setChartStreamingContent] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,9 +215,10 @@ Silakan tanya atau upload gambar untuk analisis!`;
     if (!selectedImage || !sessionId || isAnalyzing || isStreaming) return;
 
     setIsAnalyzing(true);
+    setChartStreamingContent("");
     const formData = new FormData();
     formData.append("image", selectedImage);
-    formData.append("message", inputMessage || "Analisa chart ini dan berikan rekomendasi trading");
+    formData.append("message", inputMessage || "Analisa gambar ini");
     formData.append("sessionId", sessionId.toString());
 
     setInputMessage("");
@@ -229,7 +231,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
       });
 
       if (!response.ok) {
-        throw new Error("Failed to analyze chart");
+        throw new Error("Failed to analyze");
       }
 
       const reader = response.body?.getReader();
@@ -251,6 +253,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
               const data = JSON.parse(line.slice(6));
               if (data.content) {
                 streamContent += data.content;
+                setChartStreamingContent(streamContent);
+                scrollToBottom();
               }
               if (data.done) {
                 break;
@@ -264,10 +268,11 @@ Silakan tanya atau upload gambar untuk analisis!`;
       queryClient.invalidateQueries({ queryKey: ["/api/sessions", sessionId] });
 
     } catch (error) {
-      console.error("Chart analysis error:", error);
-      alert("Gagal menganalisis chart. Coba lagi.");
+      console.error("Image analysis error:", error);
+      alert("Gagal menganalisis gambar. Coba lagi.");
     } finally {
       setIsAnalyzing(false);
+      setChartStreamingContent("");
     }
   };
 
@@ -397,7 +402,14 @@ Silakan tanya atau upload gambar untuk analisis!`;
                   isStreaming={true}
                 />
               )}
-              {isStreaming && !streamingContent && (
+              {isAnalyzing && chartStreamingContent && (
+                <ChatMessage 
+                  role="assistant"
+                  content={chartStreamingContent}
+                  isStreaming={true}
+                />
+              )}
+              {((isStreaming && !streamingContent) || (isAnalyzing && !chartStreamingContent)) && (
                 <div className="flex w-full gap-2 sm:gap-4 px-2 sm:px-4 py-3 sm:py-6 bg-card/30 border-y border-border/10">
                   <div className="container max-w-4xl mx-auto flex gap-2 sm:gap-4 md:gap-5">
                     <div className="flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl shadow-lg bg-white/90 overflow-hidden">
