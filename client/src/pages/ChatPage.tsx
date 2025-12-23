@@ -78,6 +78,14 @@ export default function ChatPage() {
     scrollToBottom();
   }, [sessionData?.messages, streamingContent]);
 
+  // Auto-scroll when streaming starts
+  useEffect(() => {
+    if (isStreaming) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => scrollToBottom(), 50);
+    }
+  }, [isStreaming]);
+
   useEffect(() => {
     if (sessionId && pendingPrompt && !isStreaming) {
       sendMessage(pendingPrompt);
