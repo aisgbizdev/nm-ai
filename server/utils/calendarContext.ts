@@ -1,6 +1,3 @@
-// src/app/api/nm-ai/utils/calendarContext.ts
-// (kalau lu pisah calendarTable.ts ya tinggal sesuaikan import/export-nya, intinya fungsi ini)
-
 export interface CalendarEventRow {
   date: string;
   time: string;
@@ -16,96 +13,84 @@ interface BuildCalendarTableOptions {
   emptyMessage?: string;
 }
 
-/**
- * Bersihin cell (hapus newline, trim, fallback "-")
- */
 function sanitizeCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "-";
   const str = String(value).replace(/\r?\n/g, " ").trim();
   return str === "" ? "-" : str;
 }
 
-/**
- * Parse angka dari string yang mungkin ada %, M, dsb.
- * contoh:
- *  "0.7%"   -> 0.7
- *  "-2.1%"  -> -2.1
- *  "0.6M"   -> 0.6
- *  "-"      -> null
- */
 function parseNumeric(value: string | null | undefined): number | null {
   if (!value) return null;
-  const cleaned = value.replace(/[^\d.\-]/g, ""); // sisain digit, titik, minus
+  const cleaned = value.replace(/[^\d.\-]/g, "");
   if (!cleaned) return null;
   const num = Number(cleaned);
   return Number.isFinite(num) ? num : null;
 }
 
-/**
- * Actual vs Previous:
- * - Actual < Previous => merah
- * - Actual = Previous => hitam
- * - Actual > Previous => hijau
- */
-function colorizeActual(previousRaw: string, actualRaw: string): string {
+function formatActual(previousRaw: string, actualRaw: string): string {
   const prevNum = parseNumeric(previousRaw);
   const actNum = parseNumeric(actualRaw);
   const label = sanitizeCell(actualRaw);
 
-  // Kalau ga bisa dibandingkan (data kosong / bukan angka) → tampil standar
-  if (prevNum === null || actNum === null) {
+  if (prevNum === null || actNum === null || label === "-") {
     return label;
   }
 
   if (actNum > prevNum) {
-    // hijau
-    return `<span style="color:#16a34a;font-weight:600;">${label}</span>`;
+    return `${label} (+)`;
   }
 
   if (actNum < prevNum) {
-    // merah
-    return `<span style="color:#dc2626;font-weight:600;">${label}</span>`;
+    return `${label} (-)`;
   }
 
-  // sama → hitam
-  return `<span style="color:#111827;font-weight:600;">${label}</span>`;
+  return label;
 }
 
-/**
- * Bangun tabel kalender dalam FORMAT MARKDOWN TABLE
- */
+function formatImpact(impact: string): string {
+  const sanitized = sanitizeCell(impact);
+  const starCount = (sanitized.match(/★/g) || []).length;
+  
+  if (starCount >= 3) return "High";
+  if (starCount === 2) return "Med";
+  if (starCount === 1) return "Low";
+  
+  if (sanitized.toLowerCase().includes("high")) return "High";
+  if (sanitized.toLowerCase().includes("medium") || sanitized.toLowerCase().includes("med")) return "Med";
+  if (sanitized.toLowerCase().includes("low")) return "Low";
+  
+  return sanitized;
+}
+
 export function buildCalendarTable(
   rows: CalendarEventRow[],
   options: BuildCalendarTableOptions = {}
 ): string {
   const {
-    emptyMessage = "- Tidak ada event terdaftar pada tanggal ini di sistem Newsmaker.",
+    emptyMessage = "Tidak ada event terdaftar pada tanggal ini.",
   } = options;
 
   if (!rows || rows.length === 0) {
     return emptyMessage;
   }
 
-  // Header markdown table
   const headerLines = [
-    "| Time (WIB) | Currency | Impact | Event | Previous | Forecast | Actual |",
-    "|------------|----------|--------|-------|----------|----------|--------|",
+    "| Waktu | Mata Uang | Impact | Event | Previous | Forecast | Actual |",
+    "|:------|:----------|:------:|:------|:---------|:---------|:-------|",
   ];
 
   const bodyLines = rows.map((ev) => {
     const time = sanitizeCell(ev.time);
     const currency = sanitizeCell(ev.currency);
-    const impact = sanitizeCell(ev.impact);
-    const event = sanitizeCell(ev.event);
+    const impact = formatImpact(ev.impact);
+    const eventName = sanitizeCell(ev.event).substring(0, 40);
     const previous = sanitizeCell(ev.previous);
     const forecast = sanitizeCell(ev.forecast);
+    const actual = ev.actual && ev.actual.trim() !== ""
+      ? formatActual(ev.previous, ev.actual)
+      : "-";
 
-    const actualColored =
-      ev.actual && ev.actual.trim() !== ""
-        ? colorizeActual(ev.previous, ev.actual)
-        : sanitizeCell(ev.actual);
-
-    return `| ${time} | ${currency} | ${impact} | ${event} | ${previous} | ${forecast} | ${actualColored} |`;
+    return `| ${time} | ${currency} | ${impact} | ${eventName} | ${previous} | ${forecast} | ${actual} |`;
   });
 
   return [...headerLines, ...bodyLines].join("\n");
