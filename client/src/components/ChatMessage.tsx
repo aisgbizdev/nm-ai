@@ -1,58 +1,59 @@
-import { motion } from "framer-motion";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import ReactMarkdown from 'react-markdown';
 import { cn } from "@/lib/utils";
-import { Bot, User } from "lucide-react";
+import { format } from "date-fns";
+import { User, Bot } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface ChatMessageProps {
-  role: "user" | "assistant" | "system";
+  role: string;
   content: string;
+  createdAt?: string | Date;
+  isStreaming?: boolean;
 }
 
-export function ChatMessage({ role, content }: ChatMessageProps) {
+export function ChatMessage({ role, content, createdAt, isStreaming }: ChatMessageProps) {
   const isUser = role === "user";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className={cn(
-        "flex w-full gap-4 p-6 border-b border-white/5 last:border-0",
-        isUser ? "bg-transparent" : "bg-white/[0.02]"
-      )}
+    <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+            "group flex w-full gap-4 px-4 py-8 transition-colors",
+            isUser ? "bg-background" : "bg-card/30 border-y border-border/20"
+        )}
     >
-      <div className={cn(
-        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border",
-        isUser 
-          ? "bg-secondary/10 border-secondary/30 text-secondary" 
-          : "bg-primary/10 border-primary/30 text-primary"
-      )}>
-        {isUser ? <User size={16} /> : <Bot size={16} />}
-      </div>
-      
-      <div className="flex-1 space-y-2 overflow-hidden">
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            "text-sm font-bold font-display uppercase tracking-wider",
-            isUser ? "text-secondary" : "text-primary"
-          )}>
-            {isUser ? "You" : "NM Ai"}
-          </span>
-          {!isUser && (
-            <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/20">
-              Gwen Mode
-            </span>
-          )}
+      <div className="container max-w-4xl mx-auto flex gap-4 md:gap-6">
+        <div className={cn(
+            "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-lg border shadow-lg",
+            isUser 
+                ? "bg-background border-border text-foreground" 
+                : "bg-primary/10 border-primary/20 text-primary shadow-primary/20"
+        )}>
+          {isUser ? <User className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
         </div>
         
-        <div className={cn(
-          "prose prose-invert max-w-none text-[15px] leading-7",
-          isUser ? "text-gray-200" : "text-gray-100"
-        )}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {content}
-          </ReactMarkdown>
+        <div className="flex-1 space-y-2 overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className={cn("text-sm font-semibold", isUser ? "text-foreground" : "text-primary")}>
+                {isUser ? "You" : "Gwen Stacy"}
+            </span>
+            {createdAt && (
+                <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                    {format(new Date(createdAt), "h:mm a")}
+                </span>
+            )}
+          </div>
+          
+          <div className={cn(
+              "prose prose-invert prose-p:leading-relaxed prose-pre:p-0 min-w-full break-words text-base",
+              isStreaming && !isUser && "animate-pulse-subtle" // Subtle pulse while streaming
+          )}>
+            <ReactMarkdown>{content}</ReactMarkdown>
+            {isStreaming && (
+                <span className="inline-block w-2 h-4 ml-1 align-middle bg-primary animate-pulse" />
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
