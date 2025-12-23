@@ -28,7 +28,7 @@ const MENU_OPTIONS = [
     icon: FileImage, 
     title: "Analisis Dokumen", 
     desc: "Upload chart atau laporan keuangan",
-    prompt: "Saya ingin menganalisis dokumen. Silakan upload gambar chart atau statement trading menggunakan tombol gambar di bawah."
+    prompt: ""
   },
   { 
     icon: Calculator, 
