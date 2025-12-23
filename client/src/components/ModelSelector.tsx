@@ -16,7 +16,7 @@ export function ModelSelector({ value, onValueChange }: ModelSelectorProps) {
         <SelectContent>
           <SelectItem value="gpt-5.1">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-400" />
+              <Sparkles className="w-4 h-4 text-primary" />
               <span>GPT-5.1</span>
             </div>
           </SelectItem>
