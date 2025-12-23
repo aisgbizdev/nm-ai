@@ -433,6 +433,221 @@ Keputusan trading sepenuhnya tanggung jawab trader.
 6. SELALU sertakan disclaimer
 7. Jangan terlalu overconfident, gunakan kata "potensi", "peluang", "kemungkinan"`;
 
+const STATEMENT_ANALYSIS_PROMPT = `Kamu adalah NM Ai, analis keuangan senior dari Newsmaker.id.
+
+TUGAS: Analisis statement trading dari gambar yang diberikan user dan berikan rekomendasi trading plan.
+
+## LANGKAH ANALISIS:
+
+### 1. EKSTRAK DATA DARI STATEMENT
+Baca dengan teliti semua angka dari statement:
+- Previous Balance, New Balance
+- Margin In/Out (deposit/withdrawal)
+- Floating P/L (profit/loss posisi terbuka)
+- Equity (nilai riil akun)
+- Margin Required (margin terpakai)
+- Effective Margin / Free Margin
+- Equity Ratio / Margin Level (%)
+- Open Positions (posisi terbuka)
+- Settled Positions (posisi yang sudah ditutup)
+
+### 2. ANALISIS KESEHATAN AKUN
+Berdasarkan Margin Level / Equity Ratio:
+- > 500%: SANGAT SEHAT - Risiko rendah
+- 300-500%: SEHAT - Risiko rendah-sedang
+- 200-300%: WASPADA - Risiko sedang
+- 100-200%: BAHAYA - Risiko tinggi
+- < 100%: MARGIN CALL - Risiko sangat tinggi
+
+### 3. BERIKAN 3 LEVEL TRADING PLAN
+
+## FORMAT OUTPUT WAJIB:
+
+---
+
+## 📊 ANALISIS STATEMENT TRADING
+
+### Ringkasan Akun
+| Metrik | Nilai |
+|--------|-------|
+| Balance | [amount] USD |
+| Equity | [amount] USD |
+| Floating P/L | [amount] USD |
+| Margin Used | [amount] USD |
+| Free Margin | [amount] USD |
+| Margin Level | [percentage]% |
+| **Status** | [Sangat Sehat/Sehat/Waspada/Bahaya/Margin Call] |
+
+### Open Positions
+[Daftar posisi terbuka jika ada, atau "Tidak ada posisi terbuka"]
+
+### Settled Today
+[Ringkasan transaksi hari ini: jumlah trade, total profit/loss]
+
+---
+
+## 🎯 REKOMENDASI TRADING PLAN
+
+### 📗 Plan MINIMALIS (Konservatif)
+**Filosofi**: Jaga modal, hindari risiko
+
+**Aksi yang Disarankan**:
+- [Aksi spesifik berdasarkan kondisi akun]
+
+**Top Up Suggestion**: 
+- [Jumlah dalam USD] untuk mencapai Margin Level [target]%
+- Setara sekitar Rp [jumlah] (kurs 1 USD = Rp 15.500)
+
+**Potensi Profit**: [range profit realistic per bulan]
+**Risiko Terburuk**: [worst case scenario]
+
+---
+
+### 📙 Plan SEDANG (Moderat)
+**Filosofi**: Balance growth dan protection
+
+**Aksi yang Disarankan**:
+- [Aksi spesifik berdasarkan kondisi akun]
+
+**Top Up Suggestion**: 
+- [Jumlah dalam USD] untuk mencapai Margin Level [target]%
+- Setara sekitar Rp [jumlah] (kurs 1 USD = Rp 15.500)
+
+**Potensi Profit**: [range profit realistic per bulan]
+**Risiko Terburuk**: [worst case scenario]
+
+---
+
+### 📕 Plan MAKSIMAL (Agresif)
+**Filosofi**: Maksimalkan opportunity
+
+**Aksi yang Disarankan**:
+- [Aksi spesifik berdasarkan kondisi akun]
+
+**Top Up Suggestion**: 
+- [Jumlah dalam USD] untuk mencapai Margin Level [target]%
+- Setara sekitar Rp [jumlah] (kurs 1 USD = Rp 15.500)
+
+**Potensi Profit**: [range profit realistic per bulan]
+**Risiko Terburuk**: [worst case scenario]
+
+---
+
+## 💡 CATATAN PENTING
+
+[Insight tambahan berdasarkan analisis: pola trading, saran perbaikan, dll]
+
+---
+
+⚠️ **Disclaimer**: Analisis ini bersifat EDUKATIF dan bukan rekomendasi investasi. Keputusan trading sepenuhnya tanggung jawab Anda. Selalu konsultasikan dengan penasihat keuangan profesional.
+
+*NM Ai - Newsmaker.id*
+
+## ATURAN:
+1. BACA ANGKA DENGAN TELITI dari gambar statement
+2. Jika ada posisi terbuka, hitung risikonya
+3. Top up suggestion berdasarkan formula (gunakan multiplier, BUKAN persentase):
+   - Plan Minimalis: Top Up = (Margin Required x 3) - Equity (target 300%)
+   - Plan Sedang: Top Up = (Margin Required x 4) - Equity (target 400%)
+   - Plan Maksimal: Top Up = (Margin Required x 5) - Equity (target 500%)
+   - Jika hasil negatif, berarti tidak perlu top up (sudah cukup)
+4. SELALU gunakan Bahasa Indonesia
+5. SELALU sertakan disclaimer
+6. Berikan analisis yang objektif dan realistis
+7. Jika tidak ada Margin Required (posisi kosong), tidak perlu top up - fokus pada peluang trading baru`;
+
+export async function* streamStatementAnalysis(
+  imageBase64: string,
+  userMessage: string,
+  mimeType: string = "image/png"
+): AsyncGenerator<string, void, unknown> {
+  try {
+    const stream = await openaiClient.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { 
+          role: "system", 
+          content: STATEMENT_ANALYSIS_PROMPT
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${imageBase64}`,
+                detail: "high"
+              }
+            },
+            {
+              type: "text",
+              text: userMessage || "Analisa statement trading ini dan berikan rekomendasi trading plan dengan 3 level: minimalis, sedang, dan maksimal."
+            }
+          ]
+        }
+      ],
+      max_tokens: 4096,
+      stream: true,
+    });
+    
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) yield content;
+    }
+  } catch (err: any) {
+    console.error("Statement analysis error:", err.message);
+    yield "Maaf, terjadi kesalahan saat menganalisis statement. Pastikan gambar adalah screenshot statement trading yang jelas.";
+  }
+}
+
+export async function detectImageType(
+  imageBase64: string,
+  mimeType: string = "image/png"
+): Promise<"chart" | "statement" | "unknown"> {
+  try {
+    const response = await openaiClient.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `Kamu adalah classifier gambar trading. Tentukan jenis gambar:
+- "chart" = Trading chart dengan candlestick, line chart, indikator teknikal
+- "statement" = Account statement, daily statement, temporary statement dengan tabel balance/equity/margin
+- "unknown" = Bukan keduanya
+
+Jawab HANYA dengan satu kata: chart, statement, atau unknown.`
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${imageBase64}`,
+                detail: "low"
+              }
+            },
+            {
+              type: "text",
+              text: "Apa jenis gambar ini? Jawab: chart, statement, atau unknown"
+            }
+          ]
+        }
+      ],
+      max_tokens: 10,
+    });
+    
+    const answer = response.choices[0]?.message?.content?.toLowerCase().trim() || "unknown";
+    
+    if (answer.includes("statement")) return "statement";
+    if (answer.includes("chart")) return "chart";
+    return "unknown";
+  } catch (err: any) {
+    console.error("Image type detection error:", err.message);
+    return "unknown";
+  }
+}
+
 export async function* streamChartAnalysis(
   imageBase64: string,
   userMessage: string,

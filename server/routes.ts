@@ -5,7 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { openai } from "./replit_integrations/image/client"; 
 import multer from "multer";
-import { streamQuery, loadCoreKnowledge, buildSystemPrompt, streamChartAnalysis } from "./ai-engine";
+import { streamQuery, loadCoreKnowledge, buildSystemPrompt, streamChartAnalysis, streamStatementAnalysis, detectImageType } from "./ai-engine";
 import { db } from "./db";
 import { messages as messagesTable } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -250,7 +250,7 @@ export async function registerRoutes(
     }
   });
 
-  // --- CHART ANALYSIS (Image Upload) ---
+  // --- IMAGE ANALYSIS (Chart or Statement) ---
   app.post("/api/analyze-chart", upload.single("image"), async (req, res) => {
     try {
       const file = req.file;
@@ -267,12 +267,23 @@ export async function registerRoutes(
 
       const imageBase64 = file.buffer.toString("base64");
       const mimeType = file.mimetype || "image/png";
-      const userMessage = message || "Analisa chart ini";
+      const userMessage = message || "";
+
+      const imageType = await detectImageType(imageBase64, mimeType);
+      console.log(`Detected image type: ${imageType}`);
+
+      const requestLabel = imageType === "statement" 
+        ? "[Statement Analysis Request]" 
+        : "[Chart Analysis Request]";
+      
+      const defaultMessage = imageType === "statement"
+        ? "Analisa statement trading ini dan berikan rekomendasi trading plan"
+        : "Analisa chart ini";
 
       await storage.createMessage({
         sessionId: parsedSessionId,
         role: "user",
-        content: `[Chart Analysis Request] ${userMessage}`
+        content: `${requestLabel} ${userMessage || defaultMessage}`
       });
 
       res.setHeader("Content-Type", "text/event-stream");
@@ -281,7 +292,11 @@ export async function registerRoutes(
 
       let fullResponse = "";
 
-      for await (const chunk of streamChartAnalysis(imageBase64, userMessage, mimeType)) {
+      const analysisStream = imageType === "statement"
+        ? streamStatementAnalysis(imageBase64, userMessage || defaultMessage, mimeType)
+        : streamChartAnalysis(imageBase64, userMessage || defaultMessage, mimeType);
+
+      for await (const chunk of analysisStream) {
         fullResponse += chunk;
         res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
       }
@@ -294,12 +309,12 @@ export async function registerRoutes(
         });
       }
 
-      res.write(`data: ${JSON.stringify({ done: true, source: "vision" })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true, source: "vision", imageType })}\n\n`);
       res.end();
 
     } catch (error) {
-      console.error("Chart analysis error:", error);
-      res.status(500).json({ message: "Failed to analyze chart" });
+      console.error("Image analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze image" });
     }
   });
 
