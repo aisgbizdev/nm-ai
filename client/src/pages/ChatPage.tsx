@@ -265,14 +265,15 @@ Silakan tanya atau upload gambar untuk analisis!`;
       }
 
       const { queryClient } = await import("@/lib/queryClient");
-      queryClient.invalidateQueries({ queryKey: ["/api/sessions", sessionId] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/sessions", sessionId] });
+      await queryClient.refetchQueries({ queryKey: ["/api/sessions", sessionId] });
 
     } catch (error) {
       console.error("Image analysis error:", error);
       alert("Gagal menganalisis gambar. Coba lagi.");
     } finally {
       setIsAnalyzing(false);
-      setChartStreamingContent("");
+      setTimeout(() => setChartStreamingContent(""), 500);
     }
   };
 
