@@ -1,126 +1,124 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-sans: 'Inter', sans-serif;
-  --font-display: 'Plus Jakarta Sans', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-
-  /* Premium Dark Theme by default matching modern AI tools */
+  /* Gwen Stacy Theme: Ghost Spider */
+  /* Deep dark backgrounds */
   --background: 240 10% 4%;
   --foreground: 0 0% 98%;
 
-  --card: 240 10% 6%;
+  /* Cards and Surfaces */
+  --card: 240 10% 7%;
   --card-foreground: 0 0% 98%;
-
-  --popover: 240 10% 6%;
+  --popover: 240 10% 7%;
   --popover-foreground: 0 0% 98%;
 
-  --primary: 217 91% 60%;
+  /* Primary: Hot Pink / Magenta */
+  --primary: 330 100% 50%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 240 6% 12%;
-  --secondary-foreground: 0 0% 98%;
+  /* Secondary: Electric Cyan */
+  --secondary: 180 100% 50%;
+  --secondary-foreground: 240 10% 4%;
 
-  --muted: 240 6% 12%;
+  /* Muted / Subtlety */
+  --muted: 240 10% 12%;
   --muted-foreground: 240 5% 65%;
 
-  --accent: 217 91% 60%;
-  --accent-foreground: 0 0% 100%;
+  /* Accents */
+  --accent: 270 50% 40%; /* Deep Purple */
+  --accent-foreground: 0 0% 98%;
 
-  --destructive: 0 84% 60%;
+  /* Borders & Inputs */
+  --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
+  --border: 240 10% 12%;
+  --input: 240 10% 12%;
+  --ring: 330 100% 50%;
 
-  --border: 240 6% 16%;
-  --input: 240 6% 16%;
-  --ring: 217 91% 60%;
-
+  /* Custom Radius */
   --radius: 0.75rem;
+
+  /* Fonts */
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground antialiased font-sans selection:bg-primary/30;
-    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-white;
+    font-family: var(--font-sans);
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display font-bold tracking-tight;
+    font-family: var(--font-display);
+    @apply font-bold tracking-tight;
   }
 
-  /* Custom Scrollbar for a cleaner look */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full transition-colors;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+  code, pre {
+    font-family: var(--font-mono);
   }
 }
 
-@layer components {
-  /* Markdown Styles */
-  .prose {
-    @apply text-foreground leading-7 max-w-none;
-  }
-  .prose p {
-    @apply mb-4 last:mb-0;
-  }
-  .prose code {
-    @apply font-mono text-sm bg-muted/50 px-1.5 py-0.5 rounded border border-border/50 text-primary-foreground/90;
-  }
-  .prose pre {
-    @apply bg-[#1e1e1e] p-4 rounded-lg overflow-x-auto border border-border/50 my-4;
-  }
-  .prose pre code {
-    @apply bg-transparent p-0 border-none text-gray-300;
-  }
-  .prose ul {
-    @apply list-disc list-outside ml-6 mb-4 space-y-1;
-  }
-  .prose ol {
-    @apply list-decimal list-outside ml-6 mb-4 space-y-1;
-  }
-  .prose blockquote {
-    @apply border-l-4 border-primary/50 pl-4 italic text-muted-foreground my-4;
-  }
-  .prose h1, .prose h2, .prose h3 {
-    @apply font-display text-foreground mt-6 mb-3 font-semibold;
-  }
-  .prose h1 { @apply text-2xl; }
-  .prose h2 { @apply text-xl; }
-  .prose h3 { @apply text-lg; }
-  .prose a {
-    @apply text-primary underline underline-offset-4 hover:text-primary/80 transition-colors;
-  }
+/* Custom Scrollbar for that cyberpunk feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
 }
 
-.typing-dot {
-  animation: typing 1.4s infinite ease-in-out both;
+/* Glitch Effect Utilities */
+.text-glow {
+  text-shadow: 0 0 10px rgba(255, 0, 92, 0.5), 0 0 20px rgba(255, 0, 92, 0.3);
 }
-.typing-dot:nth-child(1) { animation-delay: -0.32s; }
-.typing-dot:nth-child(2) { animation-delay: -0.16s; }
 
-@keyframes typing {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
+.text-glow-cyan {
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3);
+}
+
+.border-glow {
+  box-shadow: 0 0 15px -3px rgba(255, 0, 92, 0.3);
+}
+
+/* Markdown Styles */
+.prose-invert {
+  @apply text-foreground/90;
+}
+.prose-invert h1, .prose-invert h2, .prose-invert h3 {
+  @apply text-foreground font-display mt-6 mb-3;
+}
+.prose-invert p {
+  @apply mb-4 leading-relaxed;
+}
+.prose-invert code {
+  @apply bg-muted/50 px-1.5 py-0.5 rounded text-sm text-secondary font-mono border border-white/5;
+}
+.prose-invert pre {
+  @apply bg-black/40 p-4 rounded-xl border border-white/5 overflow-x-auto my-4;
+}
+.prose-invert pre code {
+  @apply bg-transparent p-0 text-sm border-0 text-foreground;
+}
+.prose-invert ul {
+  @apply list-disc list-inside mb-4 space-y-1;
+}
+.prose-invert ol {
+  @apply list-decimal list-inside mb-4 space-y-1;
+}
+.prose-invert blockquote {
+  @apply border-l-2 border-primary/50 pl-4 italic text-muted-foreground my-4;
+}
+.prose-invert a {
+  @apply text-secondary hover:underline underline-offset-4 decoration-secondary/50;
 }
