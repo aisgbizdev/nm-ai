@@ -122,7 +122,7 @@ Tim editorial Newsmaker.id update berita setiap hari perdagangan dengan analisa 
 
 export interface AIResponse {
   content: string;
-  source: "calculator" | "knowledge" | "learned" | "ollama" | "openai";
+  source: "calculator" | "knowledge" | "learned" | "ollama" | "openai" | "news" | "vision";
   cached?: boolean;
 }
 
