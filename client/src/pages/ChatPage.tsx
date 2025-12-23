@@ -7,7 +7,7 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Send, Menu, Trash2, MessageSquare, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Plus, Send, Menu, Trash2, MessageSquare, PanelLeftClose, PanelLeft, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 

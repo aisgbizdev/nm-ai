@@ -1,0 +1,244 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+
+  /* ⬇️ Fix layout loncat saat scrollbar muncul */
+  margin: 0;
+  overflow-y: scroll;
+}
+
+.text-xxs {
+  font-size: 10px;
+}
+
+.scale-102 {
+  transform: scale(1.01);
+}
+
+.scale-102 {
+  transform: scale(1.02);
+}
+
+.bg-blue-650 {
+  background-color: #1061B3;
+}
+
+@keyframes nm-toast-slide-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes nm-toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+}
+
+@keyframes nm-scroll-btn-in {
+  from {
+    transform: translate(-50%, 8px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes nm-scroll-btn-out {
+  from {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translate(-50%, 8px);
+    opacity: 0;
+  }
+}
+
+@keyframes nm-modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nm-modal-backdrop-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes nm-modal-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes nm-modal-card-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+.nm-loading-bar {
+  height: 100%;
+  width: 40%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  animation: nm-loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes nm-loading-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  50% {
+    transform: translateX(50%);
+  }
+
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/* ==== Custom Scroll (Chat Area) ==== */
+.nm-scroll {
+  position: relative;
+
+  /* Biar lebar container stabil walau scrollbar muncul */
+  scrollbar-gutter: stable;
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 transparent;
+}
+
+/* Chrome, Edge, Safari */
+.nm-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.nm-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nm-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+  border-radius: 999px;
+  box-shadow: 0 0 6px rgba(37, 99, 235, 0.35);
+}
+
+.nm-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #1d4ed8, #1e40af);
+}
+
+/* === Custom Animations (Global) === */
+
+/* Fade In */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+/* Fade Up */
+@keyframes fadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeUp {
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+/* Shimmer (loading bar) */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.z-70 {
+  z-index: 100;
+}
