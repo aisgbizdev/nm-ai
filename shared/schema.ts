@@ -45,6 +45,10 @@ export const insertKnowledgeFileSchema = createInsertSchema(knowledgeFiles).omit
 export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
+export type InsertPersona = z.infer<typeof insertPersonaSchema>;
+export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
 // Learned Knowledge - Auto-generated dari AI responses
 export const learnedKnowledge = pgTable("learned_knowledge", {
   id: serial("id").primaryKey(),
@@ -58,6 +62,19 @@ export const learnedKnowledge = pgTable("learned_knowledge", {
 
 export const insertLearnedKnowledgeSchema = createInsertSchema(learnedKnowledge).omit({ id: true, createdAt: true });
 export type InsertLearnedKnowledge = z.infer<typeof insertLearnedKnowledgeSchema>;
+
+// User feedback on AI responses (thumbs up/down)
+export const messageFeedback = pgTable("message_feedback", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").references(() => messages.id).notNull(),
+  feedback: text("feedback").notNull(), // "up" or "down"
+  comment: text("comment"), // Optional user comment
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMessageFeedbackSchema = createInsertSchema(messageFeedback).omit({ id: true, createdAt: true });
+export type InsertMessageFeedback = z.infer<typeof insertMessageFeedbackSchema>;
+export type MessageFeedback = typeof messageFeedback.$inferSelect;
 
 export type Persona = typeof personas.$inferSelect;
 export type KnowledgeFile = typeof knowledgeFiles.$inferSelect;

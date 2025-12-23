@@ -1,20 +1,41 @@
+import { useState } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { User } from "lucide-react";
+import { User, ThumbsUp, ThumbsDown } from "lucide-react";
 import { motion } from "framer-motion";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ChatMessageProps {
   role: string;
   content: string;
   createdAt?: string | Date;
   isStreaming?: boolean;
+  messageId?: number;
 }
 
-export function ChatMessage({ role, content, createdAt, isStreaming }: ChatMessageProps) {
+export function ChatMessage({ role, content, createdAt, isStreaming, messageId }: ChatMessageProps) {
   const isUser = role === "user";
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleFeedback = async (type: "up" | "down") => {
+    if (!messageId || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      await apiRequest("POST", `/api/messages/${messageId}/feedback`, {
+        feedback: type
+      });
+      setFeedback(type);
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <motion.div 
@@ -77,6 +98,46 @@ export function ChatMessage({ role, content, createdAt, isStreaming }: ChatMessa
               </span>
             )}
           </div>
+          
+          {!isUser && !isStreaming && messageId && (
+            <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => handleFeedback("up")}
+                disabled={isSubmitting || feedback !== null}
+                className={cn(
+                  "p-1.5 rounded-md transition-colors",
+                  feedback === "up" 
+                    ? "text-green-500 bg-green-500/10" 
+                    : "text-muted-foreground hover:text-green-500 hover:bg-green-500/10",
+                  (isSubmitting || feedback !== null) && feedback !== "up" && "opacity-50 cursor-not-allowed"
+                )}
+                data-testid={`button-feedback-up-${messageId}`}
+                title="Respons bagus"
+              >
+                <ThumbsUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => handleFeedback("down")}
+                disabled={isSubmitting || feedback !== null}
+                className={cn(
+                  "p-1.5 rounded-md transition-colors",
+                  feedback === "down" 
+                    ? "text-red-500 bg-red-500/10" 
+                    : "text-muted-foreground hover:text-red-500 hover:bg-red-500/10",
+                  (isSubmitting || feedback !== null) && feedback !== "down" && "opacity-50 cursor-not-allowed"
+                )}
+                data-testid={`button-feedback-down-${messageId}`}
+                title="Respons kurang bagus"
+              >
+                <ThumbsDown className="h-3.5 w-3.5" />
+              </button>
+              {feedback && (
+                <span className="text-[10px] text-muted-foreground ml-1">
+                  Terima kasih atas feedback!
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

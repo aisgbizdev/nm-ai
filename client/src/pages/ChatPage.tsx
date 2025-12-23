@@ -335,6 +335,7 @@ export default function ChatPage() {
                   role={msg.role}
                   content={msg.content}
                   createdAt={msg.createdAt || undefined}
+                  messageId={msg.id}
                 />
               ))}
               {isStreaming && (
