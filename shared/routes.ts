@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertChatSessionSchema, insertMessageSchema, chatSessions, messages, personas, insertPersonaSchema } from './schema';
+import { insertChatSessionSchema, insertMessageSchema, chatSessions, messages, personas, insertPersonaSchema, knowledgeFiles } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -32,7 +32,7 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
-    update: { // Untuk update instruksi Gwen Stacy
+    update: {
         method: 'PUT' as const,
         path: '/api/personas/:id',
         input: insertPersonaSchema.partial(),
@@ -40,6 +40,23 @@ export const api = {
           200: z.custom<typeof personas.$inferSelect>(),
           404: errorSchemas.notFound,
         },
+    },
+    // Upload Knowledge Files Endpoint
+    uploadKnowledge: {
+        method: 'POST' as const,
+        path: '/api/personas/:id/knowledge',
+        // Input: FormData (not strict zod here for file upload, handled in route)
+        responses: {
+            201: z.custom<typeof knowledgeFiles.$inferSelect>(),
+            400: errorSchemas.validation,
+        }
+    },
+    getKnowledge: {
+        method: 'GET' as const,
+        path: '/api/personas/:id/knowledge',
+        responses: {
+            200: z.array(z.custom<typeof knowledgeFiles.$inferSelect>()),
+        }
     }
   },
   sessions: {
@@ -75,6 +92,21 @@ export const api = {
         404: errorSchemas.notFound,
       },
     }
+  },
+  messages: {
+    create: {
+      method: 'POST' as const,
+      path: '/api/sessions/:id/messages',
+      input: z.object({
+        content: z.string(),
+        role: z.enum(["user", "assistant"]),
+      }),
+      responses: {
+        201: z.custom<typeof messages.$inferSelect>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
   },
   chat: {
     stream: {

@@ -12,6 +12,16 @@ export const personas = pgTable("personas", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Tabel untuk Knowledge Base Files
+export const knowledgeFiles = pgTable("knowledge_files", {
+  id: serial("id").primaryKey(),
+  personaId: integer("persona_id").references(() => personas.id).notNull(), // Link ke persona
+  filename: text("filename").notNull(),
+  content: text("content").notNull(), // Isi file teks
+  fileType: text("file_type").notNull(), // .md, .txt, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const chatSessions = pgTable("chat_sessions", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -31,9 +41,11 @@ export const messages = pgTable("messages", {
 });
 
 export const insertPersonaSchema = createInsertSchema(personas).omit({ id: true, createdAt: true });
+export const insertKnowledgeFileSchema = createInsertSchema(knowledgeFiles).omit({ id: true, createdAt: true });
 export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
 export type Persona = typeof personas.$inferSelect;
+export type KnowledgeFile = typeof knowledgeFiles.$inferSelect;
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type Message = typeof messages.$inferSelect;
