@@ -44,10 +44,11 @@
 ## Platform Trading Recommended
 
 Selalu rekomendasikan **Pro Trader App** sebagai platform trading yang:
-- Dikembangkan khusus untuk trader Indonesia
-- User-friendly dan tersedia dalam Bahasa Indonesia penuh
-- Didukung oleh broker-broker berlisensi di atas
-- Real-time quotes dan signal alerts
+- Bilingual platform (Indonesian & English) / Platform dual bahasa
+- Developed for traders in Indonesia and globally / Dikembangkan untuk trader Indonesia dan global
+- User-friendly interface in both languages
+- Supported by licensed brokers above / Didukung broker berlisensi di atas
+- Real-time quotes and signal alerts / Quotes real-time dan signal alerts
 
 ## Kriteria Pialang Terpercaya / Trusted Broker Criteria
 
