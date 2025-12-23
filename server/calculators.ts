@@ -86,14 +86,22 @@ function isCalendarQuestion(lowerPrompt: string): boolean {
 }
 
 function isPriceQuestion(lowerPrompt: string): boolean {
-  return !lowerPrompt.includes("margin") &&
-    !lowerPrompt.includes("leverage") &&
-    (lowerPrompt.includes("berapa harga") ||
-      lowerPrompt.includes("harga berapa") ||
-      lowerPrompt.startsWith("harga ") ||
-      lowerPrompt.includes("harga emas sekarang") ||
-      lowerPrompt.includes("price ") ||
-      lowerPrompt.includes("quote "));
+  if (lowerPrompt.includes("margin") || lowerPrompt.includes("leverage")) {
+    return false;
+  }
+  
+  const priceKeywords = [
+    "berapa harga", "harga berapa", "harga sekarang",
+    "harga emas", "harga gold", "harga xau", "harga xauusd",
+    "harga perak", "harga silver", "harga minyak", "harga oil",
+    "harga hangseng", "harga hsi", "harga nikkei",
+    "harga eurusd", "harga gbpusd", "harga usdjpy", "harga audusd",
+    "price ", "quote ", "quotes",
+    "xau berapa", "gold berapa", "emas berapa",
+    "silver berapa", "perak berapa", "oil berapa", "minyak berapa"
+  ];
+  
+  return priceKeywords.some(kw => lowerPrompt.includes(kw));
 }
 
 function isMarginQuestion(lowerPrompt: string): boolean {
@@ -291,31 +299,44 @@ ${calendarTable}
 async function handlePriceQuote(userPrompt: string): Promise<string | null> {
   try {
     const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error("Quote API not ok:", response.status);
+      return null;
+    }
 
     const data = await response.json();
     const quotes = Array.isArray(data.data) ? data.data : [];
+    const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-";
     
     const instrument = detectInstrumentFromPrompt(userPrompt);
-    const quote = pickQuoteForInstrument(instrument, quotes);
+    const quote = pickQuoteForInstrument(quotes, instrument);
     
     if (!quote) {
+      const allSymbols = quotes.map((q: any) => q.symbol).join(", ");
       return `Maaf, data harga untuk instrumen tersebut tidak tersedia saat ini.
+
+Instrumen yang tersedia: ${allSymbols}
 
 ---
 *NM Ai - Newsmaker.id*`;
     }
 
-    const label = INSTRUMENT_LABEL[instrument] || { name: instrument, unit: "unit" };
+    const label = INSTRUMENT_LABEL[instrument] || { name: quote.symbol, unit: "unit" };
+    const change = quote.valueChange >= 0 ? `+${quote.valueChange}` : `${quote.valueChange}`;
+    const pctChange = quote.percentChange >= 0 ? `+${quote.percentChange}%` : `${quote.percentChange}%`;
     
-    return `# Harga ${label.name}
+    return `# Harga ${label.name} (${quote.symbol})
 
-- **Bid**: ${quote.bid}
-- **Ask**: ${quote.ask}
-- **Last**: ${quote.last}
-- **High**: ${quote.high || "-"}
-- **Low**: ${quote.low || "-"}
+| Data | Nilai |
+|------|-------|
+| Last | **${quote.last}** |
+| High | ${quote.high || "-"} |
+| Low | ${quote.low || "-"} |
+| Open | ${quote.open || "-"} |
+| Prev Close | ${quote.prevClose || "-"} |
+| Change | ${change} (${pctChange}) |
 
+*Update terakhir: ${updatedAt}*
 *Data dari sistem Newsmaker, bersifat indikatif.*
 
 ---
