@@ -13,7 +13,7 @@ const openaiClient = new OpenAI({
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "deepseek-r1:1.5b";
 const OLLAMA_TIMEOUT = parseInt(process.env.OLLAMA_TIMEOUT_MS || "7000");
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const KNOWLEDGE_CORE_PATH = path.join(process.cwd(), "knowledge", "core");
 
