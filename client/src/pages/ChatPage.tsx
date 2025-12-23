@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
-import { useSession, useCreateSession, useSessions, useDeleteSession } from "@/hooks/use-chat";
+import { useSession, useCreateSession, useDeleteSession } from "@/hooks/use-chat";
 import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 
@@ -44,7 +44,7 @@ const MENU_OPTIONS = [
     icon: MessageCircle, 
     title: "Obrolan Bebas", 
     desc: "Tanya apapun tentang trading & finansial",
-    prompt: "Halo Gwen, apa kabar?" 
+    prompt: "" 
   },
 ];
 
@@ -54,10 +54,10 @@ export default function ChatPage() {
   const [, setLocation] = useLocation();
   
   const [inputMessage, setInputMessage] = useState("");
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { data: sessions } = useSessions();
   const { data: sessionData, isLoading: isLoadingChat } = useSession(sessionId);
   
   const createSession = useCreateSession();
@@ -79,19 +79,21 @@ export default function ChatPage() {
   }, [sessionData?.messages, streamingContent]);
 
   useEffect(() => {
-    if (!sessionId && sessions && sessions.length > 0) {
-      setLocation(`/chat/${sessions[0].id}`);
-    } else if (!sessionId && sessions && sessions.length === 0) {
-      handleNewChat();
+    if (sessionId && pendingPrompt && !isStreaming) {
+      sendMessage(pendingPrompt);
+      setPendingPrompt(null);
     }
-  }, [sessionId, sessions]);
+  }, [sessionId, pendingPrompt, isStreaming]);
 
-  const handleNewChat = async () => {
+  const handleMenuClick = async (prompt: string) => {
     try {
       const newSession = await createSession.mutateAsync({
         title: "New Conversation",
         model: "gpt-5.1"
       });
+      if (prompt) {
+        setPendingPrompt(prompt);
+      }
       setLocation(`/chat/${newSession.id}`);
     } catch (err) {
       console.error("Failed to create session");
@@ -100,10 +102,14 @@ export default function ChatPage() {
 
   const handleClearChat = async () => {
     if (!sessionId) return;
-    if (confirm("Hapus semua riwayat chat?")) {
+    if (confirm("Hapus riwayat chat dan kembali ke menu?")) {
       await deleteSession.mutateAsync(sessionId);
-      handleNewChat();
+      setLocation("/");
     }
+  };
+
+  const handleBackToHome = () => {
+    setLocation("/");
   };
 
   const handleSend = async (customMessage?: string) => {
@@ -127,18 +133,50 @@ export default function ChatPage() {
 
   if (!sessionId) {
     return (
-      <div className="flex h-screen bg-background text-foreground items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center">
-            <img src={nmLogo} alt="NM Ai" className="h-24 md:h-32 w-auto object-contain" />
+      <div className="flex flex-col min-h-screen bg-background text-foreground">
+        <header className="h-14 border-b border-border/40 bg-background/80 backdrop-blur flex items-center justify-center px-4">
+          <img src={nmLogo} alt="NM Ai" className="h-8 w-auto object-contain" />
+        </header>
+
+        <main className="flex-1 flex flex-col items-center justify-center gap-6 py-8 px-4">
+          <div className="text-center space-y-3">
+            <img src={nmLogo} alt="NM Ai" className="h-24 mx-auto object-contain" />
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold text-foreground">Selamat Datang di NM Ai</h1>
+              <p className="text-sm text-muted-foreground max-w-lg">
+                Sistem edukatif terpadu untuk memahami logika pasar, risiko, dan psikologi perdagangan berjangka.
+              </p>
+            </div>
           </div>
-          <p className="text-xl text-muted-foreground">Gwen Stacy Mode</p>
-          <div className="flex items-center justify-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="h-2 w-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="h-2 w-2 rounded-full bg-secondary animate-bounce" style={{ animationDelay: '300ms' }} />
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl w-full">
+            {MENU_OPTIONS.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleMenuClick(item.prompt)}
+                className="flex flex-col items-start gap-2 p-4 rounded-xl border border-border/50 bg-card/50 text-left hover:bg-card hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5 group"
+                data-testid={`button-menu-${idx}`}
+              >
+                <div className="flex items-center gap-2">
+                  <item.icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-medium text-foreground">{item.title}</span>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2">{item.desc}</p>
+              </button>
+            ))}
           </div>
-        </div>
+
+          <div className="flex items-start gap-2 max-w-2xl p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-amber-600 dark:text-amber-400">Perhatian:</span> Seluruh informasi yang disajikan bersifat edukatif dan tidak dimaksudkan sebagai rekomendasi atau saran transaksi. Keputusan investasi sepenuhnya menjadi tanggung jawab pengguna. NM Ai dapat menghasilkan informasi yang tidak akurat, harap verifikasi data penting secara mandiri.
+            </p>
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center">
+            NM Ai - Newsmaker.id Editorial Engine 2025
+          </p>
+        </main>
       </div>
     );
   }
@@ -147,6 +185,16 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
       <header className="h-14 border-b border-border/40 bg-background/80 backdrop-blur flex items-center justify-between px-4 z-20">
         <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleBackToHome}
+            className="text-muted-foreground hover:text-foreground"
+            title="Kembali ke Menu"
+            data-testid="button-home"
+          >
+            <Home className="h-4 w-4" />
+          </Button>
           <img src={nmLogo} alt="NM Ai" className="h-8 w-auto object-contain" />
           <div className="flex items-center gap-2">
             <span className="hidden sm:inline text-sm text-muted-foreground">Gwen Stacy</span>
@@ -158,7 +206,7 @@ export default function ChatPage() {
           size="icon" 
           onClick={handleClearChat}
           className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          title="Clear Chat"
+          title="Hapus Chat"
           data-testid="button-clear-chat"
         >
           <Trash2 className="h-4 w-4" />
@@ -196,40 +244,9 @@ export default function ChatPage() {
                 />
               )}
               {!sessionData?.messages.length && !isStreaming && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-6 py-8 px-4">
-                  <div className="text-center space-y-3">
-                    <img src={nmLogo} alt="NM Ai" className="h-20 mx-auto object-contain" />
-                    <div className="space-y-1">
-                      <h2 className="text-xl font-bold text-foreground">Selamat Datang di NM Ai</h2>
-                      <p className="text-sm text-muted-foreground max-w-lg">
-                        Sistem edukatif terpadu untuk memahami logika pasar, risiko, dan psikologi perdagangan berjangka.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl w-full">
-                    {MENU_OPTIONS.map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleSend(item.prompt)}
-                        className="flex flex-col items-start gap-2 p-4 rounded-xl border border-border/50 bg-card/50 text-left hover:bg-card hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5 group"
-                        data-testid={`button-menu-${idx}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium text-foreground">{item.title}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{item.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-start gap-2 max-w-2xl p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-amber-600 dark:text-amber-400">Perhatian:</span> Seluruh informasi yang disajikan bersifat edukatif dan tidak dimaksudkan sebagai rekomendasi atau saran transaksi. Keputusan investasi sepenuhnya menjadi tanggung jawab pengguna. NM Ai dapat menghasilkan informasi yang tidak akurat, harap verifikasi data penting secara mandiri.
-                    </p>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-50 gap-4 py-20">
+                  <img src={nmLogo} alt="NM Ai" className="h-16 object-contain opacity-50" />
+                  <p className="text-sm">Ketik pesan untuk memulai...</p>
                 </div>
               )}
             </>
