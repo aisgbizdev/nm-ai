@@ -6,7 +6,13 @@ import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, FileImage } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, FileImage, Camera, FolderOpen } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 import { format } from "date-fns";
@@ -65,6 +71,7 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const { data: sessionData, isLoading: isLoadingChat } = useSession(sessionId);
   
@@ -184,23 +191,44 @@ Silakan tanya atau upload gambar untuk analisis!`;
     }
   };
 
+  const processImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      alert("Pilih file gambar (PNG, JPG, dll)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Ukuran file maksimal 5MB");
+      return;
+    }
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith("image/")) {
-        alert("Pilih file gambar (PNG, JPG, dll)");
-        return;
+      processImageFile(file);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          processImageFile(file);
+        }
+        break;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Ukuran file maksimal 5MB");
-        return;
-      }
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -209,6 +237,9 @@ Silakan tanya atau upload gambar untuk analisis!`;
     setImagePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
     }
   };
 
@@ -466,17 +497,47 @@ Silakan tanya atau upload gambar untuk analisis!`;
               className="hidden"
               data-testid="input-image"
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isStreaming || isAnalyzing}
-              className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 text-muted-foreground hover:text-primary mb-0.5 sm:mb-1"
-              title="Upload Chart untuk Analisis"
-              data-testid="button-upload-chart"
-            >
-              <ImagePlus className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
+            <input
+              type="file"
+              ref={cameraInputRef}
+              onChange={handleImageSelect}
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              data-testid="input-camera"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={isStreaming || isAnalyzing}
+                  className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 text-muted-foreground hover:text-primary mb-0.5 sm:mb-1"
+                  title="Upload Chart untuk Analisis"
+                  data-testid="button-upload-chart"
+                >
+                  <ImagePlus className="h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem 
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="gap-2 cursor-pointer"
+                  data-testid="menu-camera"
+                >
+                  <Camera className="h-4 w-4" />
+                  <span>Ambil Foto</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-2 cursor-pointer"
+                  data-testid="menu-file"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  <span>Pilih dari File</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Textarea
               ref={textareaRef}
               value={inputMessage}
@@ -486,7 +547,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
               onKeyDown={handleKeyDown}
-              placeholder={selectedImage ? "Tambah instruksi (opsional)..." : "Tanya apapun..."}
+              onPaste={handlePaste}
+              placeholder={selectedImage ? "Tambah instruksi (opsional)..." : "Tanya apapun... (Ctrl+V untuk paste gambar)"}
               className="min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 py-2.5 sm:py-3 px-2 sm:px-3 text-sm sm:text-base"
               rows={1}
               data-testid="input-message"
