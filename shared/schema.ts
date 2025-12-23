@@ -45,7 +45,22 @@ export const insertKnowledgeFileSchema = createInsertSchema(knowledgeFiles).omit
 export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
+// Learned Knowledge - Auto-generated dari AI responses
+export const learnedKnowledge = pgTable("learned_knowledge", {
+  id: serial("id").primaryKey(),
+  personaId: integer("persona_id").references(() => personas.id).notNull(),
+  question: text("question").notNull(), // Original user question
+  answer: text("answer").notNull(), // AI-generated answer
+  source: text("source").notNull(), // "ollama" or "openai"
+  similarity: text("similarity"), // For future semantic matching
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLearnedKnowledgeSchema = createInsertSchema(learnedKnowledge).omit({ id: true, createdAt: true });
+export type InsertLearnedKnowledge = z.infer<typeof insertLearnedKnowledgeSchema>;
+
 export type Persona = typeof personas.$inferSelect;
 export type KnowledgeFile = typeof knowledgeFiles.$inferSelect;
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type LearnedKnowledge = typeof learnedKnowledge.$inferSelect;
