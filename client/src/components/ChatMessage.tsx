@@ -1,8 +1,9 @@
 import ReactMarkdown from 'react-markdown';
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { User, Sparkles } from "lucide-react";
+import { User } from "lucide-react";
 import { motion } from "framer-motion";
+import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 
 interface ChatMessageProps {
   role: string;
@@ -26,12 +27,12 @@ export function ChatMessage({ role, content, createdAt, isStreaming }: ChatMessa
     >
       <div className="container max-w-4xl mx-auto flex gap-4 md:gap-5">
         <div className={cn(
-          "flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-xl shadow-lg transition-all",
+          "flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-xl shadow-lg transition-all overflow-hidden",
           isUser 
             ? "bg-background border border-border text-foreground" 
-            : "bg-gradient-to-br from-primary via-purple-500 to-secondary text-white shadow-primary/20"
+            : "bg-white/90 shadow-primary/20"
         )}>
-          {isUser ? <User className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+          {isUser ? <User className="h-5 w-5" /> : <img src={nmLogo} alt="NM Ai" className="h-8 w-8 object-contain" />}
         </div>
         
         <div className="flex-1 space-y-2 overflow-hidden min-w-0">
