@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useSession, useCreateSession, useDeleteSession } from "@/hooks/use-chat";
+import { api } from "@shared/routes";
 import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
@@ -265,8 +266,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
       }
 
       const { queryClient } = await import("@/lib/queryClient");
-      await queryClient.invalidateQueries({ queryKey: ["/api/sessions", sessionId] });
-      await queryClient.refetchQueries({ queryKey: ["/api/sessions", sessionId] });
+      await queryClient.invalidateQueries({ queryKey: [api.sessions.get.path, sessionId] });
+      await queryClient.refetchQueries({ queryKey: [api.sessions.get.path, sessionId] });
 
     } catch (error) {
       console.error("Image analysis error:", error);
