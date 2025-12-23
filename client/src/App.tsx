@@ -10,6 +10,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={ChatPage} />
+      <Route path="/chat/:id" component={ChatPage} />
       <Route component={NotFound} />
     </Switch>
   );

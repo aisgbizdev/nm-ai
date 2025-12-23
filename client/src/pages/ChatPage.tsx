@@ -1,143 +1,52 @@
-import { useState, useEffect, useRef } from "react";
-import { useSessions, useSession, useCreateSession, useCreateMessage, useDeleteSession, streamChatResponse } from "@/hooks/use-chat";
+import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { ChatMessage } from "@/components/ChatMessage";
-import { ModelSelector } from "@/components/ModelSelector";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Menu, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
+import { useSession, useCreateMessage } from "@/hooks/use-chat";
+import { useChatStream } from "@/hooks/use-chat-stream";
+import { Send, Sparkles, StopCircle } from "lucide-react";
+import { useRoute } from "wouter";
+import { AnimatePresence, motion } from "framer-motion";
 
 export default function ChatPage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
-  const [inputValue, setInputValue] = useState("");
-  const [selectedModel, setSelectedModel] = useState("gpt-5.1");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [match, params] = useRoute("/chat/:id");
+  const sessionId = params?.id ? parseInt(params.id) : null;
   
-  // Streaming state (ephemeral)
-  const [streamedContent, setStreamedContent] = useState("");
-  
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  // Queries & Mutations
-  const { data: sessions = [], isLoading: isLoadingSessions } = useSessions();
-  const { data: sessionData, isLoading: isLoadingMessages } = useSession(currentSessionId);
-  
-  const createSession = useCreateSession();
+  const { data: session, isLoading: isSessionLoading } = useSession(sessionId);
   const createMessage = useCreateMessage();
-  const deleteSession = useDeleteSession();
+  const [input, setInput] = useState("");
+  
+  // Local state for optimistic updates and streaming
+  const [streamedContent, setStreamedContent] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when messages change or streaming updates
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [sessionData?.messages, streamedContent, isGenerating]);
+  const { streamMessage, isLoading: isStreaming, stop } = useChatStream({
+    onChunk: (chunk) => setStreamedContent(prev => prev + chunk),
+    onFinish: () => setStreamedContent(""), // Clear stream buffer as react-query will fetch the full saved message
+    onError: () => setStreamedContent("")
+  });
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [inputValue]);
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || !sessionId || isStreaming) return;
 
-  // Handlers
-  const handleNewChat = () => {
-    setCurrentSessionId(null);
-    setInputValue("");
-    setStreamedContent("");
-    setIsSidebarOpen(false);
-    // Focus input
-    setTimeout(() => textareaRef.current?.focus(), 100);
-  };
-
-  const handleSelectSession = (id: number) => {
-    setCurrentSessionId(id);
-    setIsSidebarOpen(false);
-    setStreamedContent("");
-  };
-
-  const handleDeleteSession = async (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm("Are you sure you want to delete this chat?")) {
-      await deleteSession.mutateAsync(id);
-      if (currentSessionId === id) {
-        handleNewChat();
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!inputValue.trim() || isGenerating) return;
-
-    const userMessage = inputValue.trim();
-    setInputValue("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-
-    let activeSessionId = currentSessionId;
+    const userMsg = input.trim();
+    setInput("");
 
     try {
-      setIsGenerating(true);
-
-      // 1. Create session if needed
-      if (!activeSessionId) {
-        const newSession = await createSession.mutateAsync({
-          title: userMessage.slice(0, 30) + "...",
-          model: selectedModel,
-        });
-        activeSessionId = newSession.id;
-        setCurrentSessionId(newSession.id);
-      }
-
-      // 2. Save user message to DB
+      // 1. Save user message to DB
       await createMessage.mutateAsync({
-        sessionId: activeSessionId!,
+        sessionId,
         role: "user",
-        content: userMessage,
+        content: userMsg
       });
 
-      // 3. Start streaming AI response
-      await streamChatResponse(
-        activeSessionId!,
-        userMessage,
-        selectedModel,
-        (chunk) => {
-           // Parse SSE "data: ..." format if backend sends standard SSE
-           // Assuming raw text or simple JSON lines for now based on typical implementations
-           // This simple regex handles standard "data: {content: '...'}" lines
-           const lines = chunk.split('\n');
-           for (const line of lines) {
-             if (line.startsWith('data: ')) {
-               try {
-                 const data = JSON.parse(line.slice(6));
-                 if (data.content) {
-                   setStreamedContent(prev => prev + data.content);
-                 }
-               } catch (e) {
-                 // console.error("Failed to parse chunk", e);
-               }
-             }
-           }
-        },
-        () => {
-          setIsGenerating(false);
-          setStreamedContent("");
-          queryClient.invalidateQueries({ queryKey: [api.sessions.get.path, activeSessionId] });
-        },
-        (error) => {
-          setIsGenerating(false);
-          toast({ title: "Error", description: "Failed to generate response", variant: "destructive" });
-        }
-      );
-    } catch (error) {
-      console.error(error);
-      setIsGenerating(false);
-      toast({ title: "Error", description: "Something went wrong", variant: "destructive" });
+      // 2. Start streaming AI response
+      await streamMessage(sessionId, userMsg);
+      
+    } catch (err) {
+      console.error("Failed to send message", err);
     }
   };
 
@@ -148,114 +57,140 @@ export default function ChatPage() {
     }
   };
 
-  return (
-    <div className="flex h-screen bg-background overflow-hidden text-foreground font-sans">
-      
-      <Sidebar 
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        sessions={sessions}
-        currentSessionId={currentSessionId}
-        onNewChat={handleNewChat}
-        onSelectSession={handleSelectSession}
-        onDeleteSession={handleDeleteSession}
-      />
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [session?.messages, streamedContent, sessionId]);
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col relative min-w-0">
-        
+  if (!sessionId) {
+    return (
+      <div className="flex h-screen w-full bg-[#0A0A12] text-white font-sans overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex items-center justify-center flex-col gap-6 p-8 relative overflow-hidden">
+          {/* Background Ambient Glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-secondary/5 rounded-full blur-[100px] pointer-events-none translate-x-20 -translate-y-20" />
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center space-y-4 z-10"
+          >
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-accent mx-auto flex items-center justify-center shadow-[0_0_40px_rgba(255,0,92,0.4)] mb-6">
+              <Sparkles size={40} className="text-white" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tight">
+              NM Ai <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Gwen Mode</span>
+            </h1>
+            <p className="text-muted-foreground max-w-md mx-auto text-lg leading-relaxed">
+              Your intelligent assistant with a multiverse twist. 
+              Select a conversation or start a new one to begin.
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen w-full bg-[#0A0A12] text-white font-sans overflow-hidden">
+      <Sidebar />
+      
+      <div className="flex-1 flex flex-col h-full relative">
         {/* Header */}
-        <header className="h-16 border-b border-border/40 flex items-center justify-between px-4 sticky top-0 bg-background/80 backdrop-blur z-20">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsSidebarOpen(true)}>
-              <Menu className="w-5 h-5" />
-            </Button>
-            <ModelSelector value={selectedModel} onValueChange={setSelectedModel} />
+        <header className="h-16 border-b border-white/5 flex items-center px-6 justify-between bg-[#0A0A12]/80 backdrop-blur-md z-10">
+          <div className="flex items-center gap-2">
+            <span className="font-display font-semibold text-lg text-white/90">
+              {session?.title || "Conversation"}
+            </span>
+            <span className="px-2 py-0.5 rounded text-[10px] bg-primary/20 text-primary uppercase font-bold tracking-wider border border-primary/20">
+              Gwen v5.1
+            </span>
           </div>
         </header>
 
-        {/* Messages List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth">
-          <div className="max-w-3xl mx-auto flex flex-col min-h-full">
-            
-            {/* Welcome State */}
-            {!currentSessionId && (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-primary/5">
-                  <SparklesIcon className="w-8 h-8 text-primary" />
+        {/* Messages Area */}
+        <div className="flex-1 overflow-hidden relative">
+          <div 
+            ref={scrollRef}
+            className="h-full overflow-y-auto pb-4 scroll-smooth"
+          >
+            <div className="max-w-3xl mx-auto min-h-full flex flex-col">
+              {/* Message List */}
+              <AnimatePresence initial={false}>
+                {session?.messages.map((msg) => (
+                  <ChatMessage key={msg.id} role={msg.role as "user"|"assistant"} content={msg.content} />
+                ))}
+              </AnimatePresence>
+
+              {/* Streaming Content */}
+              {isStreaming && streamedContent && (
+                <ChatMessage role="assistant" content={streamedContent} />
+              )}
+              
+              {/* Typing Indicator (if loading but no stream yet) */}
+              {isStreaming && !streamedContent && (
+                <div className="flex gap-4 p-6 bg-white/[0.02]">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                    <Sparkles size={16} className="text-primary animate-pulse" />
+                  </div>
+                  <div className="flex items-center gap-1 h-8">
+                    <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce"></span>
+                  </div>
                 </div>
-                <h1 className="text-3xl font-display font-bold mb-3">How can I help you today?</h1>
-                <p className="text-muted-foreground max-w-md">
-                  I can help you write code, draft emails, analyze data, or just have a conversation. Select a model to get started.
-                </p>
-              </div>
-            )}
-
-            {/* Message History */}
-            {sessionData?.messages?.map((msg) => (
-              <ChatMessage 
-                key={msg.id} 
-                role={msg.role as "user" | "assistant"} 
-                content={msg.content} 
-              />
-            ))}
-
-            {/* Streaming Content (Active Generation) */}
-            {isGenerating && (
-              <ChatMessage 
-                role="assistant" 
-                content={streamedContent}
-                isStreaming={true}
-              />
-            )}
-            
-            <div ref={bottomRef} className="h-4" />
+              )}
+              
+              {/* Spacing at bottom */}
+              <div className="h-4" />
+            </div>
           </div>
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-gradient-to-t from-background via-background to-transparent pt-10">
-          <div className="max-w-3xl mx-auto relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-purple-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
-            
-            <div className="relative flex items-end gap-2 bg-secondary/80 backdrop-blur-md border border-border/50 rounded-2xl p-2 shadow-2xl ring-1 ring-white/5">
-              <Textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Message..."
-                className="min-h-[50px] max-h-[200px] w-full bg-transparent border-0 focus-visible:ring-0 resize-none py-3 px-4 text-base placeholder:text-muted-foreground/50"
-                rows={1}
-              />
-              <Button 
-                onClick={handleSubmit} 
-                disabled={!inputValue.trim() || isGenerating}
-                size="icon"
-                className={cn(
-                  "mb-1 mr-1 rounded-xl w-10 h-10 transition-all duration-300",
-                  inputValue.trim() ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:scale-105" : "bg-muted text-muted-foreground"
-                )}
-              >
-                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-              </Button>
-            </div>
-            
-            <div className="text-center mt-3 text-xs text-muted-foreground/50">
-              AI can make mistakes. Consider checking important information.
+        <div className="p-4 bg-[#0A0A12] border-t border-white/5 relative z-20">
+          <div className="max-w-3xl mx-auto relative">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message Gwen..."
+              className="pr-12 min-h-[56px] max-h-[200px] bg-white/5 border-white/10 focus:border-primary/50 text-base"
+              disabled={isStreaming}
+            />
+            <div className="absolute right-2 bottom-2">
+              {isStreaming ? (
+                 <Button 
+                   size="icon" 
+                   variant="destructive" 
+                   className="h-8 w-8 rounded-lg"
+                   onClick={stop}
+                 >
+                   <StopCircle size={16} />
+                 </Button>
+              ) : (
+                <Button 
+                  size="icon" 
+                  className="h-8 w-8 rounded-lg bg-primary hover:bg-primary/90 text-white shadow-[0_0_10px_rgba(255,0,92,0.4)] disabled:opacity-50 disabled:shadow-none transition-all"
+                  onClick={() => handleSubmit()}
+                  disabled={!input.trim()}
+                >
+                  <Send size={16} />
+                </Button>
+              )}
             </div>
           </div>
+          <div className="text-center mt-2">
+             <span className="text-[10px] text-muted-foreground/50">
+               NM Ai can make mistakes. Consider checking important information.
+             </span>
+          </div>
         </div>
-
-      </main>
+      </div>
     </div>
-  );
-}
-
-function SparklesIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-    </svg>
   );
 }

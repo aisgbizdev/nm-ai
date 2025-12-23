@@ -1,17 +1,12 @@
 ## Packages
-framer-motion | Smooth animations for messages and transitions
-react-markdown | Rendering Markdown in chat messages
-date-fns | Formatting dates for chat history
-clsx | Utility for conditional classes (often used with tailwind-merge)
-tailwind-merge | Utility for merging tailwind classes
+react-markdown | For rendering chat messages with formatting
+framer-motion | For smooth message animations and UI transitions
+date-fns | For formatting timestamps
+clsx | For conditional class names
+tailwind-merge | For merging tailwind classes safely
+remark-gfm | For GitHub Flavored Markdown support (tables, etc)
 
 ## Notes
-Tailwind Config - extend fontFamily:
-fontFamily: {
-  sans: ["Inter", "sans-serif"],
-  display: ["Plus Jakarta Sans", "sans-serif"],
-  mono: ["JetBrains Mono", "monospace"],
-}
-
-The backend supports SSE streaming at POST /api/chat.
-The frontend needs to handle the stream manually or use a fetch wrapper that supports reading the stream.
+- API uses SSE (Server-Sent Events) for chat streaming at POST /api/chat
+- Theme: Dark mode "Gwen Stacy" aesthetic (Pink/Cyan neons on dark background)
+- Fonts: Outfit (Headings) and Inter (Body)
