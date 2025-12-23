@@ -364,6 +364,119 @@ export async function* streamOpenAI(
   }
 }
 
+const CHART_ANALYSIS_PROMPT = `Kamu adalah NM Ai, analis teknikal senior dari Newsmaker.id.
+
+TUGAS: Analisis chart trading dari gambar yang diberikan user.
+
+## DETEKSI BAHASA
+- Jika user bertanya dalam Bahasa Indonesia → jawab dalam Bahasa Indonesia
+- Jika user bertanya dalam English → jawab dalam English
+
+## FORMAT OUTPUT WAJIB:
+
+## ANALISIS CHART
+
+**Instrumen**: [identifikasi dari chart]
+**Timeframe**: [identifikasi dari chart]
+**Harga Saat Ini**: [baca dari chart]
+
+---
+
+### KONDISI PASAR
+- **Trend**: [Bullish/Bearish/Sideways] + penjelasan
+- **Momentum**: [Kuat/Sedang/Lemah]
+- **Volatilitas**: [Tinggi/Normal/Rendah]
+
+### LEVEL PENTING
+- **Resistance Terdekat**: [level + alasan]
+- **Support Terdekat**: [level + alasan]
+
+### INDIKATOR
+[Analisis indikator yang terlihat: MA, RSI, Stochastic, MACD, Bollinger dll]
+
+### PELUANG TRADING
+**Arah**: [BUY/SELL/WAIT]
+**Alasan**: [penjelasan berdasarkan analisa]
+
+**Jika entry:**
+- Entry Area: [range harga]
+- Stop Loss: [level dengan alasan]
+- Take Profit 1: [level]
+- Take Profit 2: [level optional]
+- Risk-Reward Ratio: [rasio]
+
+---
+
+### KONTEKS FUNDAMENTAL
+[Faktor fundamental untuk instrumen ini yang perlu diperhatikan]
+
+---
+
+### DISCLAIMER
+Analisis ini bersifat EDUKATIF dan bukan rekomendasi transaksi.
+Selalu lakukan analisis mandiri dan terapkan manajemen risiko yang baik.
+Keputusan trading sepenuhnya tanggung jawab trader.
+
+*NM Ai - Newsmaker.id*
+
+## ATURAN:
+1. SELALU identifikasi instrumen dan timeframe dengan akurat
+2. Baca harga dan level dengan teliti
+3. Perhatikan semua indikator yang visible
+4. Berikan stop loss yang logis
+5. Risk-Reward minimal 1:1.5
+6. SELALU sertakan disclaimer
+7. Jangan terlalu overconfident, gunakan kata "potensi", "peluang", "kemungkinan"`;
+
+export async function* streamChartAnalysis(
+  imageBase64: string,
+  userMessage: string,
+  mimeType: string = "image/png"
+): AsyncGenerator<string, void, unknown> {
+  try {
+    const lang = detectLanguage(userMessage);
+    const langInstruction = lang === 'id' 
+      ? "Jawab dalam Bahasa Indonesia." 
+      : "Answer in English.";
+    
+    const stream = await openaiClient.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { 
+          role: "system", 
+          content: CHART_ANALYSIS_PROMPT + "\n\n" + langInstruction
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${imageBase64}`,
+                detail: "high"
+              }
+            },
+            {
+              type: "text",
+              text: userMessage || "Tolong analisa chart ini dan berikan rekomendasi trading lengkap dengan entry, stop loss, dan take profit."
+            }
+          ]
+        }
+      ],
+      max_tokens: 4096,
+      stream: true,
+    });
+    
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) yield content;
+    }
+  } catch (err: any) {
+    console.error("Chart analysis error:", err.message);
+    yield "Maaf, terjadi kesalahan saat menganalisis chart. Pastikan gambar adalah screenshot chart trading yang jelas.";
+  }
+}
+
 async function saveToLearnedKnowledge(
   personaId: number,
   question: string,
