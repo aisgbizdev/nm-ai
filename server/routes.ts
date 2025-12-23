@@ -6,6 +6,9 @@ import { z } from "zod";
 import { openai } from "./replit_integrations/image/client"; 
 import multer from "multer";
 import { streamQuery, loadCoreKnowledge, buildSystemPrompt, streamChartAnalysis } from "./ai-engine";
+import { db } from "./db";
+import { messages as messagesTable } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const upload = multer({ 
     storage: multer.memoryStorage(),
@@ -202,6 +205,16 @@ export async function registerRoutes(
       const messageId = parseInt(req.params.messageId);
       if (isNaN(messageId)) {
         return res.status(400).json({ message: "Invalid message ID" });
+      }
+      
+      const allMessages = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId));
+      if (!allMessages.length) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      const targetMessage = allMessages[0];
+      if (targetMessage.role !== "assistant") {
+        return res.status(400).json({ message: "Can only rate assistant messages" });
       }
       
       const { feedback, comment } = req.body;
