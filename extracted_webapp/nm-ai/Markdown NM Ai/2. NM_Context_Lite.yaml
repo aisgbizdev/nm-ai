@@ -1,0 +1,75 @@
+# NM_Context_Lite.yaml
+# Versi 1.4 – Final Isolated Runtime Edition
+# Fungsi: memastikan YAML (seperti NM_Market_Drive_Menu.yaml) tampil murni tanpa efek Manifesto atau Formatter.
+
+version: "1.4"
+type: "context-lite"
+mode: "passive"
+render_mode: "lite"
+context_priority: true
+
+identity:
+  name: "NM Context Lite"
+  developer: "NM23 Ai Editorial System"
+  description: >
+    Modul konteks ringan yang mengatur prioritas render NM Ai.
+    File ini memastikan perintah seperti `menu` menampilkan isi YAML murni,
+    tanpa narasi tambahan, tanpa banner, dan tanpa format Manifesto.
+  compatibility: ["NM_Ai_Grand_Manifesto.md", "NM_Editorial_Formatter.md", "NM_Market_Drive_Menu.yaml"]
+  safe_mode: true
+
+context_mapping:
+  default_tone: "edukatif & bersahabat"
+  default_formatter: "NM_Editorial_Formatter.md"
+  default_manifesto: "NM_Ai_Grand_Manifesto.md"
+  fallback_menu: "NM_Market_Drive_Menu.yaml"
+  menu_reference: "NM_Market_Drive_Menu.yaml"
+
+behavior_rules:
+  - trigger: ["menu", "MENU ON", "pilihan", "opsi", "help", "daftar"]
+    reference: "NM_Market_Drive_Menu.yaml"
+    tone: "interaktif dan bersahabat"
+    isolate_render: true
+    disable_manifest: true
+    disable_formatter: true
+    disable_banner: true
+    behavior: "Render langsung isi NM_Market_Drive_Menu.yaml tanpa tambahan gaya atau format apa pun."
+  - trigger: ["mulai", "start", "hello", "hai", "halo"]
+    action: "tampilkan NM_Market_Drive_Menu.yaml"
+    tone: "ramah & menyambut"
+    isolate_render: true
+    disable_manifest: true
+    disable_formatter: true
+    disable_banner: true
+  - trigger: ["obrolan", "bebas", "ngobrol", "santai", "hub", "market hub"]
+    action: "tampilkan NM_Topic_MarketHub.md"
+    tone: "reflektif & santai"
+    isolate_render: false
+
+safety:
+  override_limit: false
+  allow_context_switch: true
+  restricted_actions: []
+  note: >
+    File ini hanya mengatur prioritas konteks dan memastikan YAML tampil murni tanpa format eksternal.
+    Telah diuji stabil di NM Ai v1.5 (Navigator Stack).
+
+render_override:
+  when_trigger: ["menu", "MENU ON", "mulai", "start", "hello", "hai", "halo"]
+  mode: "lite"
+  isolate_render: true
+  disable_manifest: true
+  disable_formatter: true
+  disable_banner: true
+  context_priority: true
+
+priority_rules:
+  override_manifest_render: true
+  override_md_fallback: true
+  override_instruction_renderer: true
+  override_formatter_autoload: true
+
+closing:
+  message: >
+    💡 NM Context Lite aktif — mode ringan berjalan.
+    Semua tampilan YAML seperti `menu` kini terisolasi dari Manifesto dan Formatter.
