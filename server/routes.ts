@@ -283,7 +283,8 @@ export async function registerRoutes(
       await storage.createMessage({
         sessionId: parsedSessionId,
         role: "user",
-        content: `${requestLabel} ${userMessage || defaultMessage}`
+        content: `${requestLabel} ${userMessage || defaultMessage}`,
+        meta: { imageData: `data:${mimeType};base64,${imageBase64}` }
       });
 
       res.setHeader("Content-Type", "text/event-stream");

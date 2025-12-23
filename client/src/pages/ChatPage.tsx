@@ -426,6 +426,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
                   content={msg.content}
                   createdAt={msg.createdAt || undefined}
                   messageId={msg.id}
+                  meta={msg.meta as { imageData?: string } | null}
                 />
               ))}
               {isStreaming && streamingContent && (

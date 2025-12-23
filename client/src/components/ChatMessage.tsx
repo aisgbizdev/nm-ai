@@ -14,11 +14,13 @@ interface ChatMessageProps {
   createdAt?: string | Date;
   isStreaming?: boolean;
   messageId?: number;
+  meta?: { imageData?: string } | null;
 }
 
-export function ChatMessage({ role, content, createdAt, isStreaming, messageId }: ChatMessageProps) {
+export function ChatMessage({ role, content, createdAt, isStreaming, messageId, meta }: ChatMessageProps) {
   const isUser = role === "user";
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  const imageData = meta?.imageData;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFeedback = async (type: "up" | "down") => {
@@ -69,6 +71,15 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId }
             )}
           </div>
           
+          {imageData && (
+            <div className="mb-3">
+              <img 
+                src={imageData} 
+                alt="Uploaded image" 
+                className="max-w-xs sm:max-w-sm rounded-lg border border-border/50 shadow-sm"
+              />
+            </div>
+          )}
           <div className={cn(
             "prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 max-w-none break-words",
             "prose-headings:text-foreground prose-strong:text-foreground prose-code:text-primary",
