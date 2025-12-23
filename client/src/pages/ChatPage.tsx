@@ -113,17 +113,6 @@ export default function ChatPage() {
                         </p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                        <div className="bg-card/50 border border-border/50 p-6 rounded-xl hover:border-primary/50 transition-colors">
-                            <h3 className="text-lg font-semibold text-primary mb-2">Dual Engine</h3>
-                            <p className="text-sm text-muted-foreground">Seamlessly powered by OpenAI and Ollama integration.</p>
-                        </div>
-                        <div className="bg-card/50 border border-border/50 p-6 rounded-xl hover:border-secondary/50 transition-colors">
-                            <h3 className="text-lg font-semibold text-secondary mb-2">Knowledge Base</h3>
-                            <p className="text-sm text-muted-foreground">Upload your files to expand Gwen's understanding.</p>
-                        </div>
-                    </div>
-
                     <Button onClick={handleNewChat} size="lg" className="text-lg px-8 h-14 rounded-full shadow-2xl shadow-primary/20 hover:scale-105 transition-transform">
                         Start New Conversation
                     </Button>
