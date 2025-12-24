@@ -313,7 +313,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
             <div className="space-y-1">
               <h1 className="text-lg sm:text-2xl font-bold text-foreground">Selamat Datang di NM Ai</h1>
               <p className="text-xs sm:text-sm text-muted-foreground max-w-lg px-2">
-                Sistem edukatif terpadu untuk memahami logika pasar, risiko, dan psikologi perdagangan berjangka.
+                Asisten AI edukatif untuk ekonomi, keuangan, dan pasar - dari berita terkini hingga analisis mendalam.
               </p>
             </div>
           </div>
