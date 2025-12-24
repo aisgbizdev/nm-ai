@@ -43,6 +43,12 @@ function isGibberishResponse(text: string): boolean {
 function isNewsRequest(query: string): boolean {
   const queryLower = query.toLowerCase();
   
+  // Exclude calendar requests from being detected as news
+  const calendarKeywords = ['kalender', 'calendar', 'jadwal berita'];
+  if (calendarKeywords.some(k => queryLower.includes(k))) {
+    return false;
+  }
+  
   const exclusionKeywords = ['banding', 'compare', 'versus', 'vs', 'perbedaan', 'difference', 'kelebihan', 'kekurangan', 'pros', 'cons', 'mana yang', 'which is'];
   if (exclusionKeywords.some(k => queryLower.includes(k))) {
     return false;

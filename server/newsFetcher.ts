@@ -127,7 +127,7 @@ export function formatNewsForChat(news: NewsItem[], limit = 3): string {
   response += `*Sumber: Newsmaker.id - Berita trading & investasi terpercaya*\n\n`;
   response += `Untuk berita lengkap dan update real-time, kunjungi:\n`;
   response += `- Website: [Newsmaker.id](https://newsmaker.id)\n`;
-  response += `- TikTok: [@newsmaker_id](https://tiktok.com/@newsmaker_id)\n\n`;
+  response += `- TikTok: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk)\n\n`;
   response += `*Disclaimer: Berita bersifat informatif, bukan rekomendasi investasi.*`;
   
   return response;
@@ -135,8 +135,15 @@ export function formatNewsForChat(news: NewsItem[], limit = 3): string {
 
 export function isNewsRequest(message: string): boolean {
   const lowerMsg = message.toLowerCase();
+  
+  // Exclude calendar requests from being detected as news
+  const calendarKeywords = ["kalender", "calendar", "jadwal berita"];
+  if (calendarKeywords.some(k => lowerMsg.includes(k))) {
+    return false;
+  }
+  
   const newsKeywords = [
-    "berita", "news", "kabar", "update", "terbaru", "hari ini",
+    "berita", "news", "kabar", "update", "terbaru",
     "breaking", "headline", "informasi pasar", "market news",
     "apa yang terjadi", "what's happening", "latest",
     "perkembangan", "situasi pasar", "kondisi pasar"
