@@ -405,15 +405,18 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
 async function handleMarginCalculation(userPrompt: string): Promise<string | null> {
   const lowerPrompt = userPrompt.toLowerCase();
   
+  // IMPORTANT: Check Gold (XAU) FIRST before other instruments to avoid false matches
+  const isGold = lowerPrompt.includes("xauusd") || lowerPrompt.includes("xau") || lowerPrompt.includes("gold") || lowerPrompt.includes("emas");
   const isXAG = lowerPrompt.includes("xag") || lowerPrompt.includes("silver") || lowerPrompt.includes("perak");
   const isBCO = lowerPrompt.includes("bco") || lowerPrompt.includes("oil") || lowerPrompt.includes("minyak") || lowerPrompt.includes("brent");
   const isHSI = lowerPrompt.includes("hangseng") || lowerPrompt.includes("hang seng") || lowerPrompt.includes("hsi") || lowerPrompt.includes("hongkong") || lowerPrompt.includes("hk50");
   const isNikkei = lowerPrompt.includes("nikkei") || lowerPrompt.includes("jp225") || lowerPrompt.includes("jepang") || lowerPrompt.includes("japan");
-  const isGBPUSD = lowerPrompt.includes("gbpusd") || lowerPrompt.includes("gu") || lowerPrompt.includes("pound");
-  const isEURUSD = lowerPrompt.includes("eurusd") || lowerPrompt.includes("eu") || lowerPrompt.includes("euro");
-  const isAUDUSD = lowerPrompt.includes("audusd") || lowerPrompt.includes("au") || lowerPrompt.includes("aussie");
-  const isUSDJPY = lowerPrompt.includes("usdjpy") || lowerPrompt.includes("uj") || lowerPrompt.includes("yen");
-  const isUSDCHF = lowerPrompt.includes("usdchf") || lowerPrompt.includes("uc") || lowerPrompt.includes("swiss");
+  const isGBPUSD = lowerPrompt.includes("gbpusd") || lowerPrompt.includes("pound");
+  const isEURUSD = lowerPrompt.includes("eurusd") || lowerPrompt.includes("euro");
+  // AUDUSD: Must NOT match if XAU is present (avoid xau matching "au")
+  const isAUDUSD = !isGold && (lowerPrompt.includes("audusd") || lowerPrompt.includes("aussie") || (lowerPrompt.includes(" au ") || lowerPrompt.endsWith(" au") || lowerPrompt.startsWith("au ")));
+  const isUSDJPY = lowerPrompt.includes("usdjpy") || lowerPrompt.includes("yen");
+  const isUSDCHF = lowerPrompt.includes("usdchf") || lowerPrompt.includes("swiss");
   const isForex = isGBPUSD || isEURUSD || isAUDUSD || isUSDJPY || isUSDCHF;
   const isIndex = isHSI || isNikkei;
   
