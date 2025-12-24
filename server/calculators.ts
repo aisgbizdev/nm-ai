@@ -59,6 +59,11 @@ export async function handleCalculation(userPrompt: string): Promise<CalculatorR
     if (priceReply) return { handled: true, reply: priceReply };
   }
 
+  if (isKetahananQuestion(lowerPrompt)) {
+    const ketahananReply = await handleKetahananCalculation(userPrompt);
+    if (ketahananReply) return { handled: true, reply: ketahananReply };
+  }
+
   if (isMarginQuestion(lowerPrompt)) {
     const marginReply = await handleMarginCalculation(userPrompt);
     if (marginReply) return { handled: true, reply: marginReply };
@@ -123,10 +128,24 @@ function isPriceQuestion(lowerPrompt: string): boolean {
   return priceKeywords.some(kw => lowerPrompt.includes(kw));
 }
 
+function isKetahananQuestion(lowerPrompt: string): boolean {
+  return lowerPrompt.includes("ketahanan") || 
+    (lowerPrompt.includes("berapa") && lowerPrompt.includes("kuat") && lowerPrompt.includes("lot"));
+}
+
 function isMarginQuestion(lowerPrompt: string): boolean {
+  // Exclude pivot and fibonacci questions
+  if (lowerPrompt.includes("pivot") || lowerPrompt.includes("fibonacci") || lowerPrompt.includes("fib ")) {
+    return false;
+  }
+  // Exclude ketahanan questions - they have dedicated handler
+  if (isKetahananQuestion(lowerPrompt)) {
+    return false;
+  }
+  
   const hasMarginKeyword = lowerPrompt.includes("margin") || 
     lowerPrompt.includes("simulasi") ||
-    lowerPrompt.includes("hitung") ||
+    (lowerPrompt.includes("hitung") && (lowerPrompt.includes("lot") || lowerPrompt.includes("margin"))) ||
     lowerPrompt.includes("kalkulasi");
   
   const hasLotDanaQuestion = (lowerPrompt.includes("lot") || lowerPrompt.includes("dana") || lowerPrompt.includes("modal")) &&
@@ -278,7 +297,36 @@ function handlePivot(userPrompt: string, lowerPrompt: string): string | null {
   if (!lowerPrompt.includes("pivot")) return null;
 
   const ohlc = parseOHLCFromPrompt(userPrompt);
-  if (!ohlc) return null;
+  if (!ohlc) {
+    // Return instruction when pivot is requested but no OHLC data
+    return `# Pivot Point Calculator
+
+Untuk menghitung pivot point, saya butuh data OHLC (Open, High, Low, Close).
+
+**Format:**
+\`\`\`
+Hitung pivot point OHLC 2650, 2680, 2640, 2670
+\`\`\`
+
+**Keterangan:**
+- **Open**: Harga pembukaan
+- **High**: Harga tertinggi
+- **Low**: Harga terendah  
+- **Close**: Harga penutupan
+
+**Metode yang tersedia:**
+- Classic Pivot
+- Woodie Pivot
+- Camarilla Pivot
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
+2. "Hitung fibonacci high 2680 low 2640"
+3. "Tampilkan harga gold sekarang"
+
+---
+*NM Ai - Newsmaker.id*`;
+  }
 
   const { O, H, L, C } = ohlc;
   const classic = calcClassic({ H, L, C });
@@ -764,6 +812,138 @@ ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 ---
 *NM Ai - Newsmaker.id*
 *Perhitungan berdasarkan Trading Rules SPA BBJ/JFX, bersifat edukatif.*`;
+}
+
+// ============ KETAHANAN DANA CALCULATOR ============
+
+async function handleKetahananCalculation(userPrompt: string): Promise<string | null> {
+  const lowerPrompt = userPrompt.toLowerCase();
+  
+  // Parse lot from prompt
+  const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
+  const lot = lotMatch ? parseFloat(lotMatch[1]) : 1;
+  
+  // Parse dana/modal if provided
+  const danaMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
+    userPrompt.match(/([\d,]+(?:\.\d+)?)\s*(?:k|ribu|juta|jt)?\s*(?:dollar|dolar|usd)/i) ||
+    userPrompt.match(/dana\s*([\d,]+)/i) ||
+    userPrompt.match(/modal\s*([\d,]+)/i);
+  
+  let dana = 0;
+  if (danaMatch) {
+    let rawDana = parseFloat(danaMatch[1].replace(/,/g, ""));
+    if (lowerPrompt.includes("k") && rawDana < 1000) rawDana *= 1000;
+    dana = rawDana;
+  }
+  
+  // Default values for Gold (most common)
+  const marginPerLot = 1000;
+  const pointValue = 100;
+  const feePerLot = 30;
+  
+  const totalMargin = marginPerLot * lot;
+  
+  // Calculate ketahanan
+  if (dana > 0) {
+    // User provided capital
+    const buffer = dana - totalMargin - (feePerLot * lot);
+    const ketahanan = Math.floor(buffer / (lot * pointValue));
+    const marginUsedPct = (totalMargin / dana) * 100;
+    
+    if (buffer <= 0) {
+      return `# Analisis Ketahanan Dana
+
+## Input Data
+| Parameter | Nilai |
+|-----------|-------|
+| Modal | **$${dana.toLocaleString()}** |
+| Posisi | ${lot} lot |
+| Margin Required | $${totalMargin.toLocaleString()} |
+
+## Hasil Analisis
+
+⚠️ **Modal tidak cukup untuk ${lot} lot!**
+
+| Analisis | Nilai |
+|----------|-------|
+| Modal Anda | $${dana.toLocaleString()} |
+| Margin Required | $${totalMargin.toLocaleString()} |
+| Selisih | -$${Math.abs(buffer).toLocaleString()} |
+
+Anda membutuhkan minimal **$${totalMargin.toLocaleString()}** untuk membuka ${lot} lot.
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Berapa lot ideal untuk modal $${dana.toLocaleString()}?"
+2. "Hitung margin untuk 0.5 lot gold"
+3. "Jelaskan tentang margin call"
+
+---
+*NM Ai - Newsmaker.id*`;
+    }
+    
+    return `# Analisis Ketahanan Dana
+
+## Input Data
+| Parameter | Nilai |
+|-----------|-------|
+| Modal | **$${dana.toLocaleString()}** |
+| Posisi | **${lot} lot** XAUUSD |
+| Margin per Lot | $${marginPerLot.toLocaleString()} |
+| Value per Poin | $${pointValue}/lot |
+
+## Perhitungan
+| Komponen | Kalkulasi | Nilai |
+|----------|-----------|-------|
+| Total Margin | ${lot} × $${marginPerLot.toLocaleString()} | $${totalMargin.toLocaleString()} |
+| Fee Transaksi | ${lot} × $${feePerLot} | $${(feePerLot * lot).toLocaleString()} |
+| **Buffer (Sisa Dana)** | $${dana.toLocaleString()} - $${totalMargin.toLocaleString()} - $${(feePerLot * lot).toLocaleString()} | **$${buffer.toLocaleString()}** |
+
+## Hasil Ketahanan
+| Metrik | Nilai | Keterangan |
+|--------|-------|------------|
+| **Ketahanan** | **${ketahanan} poin** | Sebelum margin call |
+| Loss per Poin | $${(lot * pointValue).toLocaleString()} | ${lot} lot × $${pointValue} |
+| Margin Used | ${marginUsedPct.toFixed(1)}% | ${marginUsedPct <= 20 ? "Aman" : marginUsedPct <= 40 ? "Medium" : "Berisiko"} |
+
+## Level Kritis
+| Level | Trigger | Sisa Equity |
+|-------|---------|-------------|
+| Margin Call | Equity < 70% margin | $${(totalMargin * 0.7).toLocaleString()} |
+| Auto Liquidation | Equity ≤ 30% margin | $${(totalMargin * 0.3).toLocaleString()} |
+
+${ketahanan < 5 ? `> ⚠️ **PERINGATAN**: Ketahanan hanya ${ketahanan} poin sangat berisiko! Pertimbangkan untuk mengurangi lot.` : 
+ketahanan < 10 ? `> ⚡ **Hati-hati**: Ketahanan ${ketahanan} poin termasuk rendah. Gunakan stop loss ketat.` : 
+`> ✅ **Status**: Ketahanan ${ketahanan} poin cukup untuk trading dengan risk management yang baik.`}
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Berapa lot ideal untuk modal $${dana.toLocaleString()}?"
+2. "Hitung position size dengan risk 2%"
+3. "Kalender ekonomi hari ini"
+
+---
+*NM Ai - Newsmaker.id*
+*Informasi bersifat edukatif, bukan saran investasi.*`;
+  }
+  
+  // User only provided lot, ask for modal
+  return `# Analisis Ketahanan Dana
+
+Untuk menghitung ketahanan dana dengan ${lot} lot, saya butuh informasi modal Anda.
+
+**Format:**
+\`\`\`
+Ketahanan dana $10,000 dengan ${lot} lot
+\`\`\`
+
+**Atau coba pertanyaan ini:**
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Ketahanan dana $10,000 dengan ${lot} lot"
+2. "Berapa lot ideal untuk modal $5,000?"
+3. "Hitung margin untuk ${lot} lot gold"
+
+---
+*NM Ai - Newsmaker.id*`;
 }
 
 // ============ NEW CALCULATORS ============
