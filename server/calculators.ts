@@ -105,11 +105,21 @@ function isPriceQuestion(lowerPrompt: string): boolean {
 }
 
 function isMarginQuestion(lowerPrompt: string): boolean {
-  return lowerPrompt.includes("margin") &&
-    (lowerPrompt.includes("xauusd") ||
-      lowerPrompt.includes("emas") ||
-      lowerPrompt.includes("gold") ||
-      lowerPrompt.includes("lot"));
+  const hasMarginKeyword = lowerPrompt.includes("margin") || 
+    lowerPrompt.includes("simulasi") ||
+    lowerPrompt.includes("hitung") ||
+    lowerPrompt.includes("kalkulasi");
+  
+  const hasLotDanaQuestion = (lowerPrompt.includes("lot") || lowerPrompt.includes("dana") || lowerPrompt.includes("modal")) &&
+    (lowerPrompt.includes("berapa") || lowerPrompt.includes("brp") || lowerPrompt.includes("masuk") || lowerPrompt.includes("punya"));
+  
+  const hasInstrument = lowerPrompt.includes("xauusd") ||
+    lowerPrompt.includes("emas") ||
+    lowerPrompt.includes("gold") ||
+    lowerPrompt.includes("xau") ||
+    lowerPrompt.includes("lot");
+  
+  return (hasMarginKeyword && hasInstrument) || hasLotDanaQuestion;
 }
 
 function buildTradingRulesTable(): string {
@@ -375,10 +385,24 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
 }
 
 async function handleMarginCalculation(userPrompt: string): Promise<string | null> {
-  const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
-  const lot = lotMatch ? parseFloat(lotMatch[1]) : 1;
-  
   const lowerPrompt = userPrompt.toLowerCase();
+  
+  const danaMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
+    userPrompt.match(/([\d,]+(?:\.\d+)?)\s*(?:k|ribu|juta|jt)?\s*(?:dollar|dolar|usd)/i) ||
+    userPrompt.match(/dana\s*([\d,]+)/i) ||
+    userPrompt.match(/modal\s*([\d,]+)/i) ||
+    userPrompt.match(/punya\s*([\d,]+)/i);
+  
+  let dana = 0;
+  if (danaMatch) {
+    let rawDana = parseFloat(danaMatch[1].replace(/,/g, ""));
+    if (lowerPrompt.includes("k") && rawDana < 1000) rawDana *= 1000;
+    dana = rawDana;
+  }
+  
+  const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
+  const lot = lotMatch ? parseFloat(lotMatch[1]) : (dana > 0 ? Math.floor(dana / 1000) : 1);
+  
   const isOvernight = lowerPrompt.includes("overnight") || lowerPrompt.includes("swing");
   
   const marginPerLot = 1000;
@@ -399,6 +423,22 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   const contractSize = 100;
   const contractValue = currentPrice * contractSize * lot;
   
+  const effectiveMargin = dana > 0 ? dana - totalMargin : 0;
+  const maxLots = dana > 0 ? Math.floor(dana / marginPerLot) : 0;
+  const recommendedLots = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.5)) : 0;
+  
+  const danaSection = dana > 0 ? `## Analisis Dana Anda
+| Parameter | Nilai |
+|-----------|-------|
+| Dana Tersedia | **$${dana.toLocaleString()}** |
+| Maksimal Lot (100% margin) | ${maxLots} lot |
+| **Rekomendasi Lot (50% margin)** | **${recommendedLots} lot** |
+| Sisa Dana (Effective Margin) | $${(dana - (recommendedLots * marginPerLot)).toLocaleString()} |
+
+> Disarankan menggunakan maksimal 50% dana untuk margin agar ada ruang untuk floating loss.
+
+` : "";
+
   return `# Simulasi Trading XAUUSD (Gold)
 
 ## Aturan Dasar SPA
@@ -415,35 +455,35 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
 | Contract Size | 100 Troy Ounce |
 | Harga Saat Ini (${priceSource}) | **$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}** |
 
-## Simulasi untuk ${lot} LOT
+${danaSection}## Simulasi untuk ${dana > 0 ? recommendedLots : lot} LOT
 | Komponen | Perhitungan | Nilai |
 |----------|-------------|-------|
-| Initial Margin | ${lot} lot × $1,000 | **$${totalMargin.toLocaleString()}** |
-| Maintenance Margin (70%) | $${totalMargin.toLocaleString()} × 70% | $${maintenanceMargin.toLocaleString()} |
-| Auto Liquidation (30%) | $${totalMargin.toLocaleString()} × 30% | $${autoLiquidation.toLocaleString()} |
-| Fee Transaksi | ${lot} lot × $30 | $${facilityFee.toLocaleString()} |
+| Initial Margin | ${dana > 0 ? recommendedLots : lot} lot × $1,000 | **$${((dana > 0 ? recommendedLots : lot) * marginPerLot).toLocaleString()}** |
+| Maintenance Margin (70%) | $${((dana > 0 ? recommendedLots : lot) * marginPerLot).toLocaleString()} × 70% | $${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.7).toLocaleString()} |
+| Auto Liquidation (30%) | $${((dana > 0 ? recommendedLots : lot) * marginPerLot).toLocaleString()} × 30% | $${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.3).toLocaleString()} |
+| Fee Transaksi | ${dana > 0 ? recommendedLots : lot} lot × $30 | $${((dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
 
-## Contoh Perhitungan Profit/Loss
+## Contoh Perhitungan Profit/Loss (${dana > 0 ? recommendedLots : lot} lot)
 | Pergerakan | Gross P/L | Net P/L (setelah fee) |
 |------------|-----------|----------------------|
-| +1 poin | +$${(pointValue * lot).toLocaleString()} | +$${(pointValue * lot - facilityFee).toLocaleString()} |
-| +3 poin | +$${(pointValue * 3 * lot).toLocaleString()} | +$${(pointValue * 3 * lot - facilityFee).toLocaleString()} |
-| +5 poin | +$${(pointValue * 5 * lot).toLocaleString()} | +$${(pointValue * 5 * lot - facilityFee).toLocaleString()} |
-| -3 poin | -$${(pointValue * 3 * lot).toLocaleString()} | -$${(pointValue * 3 * lot + facilityFee).toLocaleString()} |
+| +1 poin | +$${(pointValue * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
+| +3 poin | +$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
+| +5 poin | +$${(pointValue * 5 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * 5 * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
+| -3 poin | -$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | -$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot) + (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
 
 ## Rumus Perhitungan
 \`\`\`
 Gross Profit = Lot × Poin × $100
 Net Profit = Gross Profit - (Lot × $30)
 
-Contoh: Buy ${lot} Lot @ ${currentPrice.toFixed(0)}, Sell @ ${(currentPrice + 3).toFixed(0)} (+3 poin)
-Gross = ${lot} × 3 × $100 = $${(lot * 3 * 100).toLocaleString()}
-Net = $${(lot * 3 * 100).toLocaleString()} - $${facilityFee} = $${(lot * 3 * 100 - facilityFee).toLocaleString()}
+Contoh: Buy ${dana > 0 ? recommendedLots : lot} Lot @ ${currentPrice.toFixed(0)}, Sell @ ${(currentPrice + 3).toFixed(0)} (+3 poin)
+Gross = ${dana > 0 ? recommendedLots : lot} × 3 × $100 = $${((dana > 0 ? recommendedLots : lot) * 3 * 100).toLocaleString()}
+Net = $${((dana > 0 ? recommendedLots : lot) * 3 * 100).toLocaleString()} - $${(dana > 0 ? recommendedLots : lot) * 30} = $${((dana > 0 ? recommendedLots : lot) * 3 * 100 - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()}
 \`\`\`
 
 ## Level Margin
-- **Margin Call**: Equity < 70% Initial Margin ($${maintenanceMargin.toLocaleString()})
-- **Auto Liquidation**: Equity ≤ 30% Initial Margin ($${autoLiquidation.toLocaleString()})
+- **Margin Call**: Equity < 70% Initial Margin ($${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.7).toLocaleString()})
+- **Auto Liquidation**: Equity ≤ 30% Initial Margin ($${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.3).toLocaleString()})
 ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 
 ---
