@@ -22,6 +22,7 @@ import {
 import { INDEX_MARGIN_CONFIG } from "./config/indexMarginConfig";
 import { COMMODITY_MARGIN_CONFIG } from "./config/commodityMarginConfig";
 import { CURRENCY_MARGIN_CONFIG } from "./config/currencyMarginConfig";
+import { fetchNews, formatNewsForChat } from "./newsFetcher";
 
 const QUOTES_API_URL = process.env.QUOTES_API_URL || "https://endpoapi-production-3202.up.railway.app/api/quotes";
 const CALENDAR_API_URL = process.env.CALENDAR_API_URL || "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
@@ -315,11 +316,49 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
       actual: ev.actual ?? "",
     })));
 
+    // Fetch latest news to show below calendar
+    let newsSection = "";
+    try {
+      const news = await fetchNews();
+      if (news && news.length > 0) {
+        newsSection = `\n---\n\n## Berita Terkini\n\n`;
+        const limitedNews = news.slice(0, 3);
+        limitedNews.forEach((item, index) => {
+          const date = new Date(item.publishedAt || new Date());
+          const formattedDate = date.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Asia/Jakarta",
+          });
+          newsSection += `**${index + 1}. ${item.title}** `;
+          if (item.excerpt) {
+            newsSection += `${item.excerpt.slice(0, 100)}... `;
+          }
+          newsSection += `*${formattedDate} WIB* | ${item.category || "Market"}`;
+          if (item.url) {
+            newsSection += ` [Baca selengkapnya](${item.url})`;
+          }
+          newsSection += `\n\n`;
+        });
+      }
+    } catch (newsErr) {
+      console.error("News fetch for calendar failed:", newsErr);
+    }
+
     return `# Kalender Ekonomi (${targetDate})
 
 ${calendarTable}
-
+${newsSection}
 ---
+*Sumber: Newsmaker.id - Berita trading & investasi terpercaya*
+
+Untuk update real-time, kunjungi:
+- Website: [Newsmaker.id](https://newsmaker.id)
+- TikTok: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk)
+
 *NM Ai - Newsmaker.id*`;
   } catch (err) {
     console.error("Calendar fetch error:", err);
