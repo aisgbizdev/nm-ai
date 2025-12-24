@@ -383,6 +383,7 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 
 | Level | Classic | Woodie | Camarilla |
 |-------|---------|--------|-----------|
+| R4 | ${fmt(classic.R4)} | ${fmt(woodie.R4)} | ${fmt(camarilla.R4)} |
 | R3 | ${fmt(classic.R3)} | ${fmt(woodie.R3)} | ${fmt(camarilla.R3)} |
 | R2 | ${fmt(classic.R2)} | ${fmt(woodie.R2)} | ${fmt(camarilla.R2)} |
 | R1 | ${fmt(classic.R1)} | ${fmt(woodie.R1)} | ${fmt(camarilla.R1)} |
@@ -390,6 +391,7 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 | S1 | ${fmt(classic.S1)} | ${fmt(woodie.S1)} | ${fmt(camarilla.S1)} |
 | S2 | ${fmt(classic.S2)} | ${fmt(woodie.S2)} | ${fmt(camarilla.S2)} |
 | S3 | ${fmt(classic.S3)} | ${fmt(woodie.S3)} | ${fmt(camarilla.S3)} |
+| S4 | ${fmt(classic.S4)} | ${fmt(woodie.S4)} | ${fmt(camarilla.S4)} |
 
 💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung fibonacci dengan high low ini"
