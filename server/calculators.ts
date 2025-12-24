@@ -409,7 +409,25 @@ async function handleCalendar(userPrompt: string, lowerPrompt: string): Promise<
     const calendarUrl = buildCalendarUrl(CALENDAR_API_URL, targetDate);
     const response = await fetch(calendarUrl, { method: "GET", cache: "no-store" });
     
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error("Calendar API not ok:", response.status);
+      return `# Kalender Ekonomi
+
+⚠️ **Maaf, data kalender sedang tidak tersedia.**
+
+Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sementara.
+
+**Alternatif:**
+- Kunjungi [newsmaker.id](https://newsmaker.id) untuk jadwal berita ekonomi
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Harga gold sekarang berapa?"
+2. "Hitung margin untuk 2 lot gold"
+3. "Jelaskan tentang high impact news"
+
+---
+*NM Ai - Newsmaker.id*`;
+    }
     
     const data = await response.json();
     const events = Array.isArray(data.data) ? data.data.slice(0, 20) : [];
