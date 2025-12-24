@@ -102,21 +102,14 @@ export function formatNewsForChat(news: NewsItem[], limit = 3): string {
   let response = `**Berita Terkini dari Newsmaker.id**\n\n`;
   
   limitedNews.forEach((item, index) => {
-    const date = new Date(item.publishedAt || new Date());
-    const formattedDate = date.toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Jakarta",
-    });
+    // Use publishedAt directly as string since API already provides formatted WIB time
+    const dateStr = item.publishedAt || "";
     
     response += `**${index + 1}. ${item.title}**\n`;
     if (item.excerpt) {
       response += `${item.excerpt.slice(0, 150)}${item.excerpt.length > 150 ? "..." : ""}\n`;
     }
-    response += `*${formattedDate} WIB* | ${item.category || "Market"}\n`;
+    response += `*${dateStr} WIB* | ${item.category || "Market"}\n`;
     if (item.url) {
       response += `[Baca selengkapnya](${item.url})\n`;
     }
