@@ -380,16 +380,13 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   
   const lowerPrompt = userPrompt.toLowerCase();
   const isOvernight = lowerPrompt.includes("overnight") || lowerPrompt.includes("swing");
-  const isDayTrade = lowerPrompt.includes("daytrade") || lowerPrompt.includes("day trade") || lowerPrompt.includes("intraday");
   
-  const marginDayTrade = 1000;
-  const marginOvernight = 2000;
-  
-  const marginPerLot = isOvernight ? marginOvernight : marginDayTrade;
-  const marginType = isOvernight ? "Overnight" : "Day Trade";
+  const marginPerLot = 1000;
   const totalMargin = marginPerLot * lot;
   const maintenanceMargin = totalMargin * 0.7;
   const autoLiquidation = totalMargin * 0.3;
+  const facilityFee = 30 * lot;
+  const pointValue = 100;
   
   let currentPrice = await fetchRealTimePrice("XAU");
   let priceSource = "real-time";
@@ -402,38 +399,54 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   const contractSize = 100;
   const contractValue = currentPrice * contractSize * lot;
   
-  return `# Simulasi Margin XAUUSD (Gold)
+  return `# Simulasi Trading XAUUSD (Gold)
 
-## Spesifikasi Kontrak SPA
+## Aturan Dasar SPA
+| Parameter | Nilai |
+|-----------|-------|
+| **1 LOT** | **$1,000** (setara Rp 10 Juta) |
+| **1 Poin** | **$100/lot** |
+| Fee Transaksi | $30/lot (buka + tutup) |
+
+## Spesifikasi Kontrak
 | Parameter | Nilai |
 |-----------|-------|
 | Trade Code | XUL10 (Fixed Rate) / XULF (Floating Rate) |
 | Contract Size | 100 Troy Ounce |
 | Harga Saat Ini (${priceSource}) | **$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}** |
 
-## Input Trading
-| Parameter | Nilai |
-|-----------|-------|
-| Jumlah Lot | ${lot} lot |
-| Tipe Trading | ${marginType} |
+## Simulasi untuk ${lot} LOT
+| Komponen | Perhitungan | Nilai |
+|----------|-------------|-------|
+| Initial Margin | ${lot} lot × $1,000 | **$${totalMargin.toLocaleString()}** |
+| Maintenance Margin (70%) | $${totalMargin.toLocaleString()} × 70% | $${maintenanceMargin.toLocaleString()} |
+| Auto Liquidation (30%) | $${totalMargin.toLocaleString()} × 30% | $${autoLiquidation.toLocaleString()} |
+| Fee Transaksi | ${lot} lot × $30 | $${facilityFee.toLocaleString()} |
 
-## Margin Requirement (Trading Rules NM Standard)
-| Jenis Margin | Per Lot | Total (${lot} lot) |
-|--------------|---------|-------------------|
-| Initial Margin (${marginType}) | $${marginPerLot.toLocaleString()} | **$${totalMargin.toLocaleString()}** |
-| Maintenance Margin (70%) | $${(marginPerLot * 0.7).toLocaleString()} | $${maintenanceMargin.toLocaleString()} |
-| Auto Liquidation (30%) | $${(marginPerLot * 0.3).toLocaleString()} | $${autoLiquidation.toLocaleString()} |
+## Contoh Perhitungan Profit/Loss
+| Pergerakan | Gross P/L | Net P/L (setelah fee) |
+|------------|-----------|----------------------|
+| +1 poin | +$${(pointValue * lot).toLocaleString()} | +$${(pointValue * lot - facilityFee).toLocaleString()} |
+| +3 poin | +$${(pointValue * 3 * lot).toLocaleString()} | +$${(pointValue * 3 * lot - facilityFee).toLocaleString()} |
+| +5 poin | +$${(pointValue * 5 * lot).toLocaleString()} | +$${(pointValue * 5 * lot - facilityFee).toLocaleString()} |
+| -3 poin | -$${(pointValue * 3 * lot).toLocaleString()} | -$${(pointValue * 3 * lot + facilityFee).toLocaleString()} |
 
-## Nilai Kontrak
-- Contract Value: ${lot} lot × 100 oz × $${currentPrice.toLocaleString()} = **$${contractValue.toLocaleString()}**
-- Facility Fee: $15/lot/side (buka + tutup = $30/lot)
+## Rumus Perhitungan
+\`\`\`
+Gross Profit = Lot × Poin × $100
+Net Profit = Gross Profit - (Lot × $30)
 
-## Catatan Penting
-- Margin Call terjadi jika equity turun di bawah **70%** dari Initial Margin
-- Posisi akan di-liquidasi otomatis jika equity menyentuh **30%** dari Initial Margin
-- Overnight dikenakan rollover fee $5/lot/malam + PPN 11%
+Contoh: Buy 1 Lot @ 2330, Sell @ 2333 (+3 poin)
+Gross = 1 × 3 × $100 = $300
+Net = $300 - $30 = $270
+\`\`\`
+
+## Level Margin
+- **Margin Call**: Equity < 70% Initial Margin ($${maintenanceMargin.toLocaleString()})
+- **Auto Liquidation**: Equity ≤ 30% Initial Margin ($${autoLiquidation.toLocaleString()})
+${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 
 ---
 *NM Ai - Newsmaker.id*
-*Perhitungan berdasarkan Trading Rules SPA, bersifat edukatif.*`;
+*Perhitungan berdasarkan Trading Rules SPA BBJ/JFX, bersifat edukatif.*`;
 }
