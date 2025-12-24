@@ -164,6 +164,11 @@ ${commodityTableMd}
 ### 3. Currency (Forex Pairs)
 ${currencyTableMd}
 
+💡 **Mau lanjut eksplor?**
+- "Hitung margin untuk 2 lot gold"
+- "Berapa lot ideal untuk modal $10,000?"
+- "Jelaskan apa itu margin call"
+
 ---
 *NM Ai - Newsmaker.id*
 *Informasi bersifat edukatif, bukan saran investasi.*`;
@@ -199,6 +204,11 @@ Transaksi derivatif di luar Bursa Berjangka yang dilakukan secara bilateral, den
 - Limit Order (LO): harga lebih baik dari pasar
 - Stop Order (SO): untuk membatasi kerugian
 - OCO: kombinasi Limit & Stop
+
+💡 **Mau lanjut eksplor?**
+- "Hitung margin untuk 3 lot gold"
+- "Apa itu auto liquidation?"
+- "Simulasi trading dengan modal $5,000"
 
 ---
 *NM Ai - Newsmaker.id*
@@ -239,7 +249,13 @@ function handleFibonacci(userPrompt: string, lowerPrompt: string): string | null
     result += `| ${levels[i]} | ${fmt(data.retr[levels[i]])} | ${fmt(data.proj[projLevels[i]])} |\n`;
   }
 
-  result += `\n---\n*NM Ai - Newsmaker.id*`;
+  result += `\n💡 **Mau lanjut eksplor?**
+- "Hitung pivot point dengan data OHLC"
+- "Berapa margin untuk 2 lot gold?"
+- "Kalender ekonomi hari ini"
+
+---
+*NM Ai - Newsmaker.id*`;
   return result;
 }
 
@@ -273,6 +289,11 @@ function handlePivot(userPrompt: string, lowerPrompt: string): string | null {
 | S2 | ${fmt(classic.S2)} | ${fmt(woodie.S2)} | ${fmt(camarilla.S2)} |
 | S3 | ${fmt(classic.S3)} | ${fmt(woodie.S3)} | ${fmt(camarilla.S3)} |
 
+💡 **Mau lanjut eksplor?**
+- "Hitung fibonacci dengan high low ini"
+- "Berapa lot ideal untuk modal $10,000?"
+- "Tampilkan harga gold sekarang"
+
 ---
 *NM Ai - Newsmaker.id*`;
 }
@@ -295,6 +316,11 @@ async function handleCalendar(userPrompt: string, lowerPrompt: string): Promise<
       return `# Kalender Ekonomi (${targetDate})
 
 Tidak ada event ekonomi terdaftar untuk tanggal ini.
+
+💡 **Mau lanjut eksplor?**
+- "Kalender ekonomi minggu ini"
+- "Tampilkan berita terbaru"
+- "Harga gold sekarang berapa?"
 
 ---
 *NM Ai - Newsmaker.id*`;
@@ -345,6 +371,11 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
 
 ${calendarTable}
 ${newsSection}
+💡 **Mau lanjut eksplor?**
+- "Tampilkan harga gold sekarang"
+- "Berapa lot ideal untuk modal $10,000?"
+- "Jelaskan cara baca dampak berita ekonomi"
+
 ---
 *Sumber: Newsmaker.id - Berita trading & investasi terpercaya*
 
@@ -401,6 +432,11 @@ Instrumen yang tersedia: ${allSymbols}
 
 *Update terakhir: ${updatedAt}*
 *Data dari sistem Newsmaker, bersifat indikatif.*
+
+💡 **Mau lanjut eksplor?**
+- "Hitung margin untuk 2 lot ${label.name}"
+- "Kalender ekonomi hari ini"
+- "Berapa lot ideal untuk modal saya?"
 
 ---
 *NM Ai - Newsmaker.id*`;
@@ -704,6 +740,11 @@ Net = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()}
 - **Margin Call**: Equity < 70% Initial Margin ($${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.7).toLocaleString()})
 - **Auto Liquidation**: Equity ≤ 30% Initial Margin ($${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.3).toLocaleString()})
 ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
+
+💡 **Mau lanjut eksplor?**
+- "Berapa ketahanan dana saya dengan ${dana > 0 ? recommendedLots : lot} lot?"
+- "Kalender ekonomi hari ini ada apa saja?"
+- "Hitung pivot point ${instrumentName.split(" ")[0]}"
 
 ---
 *NM Ai - Newsmaker.id*

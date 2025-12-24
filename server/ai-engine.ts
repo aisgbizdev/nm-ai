@@ -99,6 +99,11 @@ To get the latest trading news from Newsmaker.id, please visit directly:
 
 The Newsmaker.id editorial team updates news every trading day with in-depth and accurate analysis.
 
+💡 **Want to explore more?**
+- "Show me gold price now"
+- "Economic calendar today"
+- "How to calculate margin for 2 lots gold?"
+
 ---
 *NM Ai - Newsmaker.id*
 *This information is educational, not investment advice.*`;
@@ -120,6 +125,11 @@ Untuk mendapatkan berita trading terbaru dari Newsmaker.id, silakan kunjungi lan
 - **Pro Trader App** - Quotes real-time + signal alerts
 
 Tim editorial Newsmaker.id update berita setiap hari perdagangan dengan analisa yang mendalam dan akurat.
+
+💡 **Mau lanjut eksplor?**
+- "Harga gold sekarang berapa?"
+- "Kalender ekonomi hari ini"
+- "Berapa margin untuk 2 lot gold?"
 
 ---
 *NM Ai - Newsmaker.id*
@@ -255,8 +265,31 @@ ${coreKnowledge.substring(0, 15000)}
     prompt += `\n\n## KONTEKS SPESIFIK UNTUK PERTANYAAN INI\n${contextSnippet}`;
   }
 
-  prompt += `\n\n## SIGNATURE
-Akhiri jawaban sesuai bahasa:
+  prompt += `\n\n## PERTANYAAN LANJUTAN (WAJIB!)
+SETELAH menjawab, SELALU tambahkan 2-3 pertanyaan pancingan yang relevan untuk memandu user melanjutkan obrolan.
+Format pertanyaan pancingan:
+
+Untuk Bahasa Indonesia:
+💡 **Mau lanjut eksplor?**
+- "[Pertanyaan relevan 1]"
+- "[Pertanyaan relevan 2]"  
+- "[Pertanyaan relevan 3]"
+
+For English:
+💡 **Want to explore more?**
+- "[Relevant question 1]"
+- "[Relevant question 2]"
+- "[Relevant question 3]"
+
+Contoh pertanyaan pancingan berdasarkan topik:
+- Setelah bahas margin → "Berapa lot ideal untuk modal $10,000?" / "Gimana cara hitung ketahanan dana?"
+- Setelah bahas gold → "Mau lihat pivot point gold hari ini?" / "Berapa margin untuk 2 lot gold?"
+- Setelah bahas risiko → "Mau simulasi dengan modal tertentu?" / "Bagaimana cara set stop loss?"
+- Setelah bahas kalender → "Ada berita high impact minggu ini?" / "Instrumen apa yang terpengaruh?"
+- Setelah bahas berita → "Mau lihat harga gold sekarang?" / "Bagaimana dampaknya ke trading?"
+
+## SIGNATURE
+Akhiri jawaban sesuai bahasa (SETELAH pertanyaan pancingan):
 
 Untuk Bahasa Indonesia:
 ---
@@ -500,6 +533,11 @@ Analisis ini bersifat **EDUKATIF** dan **BUKAN** rekomendasi transaksi atau ajak
 - Keputusan trading sepenuhnya tanggung jawab Anda
 - Konsultasikan dengan penasihat keuangan profesional jika diperlukan
 
+💡 **Mau lanjut eksplor?**
+- "Hitung margin untuk 2 lot gold"
+- "Berapa lot ideal untuk modal saya?"
+- "Kalender ekonomi hari ini"
+
 *NM Ai - Newsmaker.id*
 
 ## ATURAN:
@@ -673,6 +711,11 @@ Berdasarkan Equity saat ini:
 ---
 
 ⚠️ **Disclaimer**: Analisis ini bersifat EDUKATIF dan bukan rekomendasi investasi. Keputusan trading sepenuhnya tanggung jawab Anda. Selalu konsultasikan dengan penasihat keuangan profesional.
+
+💡 **Mau lanjut eksplor?**
+- "Berapa lot ideal untuk modal $10,000?"
+- "Jelaskan cara kerja margin call"
+- "Kalender ekonomi minggu ini"
 
 *NM Ai - Newsmaker.id*
 
