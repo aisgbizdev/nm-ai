@@ -94,6 +94,11 @@ Saya bisa membantu kamu untuk:
 
 Silakan tanya atau upload gambar untuk analisis!`;
 
+  const handleQuickReply = (question: string) => {
+    if (!isStreaming && !isAnalyzing && sessionId) {
+      sendMessage(question);
+    }
+  };
 
   const handleExportChat = () => {
     if (!sessionData?.messages?.length) return;
@@ -409,7 +414,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
             </div>
           ) : (
             <>
-              {sessionData?.messages.map((msg) => (
+              {sessionData?.messages.map((msg, idx) => (
                 <ChatMessage 
                   key={msg.id}
                   role={msg.role}
@@ -417,6 +422,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
                   createdAt={msg.createdAt || undefined}
                   messageId={msg.id}
                   meta={msg.meta as { imageData?: string } | null}
+                  isLastMessage={idx === sessionData.messages.length - 1 && msg.role === "assistant"}
+                  onQuickReply={handleQuickReply}
                 />
               ))}
               {isStreaming && streamingContent && (

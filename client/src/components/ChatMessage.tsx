@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { User, ThumbsUp, ThumbsDown } from "lucide-react";
+import { User, ThumbsUp, ThumbsDown, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
 import { apiRequest } from "@/lib/queryClient";
@@ -15,11 +15,61 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   messageId?: number;
   meta?: { imageData?: string } | null;
+  isLastMessage?: boolean;
+  onQuickReply?: (question: string) => void;
 }
 
-export function ChatMessage({ role, content, createdAt, isStreaming, messageId, meta }: ChatMessageProps) {
+function extractQuickReplies(content: string): string[] {
+  const lines = content.split('\n');
+  const questions: string[] = [];
+  
+  for (const line of lines) {
+    const match = line.match(/^[1-3]\.\s*"(.+)"$/);
+    if (match && match[1]) {
+      questions.push(match[1]);
+    }
+  }
+  
+  return questions;
+}
+
+function removeQuickRepliesFromContent(content: string): string {
+  const lines = content.split('\n');
+  const filteredLines: string[] = [];
+  let skipSection = false;
+  
+  for (const line of lines) {
+    if (line.includes('Mau lanjut') || line.includes('Ketik angkanya')) {
+      skipSection = true;
+      continue;
+    }
+    if (/^[1-3]\.\s*"/.test(line)) {
+      continue;
+    }
+    if (!skipSection) {
+      filteredLines.push(line);
+    }
+    if (skipSection && line.trim() === '') {
+      skipSection = false;
+    }
+  }
+  
+  return filteredLines.join('\n').trim();
+}
+
+export function ChatMessage({ role, content, createdAt, isStreaming, messageId, meta, isLastMessage, onQuickReply }: ChatMessageProps) {
   const isUser = role === "user";
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  
+  const quickReplies = useMemo(() => {
+    if (isUser || isStreaming) return [];
+    return extractQuickReplies(content);
+  }, [content, isUser, isStreaming]);
+  
+  const cleanContent = useMemo(() => {
+    if (isUser || quickReplies.length === 0) return content;
+    return removeQuickRepliesFromContent(content);
+  }, [content, isUser, quickReplies]);
   const imageData = meta?.imageData;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,7 +138,7 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId, 
             "[&_pre]:text-xs sm:[&_pre]:text-sm [&_pre]:overflow-x-auto",
             "[&_ol]:pl-4 sm:[&_ol]:pl-6 [&_ul]:pl-4 sm:[&_ul]:pl-6"
           )}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || (isStreaming ? "" : "")}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent || (isStreaming ? "" : "")}</ReactMarkdown>
             {isStreaming && (
               <span className="inline-flex items-center gap-0.5 sm:gap-1 ml-1">
                 <motion.span 
@@ -147,6 +197,22 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId, 
                   Terima kasih atas feedback!
                 </span>
               )}
+            </div>
+          )}
+          
+          {isLastMessage && quickReplies.length > 0 && onQuickReply && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/20">
+              {quickReplies.map((question, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onQuickReply(question)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:border-primary/50 transition-all active:scale-[0.98]"
+                  data-testid={`button-quick-reply-${idx}`}
+                >
+                  <MessageCircle className="h-3 w-3" />
+                  <span className="line-clamp-1">{question}</span>
+                </button>
+              ))}
             </div>
           )}
         </div>
