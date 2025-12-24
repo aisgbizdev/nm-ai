@@ -135,11 +135,23 @@ function isKetahananQuestion(lowerPrompt: string): boolean {
 
 function isMarginQuestion(lowerPrompt: string): boolean {
   // Exclude pivot and fibonacci questions
-  if (lowerPrompt.includes("pivot") || lowerPrompt.includes("fibonacci") || lowerPrompt.includes("fib ")) {
+  if (lowerPrompt.includes("pivot") || lowerPrompt.includes("fibonacci") || lowerPrompt.includes("fibo")) {
     return false;
   }
   // Exclude ketahanan questions - they have dedicated handler
   if (isKetahananQuestion(lowerPrompt)) {
+    return false;
+  }
+  // Exclude risk reward questions
+  if (lowerPrompt.includes("risk") && lowerPrompt.includes("reward")) {
+    return false;
+  }
+  // Exclude breakeven questions
+  if (lowerPrompt.includes("breakeven") || lowerPrompt.includes("balik modal") || lowerPrompt.includes("impas")) {
+    return false;
+  }
+  // Exclude position size questions
+  if (lowerPrompt.includes("position size") || lowerPrompt.includes("ukuran posisi")) {
     return false;
   }
   
@@ -253,7 +265,34 @@ function handleFibonacci(userPrompt: string, lowerPrompt: string): string | null
   if (!lowerPrompt.includes("fibo") && !lowerPrompt.includes("fibonacci")) return null;
 
   const HL = parseHighLowForFib(userPrompt);
-  if (!HL) return null;
+  if (!HL) {
+    // Return instruction when fibonacci is requested but no data
+    return `# Fibonacci Calculator
+
+Untuk menghitung level Fibonacci, saya butuh data High dan Low.
+
+**Format:**
+\`\`\`
+Hitung fibonacci high 2680 low 2640
+\`\`\`
+
+**Keterangan:**
+- **High**: Harga tertinggi periode
+- **Low**: Harga terendah periode
+- Tambahkan "downtrend" untuk proyeksi turun
+
+**Level yang dihitung:**
+- Retracement: 23.6%, 38.2%, 50%, 61.8%, 78.6%
+- Projection: 138.2%, 150%, 161.8%, 200%, 238.2%
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung fibonacci high 2680 low 2640"
+2. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
+3. "Tampilkan harga gold sekarang"
+
+---
+*NM Ai - Newsmaker.id*`;
+  }
 
   const { H, L } = HL;
   const isDownTrend = /downtren|downtrend|tren turun|turun/.test(lowerPrompt);
