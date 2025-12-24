@@ -123,6 +123,18 @@ function isMarginQuestion(lowerPrompt: string): boolean {
     lowerPrompt.includes("bco") ||
     lowerPrompt.includes("oil") ||
     lowerPrompt.includes("minyak") ||
+    lowerPrompt.includes("hangseng") ||
+    lowerPrompt.includes("hang seng") ||
+    lowerPrompt.includes("hsi") ||
+    lowerPrompt.includes("hongkong") ||
+    lowerPrompt.includes("nikkei") ||
+    lowerPrompt.includes("jp225") ||
+    lowerPrompt.includes("gbpusd") ||
+    lowerPrompt.includes("eurusd") ||
+    lowerPrompt.includes("audusd") ||
+    lowerPrompt.includes("usdjpy") ||
+    lowerPrompt.includes("usdchf") ||
+    lowerPrompt.includes("forex") ||
     lowerPrompt.includes("lot");
   
   return (hasMarginKeyword && hasInstrument) || hasLotDanaQuestion;
@@ -395,6 +407,15 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   
   const isXAG = lowerPrompt.includes("xag") || lowerPrompt.includes("silver") || lowerPrompt.includes("perak");
   const isBCO = lowerPrompt.includes("bco") || lowerPrompt.includes("oil") || lowerPrompt.includes("minyak") || lowerPrompt.includes("brent");
+  const isHSI = lowerPrompt.includes("hangseng") || lowerPrompt.includes("hang seng") || lowerPrompt.includes("hsi") || lowerPrompt.includes("hongkong") || lowerPrompt.includes("hk50");
+  const isNikkei = lowerPrompt.includes("nikkei") || lowerPrompt.includes("jp225") || lowerPrompt.includes("jepang") || lowerPrompt.includes("japan");
+  const isGBPUSD = lowerPrompt.includes("gbpusd") || lowerPrompt.includes("gu") || lowerPrompt.includes("pound");
+  const isEURUSD = lowerPrompt.includes("eurusd") || lowerPrompt.includes("eu") || lowerPrompt.includes("euro");
+  const isAUDUSD = lowerPrompt.includes("audusd") || lowerPrompt.includes("au") || lowerPrompt.includes("aussie");
+  const isUSDJPY = lowerPrompt.includes("usdjpy") || lowerPrompt.includes("uj") || lowerPrompt.includes("yen");
+  const isUSDCHF = lowerPrompt.includes("usdchf") || lowerPrompt.includes("uc") || lowerPrompt.includes("swiss");
+  const isForex = isGBPUSD || isEURUSD || isAUDUSD || isUSDJPY || isUSDCHF;
+  const isIndex = isHSI || isNikkei;
   
   let instrumentName = "XAUUSD (Gold)";
   let tradeCode = "XUL10 / XULF";
@@ -402,6 +423,8 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   let pointValue = 100;
   let minPriceMovement = "$0.01";
   let symbol = "XAU";
+  let contractUnit = "Troy Ounce";
+  let pointLabel = "poin";
   
   if (isXAG) {
     instrumentName = "XAGUSD (Silver)";
@@ -410,6 +433,7 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
     pointValue = 50;
     minPriceMovement = "$0.001";
     symbol = "XAG";
+    contractUnit = "Troy Ounce";
   } else if (isBCO) {
     instrumentName = "Brent Crude Oil";
     tradeCode = "BCO10_BBJ / BCOF_BBJ";
@@ -417,6 +441,70 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
     pointValue = 10;
     minPriceMovement = "$0.01";
     symbol = "BCO";
+    contractUnit = "USD per Barrel";
+  } else if (isHSI) {
+    instrumentName = "Hang Seng Index (HK50)";
+    tradeCode = "HKK50_BBJ / HKK5U_BBJ";
+    contractSize = 5;
+    pointValue = 5;
+    minPriceMovement = "1 point";
+    symbol = "HSI";
+    contractUnit = "USD/point";
+    pointLabel = "point";
+  } else if (isNikkei) {
+    instrumentName = "Nikkei 225 (JP225)";
+    tradeCode = "JPK50_BBJ / JPK5U_BBJ";
+    contractSize = 5;
+    pointValue = 5;
+    minPriceMovement = "5 points";
+    symbol = "NKD";
+    contractUnit = "USD/point";
+    pointLabel = "point";
+  } else if (isGBPUSD) {
+    instrumentName = "GBPUSD (Pound)";
+    tradeCode = "GU1010_BBJ / GU10F_BBJ";
+    contractSize = 100000;
+    pointValue = 10;
+    minPriceMovement = "0.0001 (1 pip)";
+    symbol = "GBP";
+    contractUnit = "GBP";
+    pointLabel = "pip";
+  } else if (isEURUSD) {
+    instrumentName = "EURUSD (Euro)";
+    tradeCode = "EU1010_BBJ / EU10F_BBJ";
+    contractSize = 100000;
+    pointValue = 10;
+    minPriceMovement = "0.0001 (1 pip)";
+    symbol = "EUR";
+    contractUnit = "EUR";
+    pointLabel = "pip";
+  } else if (isAUDUSD) {
+    instrumentName = "AUDUSD (Aussie)";
+    tradeCode = "AU1010_BBJ / AU10F_BBJ";
+    contractSize = 100000;
+    pointValue = 10;
+    minPriceMovement = "0.0001 (1 pip)";
+    symbol = "AUD";
+    contractUnit = "AUD";
+    pointLabel = "pip";
+  } else if (isUSDJPY) {
+    instrumentName = "USDJPY (Yen)";
+    tradeCode = "UJ1010_BBJ / UJ10F_BBJ";
+    contractSize = 100000;
+    pointValue = 7;
+    minPriceMovement = "0.01 (1 pip)";
+    symbol = "JPY";
+    contractUnit = "USD";
+    pointLabel = "pip";
+  } else if (isUSDCHF) {
+    instrumentName = "USDCHF (Swiss)";
+    tradeCode = "UC1010_BBJ / UC10F_BBJ";
+    contractSize = 100000;
+    pointValue = 10;
+    minPriceMovement = "0.0001 (1 pip)";
+    symbol = "CHF";
+    contractUnit = "USD";
+    pointLabel = "pip";
   }
   
   const danaMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
@@ -447,11 +535,20 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   let priceSource = "real-time";
   
   if (!currentPrice) {
-    currentPrice = isXAG ? 30 : (isBCO ? 75 : 2650);
+    if (isXAG) currentPrice = 30;
+    else if (isBCO) currentPrice = 75;
+    else if (isHSI) currentPrice = 19800;
+    else if (isNikkei) currentPrice = 39000;
+    else if (isGBPUSD) currentPrice = 1.2700;
+    else if (isEURUSD) currentPrice = 1.0400;
+    else if (isAUDUSD) currentPrice = 0.6200;
+    else if (isUSDJPY) currentPrice = 157.00;
+    else if (isUSDCHF) currentPrice = 0.9000;
+    else currentPrice = 2650;
     priceSource = "estimasi";
   }
   
-  const contractValue = currentPrice * contractSize * lot;
+  const contractValue = isIndex ? (currentPrice * pointValue * lot) : (currentPrice * contractSize * lot);
   
   const effectiveMargin = dana > 0 ? dana - totalMargin : 0;
   const maxLots = dana > 0 ? Math.floor(dana / marginPerLot) : 0;
@@ -469,22 +566,25 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
 
 ` : "";
 
+  const priceDecimals = isForex ? 4 : (isUSDJPY ? 2 : 2);
+  const priceDisplay = isForex ? currentPrice.toFixed(priceDecimals) : currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 });
+  
   return `# Simulasi Trading ${instrumentName}
 
 ## Aturan Dasar SPA
 | Parameter | Nilai |
 |-----------|-------|
 | **1 LOT** | **$1,000** (setara Rp 10 Juta) |
-| **1 Poin** | **$${pointValue}/lot** |
+| **1 ${pointLabel}** | **$${pointValue}/lot** |
 | Fee Transaksi | $30/lot (buka + tutup) |
 
 ## Spesifikasi Kontrak
 | Parameter | Nilai |
 |-----------|-------|
 | Trade Code | ${tradeCode} |
-| Contract Size | ${contractSize.toLocaleString()} ${isBCO ? "USD per Barrel" : "Troy Ounce"} |
+| Contract Size | ${contractSize.toLocaleString()} ${contractUnit} |
 | Min Price Movement | ${minPriceMovement} |
-| Harga Saat Ini (${priceSource}) | **$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}** |
+| Harga Saat Ini (${priceSource}) | **${isForex || isIndex ? "" : "$"}${priceDisplay}** |
 
 ${danaSection}## Simulasi untuk ${dana > 0 ? recommendedLots : lot} LOT
 | Komponen | Perhitungan | Nilai |
@@ -497,19 +597,19 @@ ${danaSection}## Simulasi untuk ${dana > 0 ? recommendedLots : lot} LOT
 ## Contoh Perhitungan Profit/Loss (${dana > 0 ? recommendedLots : lot} lot)
 | Pergerakan | Gross P/L | Net P/L (setelah fee) |
 |------------|-----------|----------------------|
-| +1 poin | +$${(pointValue * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
-| +3 poin | +$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
-| +5 poin | +$${(pointValue * 5 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * 5 * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
-| -3 poin | -$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | -$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot) + (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
+| +1 ${pointLabel} | +$${(pointValue * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
+| +3 ${pointLabel} | +$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
+| +5 ${pointLabel} | +$${(pointValue * 5 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | +$${(pointValue * 5 * (dana > 0 ? recommendedLots : lot) - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
+| -3 ${pointLabel} | -$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot)).toLocaleString()} | -$${(pointValue * 3 * (dana > 0 ? recommendedLots : lot) + (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()} |
 
 ## Rumus Perhitungan
 \`\`\`
-Gross Profit = Lot × Poin × $100
+Gross Profit = Lot × ${pointLabel.charAt(0).toUpperCase() + pointLabel.slice(1)} × $${pointValue}
 Net Profit = Gross Profit - (Lot × $30)
 
-Contoh: Buy ${dana > 0 ? recommendedLots : lot} Lot @ ${currentPrice.toFixed(0)}, Sell @ ${(currentPrice + 3).toFixed(0)} (+3 poin)
-Gross = ${dana > 0 ? recommendedLots : lot} × 3 × $100 = $${((dana > 0 ? recommendedLots : lot) * 3 * 100).toLocaleString()}
-Net = $${((dana > 0 ? recommendedLots : lot) * 3 * 100).toLocaleString()} - $${(dana > 0 ? recommendedLots : lot) * 30} = $${((dana > 0 ? recommendedLots : lot) * 3 * 100 - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()}
+Contoh: Buy ${dana > 0 ? recommendedLots : lot} Lot @ ${priceDisplay}, Sell @ ${isForex ? (currentPrice + 0.0003).toFixed(4) : (isIndex ? (currentPrice + 3).toFixed(0) : (currentPrice + 3).toFixed(2))} (+3 ${pointLabel})
+Gross = ${dana > 0 ? recommendedLots : lot} × 3 × $${pointValue} = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()}
+Net = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()} - $${(dana > 0 ? recommendedLots : lot) * 30} = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()}
 \`\`\`
 
 ## Level Margin
