@@ -419,12 +419,46 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
     const quotes = Array.isArray(data.data) ? data.data : [];
     
     const symbolUpper = symbol.toUpperCase();
+    
+    // Find quote matching the specific symbol
     const quote = quotes.find((q: any) => {
       const qSymbol = (q.symbol || "").toUpperCase();
-      return qSymbol.includes(symbolUpper) || 
-             qSymbol.includes("XAU") || 
-             qSymbol.includes("GOLD") ||
-             qSymbol.includes("LGD");
+      
+      // Specific matching for each instrument type
+      if (symbolUpper === "XAU" || symbolUpper === "GOLD") {
+        return qSymbol.includes("XAU") || qSymbol.includes("GOLD") || qSymbol.includes("LGD");
+      }
+      if (symbolUpper === "XAG" || symbolUpper === "SILVER") {
+        return qSymbol.includes("XAG") || qSymbol.includes("SILVER") || qSymbol.includes("LSI");
+      }
+      if (symbolUpper === "BCO" || symbolUpper === "OIL") {
+        return qSymbol.includes("BCO") || qSymbol.includes("OIL") || qSymbol.includes("LCO");
+      }
+      if (symbolUpper === "HSI") {
+        return qSymbol.includes("HSI") || qSymbol.includes("HANG");
+      }
+      if (symbolUpper === "NIKKEI" || symbolUpper === "JP225") {
+        return qSymbol.includes("NIKKEI") || qSymbol.includes("JP225") || qSymbol.includes("JPN");
+      }
+      // Forex pairs - exact match preferred
+      if (symbolUpper === "GBP") {
+        return qSymbol.includes("GBP");
+      }
+      if (symbolUpper === "EUR") {
+        return qSymbol.includes("EUR") && !qSymbol.includes("EURO50");
+      }
+      if (symbolUpper === "AUD") {
+        return qSymbol.includes("AUD");
+      }
+      if (symbolUpper === "JPY") {
+        return qSymbol.includes("JPY") || qSymbol.includes("USDJPY");
+      }
+      if (symbolUpper === "CHF") {
+        return qSymbol.includes("CHF") || qSymbol.includes("USDCHF");
+      }
+      
+      // Default: check if symbol is contained
+      return qSymbol.includes(symbolUpper);
     });
     
     if (quote && quote.last) {
