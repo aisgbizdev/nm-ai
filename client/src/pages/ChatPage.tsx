@@ -368,9 +368,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
           >
             <Home className="h-4 w-4" />
           </Button>
-          <img src={nmLogo} alt="NM Ai" className="h-6 sm:h-8 w-auto object-contain" />
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="hidden sm:inline text-sm text-muted-foreground">Gwen Stacy</span>
+            <span className="text-sm text-foreground font-medium">Gwen Stacy</span>
             <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50" />
           </div>
         </div>
