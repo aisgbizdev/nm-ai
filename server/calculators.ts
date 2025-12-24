@@ -324,20 +324,13 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
         newsSection = `\n---\n\n## Berita Terkini\n\n`;
         const limitedNews = news.slice(0, 3);
         limitedNews.forEach((item, index) => {
-          const date = new Date(item.publishedAt || new Date());
-          const formattedDate = date.toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "Asia/Jakarta",
-          });
+          // Use publishedAt directly as string since API already provides formatted WIB time
+          const dateStr = item.publishedAt || "";
           newsSection += `**${index + 1}. ${item.title}** `;
           if (item.excerpt) {
             newsSection += `${item.excerpt.slice(0, 100)}... `;
           }
-          newsSection += `*${formattedDate} WIB* | ${item.category || "Market"}`;
+          newsSection += `*${dateStr} WIB* | ${item.category || "Market"}`;
           if (item.url) {
             newsSection += ` [Baca selengkapnya](${item.url})`;
           }
