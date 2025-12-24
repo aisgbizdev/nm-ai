@@ -378,11 +378,18 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
   const lot = lotMatch ? parseFloat(lotMatch[1]) : 1;
   
-  const leverageMatch = userPrompt.match(/leverage\s*(?:1:|1\s*:\s*)?(\d+)/i) || 
-                        userPrompt.match(/1\s*:\s*(\d+)/i);
-  const leverage = leverageMatch ? parseInt(leverageMatch[1]) : 100;
+  const lowerPrompt = userPrompt.toLowerCase();
+  const isOvernight = lowerPrompt.includes("overnight") || lowerPrompt.includes("swing");
+  const isDayTrade = lowerPrompt.includes("daytrade") || lowerPrompt.includes("day trade") || lowerPrompt.includes("intraday");
   
-  const contractSize = 100;
+  const marginDayTrade = 1000;
+  const marginOvernight = 2000;
+  
+  const marginPerLot = isOvernight ? marginOvernight : marginDayTrade;
+  const marginType = isOvernight ? "Overnight" : "Day Trade";
+  const totalMargin = marginPerLot * lot;
+  const maintenanceMargin = totalMargin * 0.7;
+  const autoLiquidation = totalMargin * 0.3;
   
   let currentPrice = await fetchRealTimePrice("XAU");
   let priceSource = "real-time";
@@ -392,33 +399,41 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
     priceSource = "estimasi";
   }
   
-  const marginPerLot = (contractSize * currentPrice) / leverage;
-  const totalMargin = marginPerLot * lot;
+  const contractSize = 100;
+  const contractValue = currentPrice * contractSize * lot;
   
-  return `# Simulasi Margin XAUUSD
+  return `# Simulasi Margin XAUUSD (Gold)
 
-**Input:**
-- Lot: ${lot}
-- Harga XAUUSD (${priceSource}): **$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}**
-- Contract Size: ${contractSize} troy ounce
-- Leverage: 1:${leverage}
+## Spesifikasi Kontrak SPA
+| Parameter | Nilai |
+|-----------|-------|
+| Trade Code | XUL10 (Fixed Rate) / XULF (Floating Rate) |
+| Contract Size | 100 Troy Ounce |
+| Harga Saat Ini (${priceSource}) | **$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}** |
 
-**Perhitungan:**
-\`\`\`
-Margin = (Harga × Lot × Contract Size) ÷ Leverage
-Margin = ($${currentPrice.toLocaleString()} × ${lot} × ${contractSize}) ÷ ${leverage}
-\`\`\`
+## Input Trading
+| Parameter | Nilai |
+|-----------|-------|
+| Jumlah Lot | ${lot} lot |
+| Tipe Trading | ${marginType} |
 
-**Hasil:**
-- Margin per Lot: **$${marginPerLot.toLocaleString("en-US", { minimumFractionDigits: 2 })}**
-- Total Margin ${lot} Lot: **$${totalMargin.toLocaleString("en-US", { minimumFractionDigits: 2 })}**
+## Margin Requirement (Trading Rules NM Standard)
+| Jenis Margin | Per Lot | Total (${lot} lot) |
+|--------------|---------|-------------------|
+| Initial Margin (${marginType}) | $${marginPerLot.toLocaleString()} | **$${totalMargin.toLocaleString()}** |
+| Maintenance Margin (70%) | $${(marginPerLot * 0.7).toLocaleString()} | $${maintenanceMargin.toLocaleString()} |
+| Auto Liquidation (30%) | $${(marginPerLot * 0.3).toLocaleString()} | $${autoLiquidation.toLocaleString()} |
 
-**Catatan:**
-- Initial Margin mengikuti Trading Rules yang berlaku
-- Maintenance Margin: 70% dari Initial Margin
-- Margin Call terjadi jika equity < 70% Initial Margin
+## Nilai Kontrak
+- Contract Value: ${lot} lot × 100 oz × $${currentPrice.toLocaleString()} = **$${contractValue.toLocaleString()}**
+- Facility Fee: $15/lot/side (buka + tutup = $30/lot)
+
+## Catatan Penting
+- Margin Call terjadi jika equity turun di bawah **70%** dari Initial Margin
+- Posisi akan di-liquidasi otomatis jika equity menyentuh **30%** dari Initial Margin
+- Overnight dikenakan rollover fee $5/lot/malam + PPN 11%
 
 ---
 *NM Ai - Newsmaker.id*
-*Perhitungan bersifat simulasi edukatif.*`;
+*Perhitungan berdasarkan Trading Rules SPA, bersifat edukatif.*`;
 }
