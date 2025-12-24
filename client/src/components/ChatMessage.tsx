@@ -33,6 +33,52 @@ function extractQuickReplies(content: string): string[] {
   return questions;
 }
 
+function generateFallbackQuickReplies(content: string): string[] {
+  const lowerContent = content.toLowerCase();
+  
+  if (lowerContent.includes('gold') || lowerContent.includes('emas') || lowerContent.includes('xau')) {
+    return [
+      "Harga gold sekarang berapa?",
+      "Berapa lot ideal untuk trading gold?",
+      "Berita terbaru tentang gold"
+    ];
+  }
+  if (lowerContent.includes('margin') || lowerContent.includes('lot') || lowerContent.includes('modal')) {
+    return [
+      "Hitung margin untuk 2 lot gold",
+      "Berapa lot ideal untuk modal $5,000?",
+      "Jelaskan risiko overlot"
+    ];
+  }
+  if (lowerContent.includes('berita') || lowerContent.includes('news') || lowerContent.includes('ekonomi')) {
+    return [
+      "Kalender ekonomi hari ini",
+      "Berita terbaru tentang USD",
+      "Apa dampak NFP terhadap market?"
+    ];
+  }
+  if (lowerContent.includes('penipuan') || lowerContent.includes('legal') || lowerContent.includes('bappebti')) {
+    return [
+      "Cara cek legalitas broker",
+      "Ciri-ciri investasi bodong",
+      "Apa itu SPA trading?"
+    ];
+  }
+  if (lowerContent.includes('pivot') || lowerContent.includes('fibonacci') || lowerContent.includes('support') || lowerContent.includes('resistance')) {
+    return [
+      "Hitung pivot point gold",
+      "Jelaskan cara pakai fibonacci",
+      "Strategi trading dengan pivot"
+    ];
+  }
+  
+  return [
+    "Harga gold sekarang berapa?",
+    "Kalender ekonomi hari ini",
+    "Berapa lot ideal untuk modal $10,000?"
+  ];
+}
+
 function removeQuickRepliesFromContent(content: string): string {
   const lines = content.split('\n');
   const filteredLines: string[] = [];
@@ -63,7 +109,9 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId, 
   
   const quickReplies = useMemo(() => {
     if (isUser || isStreaming) return [];
-    return extractQuickReplies(content);
+    const extracted = extractQuickReplies(content);
+    if (extracted.length > 0) return extracted;
+    return generateFallbackQuickReplies(content);
   }, [content, isUser, isStreaming]);
   
   const cleanContent = useMemo(() => {
