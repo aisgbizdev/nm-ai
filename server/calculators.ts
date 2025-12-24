@@ -298,20 +298,26 @@ Hitung fibonacci high 2680 low 2640
   const isDownTrend = /downtren|downtrend|tren turun|turun/.test(lowerPrompt);
   const mode = isDownTrend ? "down" : "up";
   
+  // Detect if user wants retracement only or projection only
+  const wantsRetracement = /retrace|retracement|retr/.test(lowerPrompt);
+  const wantsProjection = /project|projection|proj|extension|ext/.test(lowerPrompt);
+  
+  // If neither specified, show both. If one specified, show only that one.
+  const showRetracement = !wantsProjection || wantsRetracement;
+  const showProjection = !wantsRetracement || wantsProjection;
+  
   const up = calcFibUp({ H, L });
   const down = calcFibDown({ H, L });
   const D = H - L;
   
   const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  let result = `## Fibonacci ${mode === "down" ? "Downtrend" : "Uptrend"}
+  let result = `## Fibonacci ${mode === "down" ? "Downtrend" : "Uptrend"}${wantsRetracement && !wantsProjection ? " - Retracement" : ""}${wantsProjection && !wantsRetracement ? " - Projection" : ""}
 
 - **Price (A)**: ${mode === "down" ? fmt(H) : fmt(L)}
 - **Price (B)**: ${mode === "down" ? fmt(L) : fmt(H)}
 - **Range**: ${fmt(D)}
 
-| Retracement | Level | Projection | Level |
-|-------------|-------|------------|-------|
 `;
 
   // Uptrend: 23.60% to 78.60%, Downtrend: 78.60% to 23.60%
@@ -322,12 +328,36 @@ Hitung fibonacci high 2680 low 2640
   const retrLevels = mode === "down" ? downLevels : upLevels;
   const data = mode === "down" ? down : up;
   
-  for (let i = 0; i < Math.max(retrLevels.length, projLevels.length); i++) {
-    const retrLevel = retrLevels[i] || "";
-    const retrValue = retrLevel ? fmt(data.retr[retrLevel]) : "";
-    const projLevel = projLevels[i] || "";
-    const projValue = projLevel ? fmt(data.proj[projLevel]) : "";
-    result += `| ${retrLevel} | ${retrValue} | ${projLevel} | ${projValue} |\n`;
+  // Show only retracement
+  if (showRetracement && !showProjection) {
+    result += `| Retracement | Level |
+|-------------|-------|
+`;
+    for (const level of retrLevels) {
+      result += `| ${level} | ${fmt(data.retr[level])} |\n`;
+    }
+  }
+  // Show only projection
+  else if (showProjection && !showRetracement) {
+    result += `| Projection | Level |
+|------------|-------|
+`;
+    for (const level of projLevels) {
+      result += `| ${level} | ${fmt(data.proj[level])} |\n`;
+    }
+  }
+  // Show both (default)
+  else {
+    result += `| Retracement | Level | Projection | Level |
+|-------------|-------|------------|-------|
+`;
+    for (let i = 0; i < Math.max(retrLevels.length, projLevels.length); i++) {
+      const retrLevel = retrLevels[i] || "";
+      const retrValue = retrLevel ? fmt(data.retr[retrLevel]) : "";
+      const projLevel = projLevels[i] || "";
+      const projValue = projLevel ? fmt(data.proj[projLevel]) : "";
+      result += `| ${retrLevel} | ${retrValue} | ${projLevel} | ${projValue} |\n`;
+    }
   }
 
   result += `\n💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
