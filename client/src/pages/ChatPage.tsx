@@ -92,12 +92,7 @@ Saya bisa membantu kamu untuk:
 - **Kalender Ekonomi** - Jadwal berita dan event penting
 - **Obrolan Bebas** - Tanya apa saja tentang trading dan finansial
 
-Silakan tanya atau upload gambar untuk analisis!
-
-💡 **Mau mulai dari mana?** *(Ketik angkanya saja)*
-1. "Harga gold sekarang berapa?"
-2. "Kalender ekonomi hari ini"
-3. "Berapa lot ideal untuk modal $10,000?"`;
+Silakan tanya atau upload gambar untuk analisis!`;
 
 
   const handleExportChat = () => {
