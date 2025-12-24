@@ -13,6 +13,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import nmLogo from "@assets/Logo_NM23_Ai-22_1766480039004.png";
@@ -135,50 +137,80 @@ Silakan tanya atau upload gambar untuk analisis!`;
     return cleanedLines.join('\n').trim();
   };
 
-  const handleExportNote = () => {
+  // Get last Q&A pair (user question + AI response)
+  const getLastQAPair = () => {
+    if (!sessionData?.messages?.length) return [];
+    const messages = sessionData.messages;
+    const lastAssistantIdx = messages.map(m => m.role).lastIndexOf("assistant");
+    if (lastAssistantIdx === -1) return [];
+    
+    // Find the user message before this assistant message
+    let userIdx = lastAssistantIdx - 1;
+    while (userIdx >= 0 && messages[userIdx].role !== "user") {
+      userIdx--;
+    }
+    
+    if (userIdx >= 0) {
+      return [messages[userIdx], messages[lastAssistantIdx]];
+    }
+    return [messages[lastAssistantIdx]];
+  };
+
+  const handleExportNote = (lastOnly: boolean = false) => {
     if (!sessionData?.messages?.length) return;
     
-    const exportText = sessionData.messages.map(msg => {
+    const messagesToExport = lastOnly ? getLastQAPair() : sessionData.messages;
+    if (!messagesToExport.length) return;
+    
+    const exportText = messagesToExport.map(msg => {
       const role = msg.role === "user" ? "Anda" : "Gwen Stacy";
       const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
       const cleanContent = cleanContentForExport(msg.content);
       return `[${time}] ${role}:\n${cleanContent}\n`;
     }).join("\n---\n\n");
     
-    const header = `NM Ai Chat Resume\nTanggal: ${format(new Date(), "dd/MM/yyyy HH:mm")}\n\n${"=".repeat(50)}\n\n`;
+    const title = lastOnly ? "NM Ai - Resume Terakhir" : "NM Ai - Full Conversation";
+    const header = `${title}\nTanggal: ${format(new Date(), "dd/MM/yyyy HH:mm")}\n\n${"=".repeat(50)}\n\n`;
     const blob = new Blob([header + exportText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nm-ai-resume-${format(new Date(), "yyyy-MM-dd-HHmm")}.txt`;
+    a.download = `nm-ai-${lastOnly ? "last" : "full"}-${format(new Date(), "yyyy-MM-dd-HHmm")}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleExportMD = () => {
+  const handleExportMD = (lastOnly: boolean = false) => {
     if (!sessionData?.messages?.length) return;
     
-    const exportText = sessionData.messages.map(msg => {
+    const messagesToExport = lastOnly ? getLastQAPair() : sessionData.messages;
+    if (!messagesToExport.length) return;
+    
+    const exportText = messagesToExport.map(msg => {
       const role = msg.role === "user" ? "**Anda**" : "**Gwen Stacy**";
       const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
       const cleanContent = cleanContentForExport(msg.content);
       return `### ${role} - ${time}\n\n${cleanContent}\n`;
     }).join("\n---\n\n");
     
-    const header = `# NM Ai - Chat Resume\n\n**Tanggal:** ${format(new Date(), "dd MMMM yyyy, HH:mm")}\n\n**Platform:** Newsmaker.id AI Trading Assistant\n\n---\n\n`;
+    const title = lastOnly ? "NM Ai - Resume Terakhir" : "NM Ai - Full Conversation";
+    const header = `# ${title}\n\n**Tanggal:** ${format(new Date(), "dd MMMM yyyy, HH:mm")}\n\n**Platform:** Newsmaker.id AI Trading Assistant\n\n---\n\n`;
     const footer = `\n---\n\n*Dokumen ini digenerate oleh NM Ai - Newsmaker.id*\n\n*Informasi bersifat edukatif, bukan rekomendasi transaksi.*`;
     
     const blob = new Blob([header + exportText + footer], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nm-ai-resume-${format(new Date(), "yyyy-MM-dd-HHmm")}.md`;
+    a.download = `nm-ai-${lastOnly ? "last" : "full"}-${format(new Date(), "yyyy-MM-dd-HHmm")}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = (lastOnly: boolean = false) => {
     if (!sessionData?.messages?.length) return;
+    
+    const messagesToExport = lastOnly ? getLastQAPair() : sessionData.messages;
+    if (!messagesToExport.length) return;
     
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -197,6 +229,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
       return false;
     };
     
+    const title = lastOnly ? "NM Ai - Resume Terakhir" : "NM Ai - Full Conversation";
+    
     // Header
     doc.setFillColor(0, 82, 147);
     doc.rect(0, 0, pageWidth, 35, 'F');
@@ -204,7 +238,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("NM Ai - Chat Resume", margin, 18);
+    doc.text(title, margin, 18);
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
@@ -214,7 +248,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
     yPos = 50;
     
     // Messages
-    sessionData.messages.forEach((msg, idx) => {
+    messagesToExport.forEach((msg, idx) => {
       const isUser = msg.role === "user";
       const role = isUser ? "Anda" : "Gwen Stacy";
       const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
@@ -314,7 +348,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
       
       // Separator between messages
       yPos += 5;
-      if (idx < sessionData.messages.length - 1) {
+      if (idx < messagesToExport.length - 1) {
         checkNewPage(5);
         doc.setDrawColor(200, 200, 200);
         doc.line(margin, yPos, pageWidth - margin, yPos);
@@ -338,7 +372,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
       doc.text(`Halaman ${i} dari ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: "right" });
     }
     
-    doc.save(`nm-ai-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`);
+    doc.save(`nm-ai-${lastOnly ? "last" : "full"}-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`);
   };
 
   const scrollToBottom = () => {
@@ -611,30 +645,61 @@ Silakan tanya atau upload gambar untuk analisis!`;
                 <span className="hidden sm:inline text-xs font-medium">Download</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Resume Terakhir (Q&A terakhir)
+              </DropdownMenuLabel>
               <DropdownMenuItem 
-                onClick={handleExportNote}
+                onClick={() => handleExportNote(true)}
                 className="gap-2 cursor-pointer"
-                data-testid="menu-export-note"
+                data-testid="menu-export-last-note"
               >
                 <FileText className="h-4 w-4" />
                 <span>Note (.txt)</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={handleExportMD}
+                onClick={() => handleExportMD(true)}
                 className="gap-2 cursor-pointer"
-                data-testid="menu-export-md"
+                data-testid="menu-export-last-md"
               >
                 <FileDown className="h-4 w-4" />
                 <span>Markdown (.md)</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={handleExportPDF}
+                onClick={() => handleExportPDF(true)}
                 className="gap-2 cursor-pointer"
-                data-testid="menu-export-pdf"
+                data-testid="menu-export-last-pdf"
               >
                 <FileImage className="h-4 w-4" />
-                <span>PDF Report (.pdf)</span>
+                <span>PDF (.pdf)</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Full Conversation (semua chat)
+              </DropdownMenuLabel>
+              <DropdownMenuItem 
+                onClick={() => handleExportNote(false)}
+                className="gap-2 cursor-pointer"
+                data-testid="menu-export-full-note"
+              >
+                <FileText className="h-4 w-4" />
+                <span>Note (.txt)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleExportMD(false)}
+                className="gap-2 cursor-pointer"
+                data-testid="menu-export-full-md"
+              >
+                <FileDown className="h-4 w-4" />
+                <span>Markdown (.md)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleExportPDF(false)}
+                className="gap-2 cursor-pointer"
+                data-testid="menu-export-full-pdf"
+              >
+                <FileImage className="h-4 w-4" />
+                <span>PDF (.pdf)</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
