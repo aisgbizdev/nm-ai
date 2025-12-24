@@ -64,6 +64,21 @@ export async function handleCalculation(userPrompt: string): Promise<CalculatorR
     if (marginReply) return { handled: true, reply: marginReply };
   }
 
+  if (isRiskRewardQuestion(lowerPrompt)) {
+    const rrReply = handleRiskRewardCalculation(userPrompt);
+    if (rrReply) return { handled: true, reply: rrReply };
+  }
+
+  if (isBreakevenQuestion(lowerPrompt)) {
+    const beReply = handleBreakevenCalculation(userPrompt);
+    if (beReply) return { handled: true, reply: beReply };
+  }
+
+  if (isPositionSizeQuestion(lowerPrompt)) {
+    const psReply = handlePositionSizeCalculation(userPrompt);
+    if (psReply) return { handled: true, reply: psReply };
+  }
+
   return { handled: false };
 }
 
@@ -749,4 +764,393 @@ ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 ---
 *NM Ai - Newsmaker.id*
 *Perhitungan berdasarkan Trading Rules SPA BBJ/JFX, bersifat edukatif.*`;
+}
+
+// ============ NEW CALCULATORS ============
+
+function isRiskRewardQuestion(lowerPrompt: string): boolean {
+  return (lowerPrompt.includes("risk") && lowerPrompt.includes("reward")) ||
+    lowerPrompt.includes("risiko reward") ||
+    lowerPrompt.includes("rr ratio") ||
+    lowerPrompt.includes("risk reward ratio") ||
+    (lowerPrompt.includes("entry") && lowerPrompt.includes("sl") && lowerPrompt.includes("tp"));
+}
+
+function isBreakevenQuestion(lowerPrompt: string): boolean {
+  return lowerPrompt.includes("breakeven") ||
+    lowerPrompt.includes("break even") ||
+    lowerPrompt.includes("balik modal") ||
+    lowerPrompt.includes("impas") ||
+    (lowerPrompt.includes("loss") && lowerPrompt.includes("recover"));
+}
+
+function isPositionSizeQuestion(lowerPrompt: string): boolean {
+  return (lowerPrompt.includes("position size") || lowerPrompt.includes("ukuran posisi")) ||
+    (lowerPrompt.includes("risk") && lowerPrompt.includes("%") && (lowerPrompt.includes("lot") || lowerPrompt.includes("berapa"))) ||
+    (lowerPrompt.includes("risiko") && lowerPrompt.includes("%") && lowerPrompt.includes("lot"));
+}
+
+function handleRiskRewardCalculation(userPrompt: string): string | null {
+  // Parse entry, stop loss, take profit from prompt
+  const entryMatch = userPrompt.match(/entry\s*[:=]?\s*([\d,.]+)/i) || 
+    userPrompt.match(/beli\s*(?:di|@)?\s*([\d,.]+)/i) ||
+    userPrompt.match(/([\d,.]+)\s*entry/i);
+  const slMatch = userPrompt.match(/sl\s*[:=]?\s*([\d,.]+)/i) ||
+    userPrompt.match(/stop\s*loss\s*[:=]?\s*([\d,.]+)/i) ||
+    userPrompt.match(/stoploss\s*[:=]?\s*([\d,.]+)/i);
+  const tpMatch = userPrompt.match(/tp\s*[:=]?\s*([\d,.]+)/i) ||
+    userPrompt.match(/take\s*profit\s*[:=]?\s*([\d,.]+)/i) ||
+    userPrompt.match(/target\s*[:=]?\s*([\d,.]+)/i);
+  
+  if (!entryMatch || !slMatch || !tpMatch) {
+    return `# Risk/Reward Calculator
+
+Untuk menghitung Risk/Reward Ratio, saya butuh 3 data:
+
+**Format:**
+\`\`\`
+Hitung RR entry 2650, SL 2645, TP 2665
+\`\`\`
+
+Atau:
+- **Entry**: Harga masuk posisi
+- **SL (Stop Loss)**: Harga cut loss
+- **TP (Take Profit)**: Harga target profit
+
+**Contoh:**
+- "Hitung RR entry 2650, SL 2645, TP 2665"
+- "Risk reward entry 1.0850 SL 1.0820 TP 1.0920"
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung RR entry 2650, SL 2645, TP 2665"
+2. "Berapa lot ideal untuk modal $10,000?"
+3. "Hitung breakeven setelah loss $500"
+
+---
+*NM Ai - Newsmaker.id*`;
+  }
+  
+  const entry = parseFloat(entryMatch[1].replace(/,/g, ""));
+  const sl = parseFloat(slMatch[1].replace(/,/g, ""));
+  const tp = parseFloat(tpMatch[1].replace(/,/g, ""));
+  
+  const risk = Math.abs(entry - sl);
+  const reward = Math.abs(tp - entry);
+  
+  // Guard against zero-distance SL/TP
+  if (risk === 0 || reward === 0) {
+    return `# Risk/Reward Calculator
+
+⚠️ **Data tidak valid!**
+
+| Parameter | Nilai |
+|-----------|-------|
+| Entry | ${entry} |
+| Stop Loss | ${sl} |
+| Take Profit | ${tp} |
+
+**Masalah:**
+${risk === 0 ? "- Entry sama dengan Stop Loss (risk = 0)" : ""}
+${reward === 0 ? "- Entry sama dengan Take Profit (reward = 0)" : ""}
+
+Pastikan:
+- **SL** harus berbeda dari Entry
+- **TP** harus berbeda dari Entry
+
+**Contoh yang benar:**
+- "Hitung RR entry 2650, SL 2645, TP 2665"
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung RR entry 2650, SL 2645, TP 2665"
+2. "Jelaskan risk reward ratio yang ideal"
+3. "Berapa lot ideal untuk modal $10,000?"
+
+---
+*NM Ai - Newsmaker.id*`;
+  }
+  
+  const rrRatio = reward / risk;
+  
+  const isLong = sl < entry;
+  const direction = isLong ? "LONG (Buy)" : "SHORT (Sell)";
+  
+  let assessment = "";
+  if (rrRatio >= 3) {
+    assessment = "Excellent! RR 1:3+ adalah target ideal untuk swing trading.";
+  } else if (rrRatio >= 2) {
+    assessment = "Bagus! RR 1:2 adalah standar minimum yang baik.";
+  } else if (rrRatio >= 1.5) {
+    assessment = "Cukup. Pertimbangkan untuk mencari setup dengan RR lebih tinggi.";
+  } else {
+    assessment = "Kurang ideal. RR di bawah 1:1.5 berisiko tinggi.";
+  }
+  
+  const winRateNeeded = (1 / (1 + rrRatio)) * 100;
+  
+  return `# Risk/Reward Calculator
+
+## Input Data
+| Parameter | Nilai |
+|-----------|-------|
+| Entry | **${entry.toLocaleString("en-US", { minimumFractionDigits: 2 })}** |
+| Stop Loss | ${sl.toLocaleString("en-US", { minimumFractionDigits: 2 })} |
+| Take Profit | ${tp.toLocaleString("en-US", { minimumFractionDigits: 2 })} |
+| Arah | ${direction} |
+
+## Hasil Kalkulasi
+| Metrik | Nilai |
+|--------|-------|
+| Risk (jarak ke SL) | ${risk.toFixed(2)} poin |
+| Reward (jarak ke TP) | ${reward.toFixed(2)} poin |
+| **Risk:Reward Ratio** | **1:${rrRatio.toFixed(2)}** |
+| Win Rate Minimum | ${winRateNeeded.toFixed(1)}% |
+
+## Penilaian
+${assessment}
+
+> **Catatan**: Win Rate Minimum adalah persentase trade yang harus profit agar tetap BE (break even) dalam jangka panjang.
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 2 lot gold"
+2. "Jelaskan apa itu risk management"
+3. "Berapa lot ideal untuk modal $5,000?"
+
+---
+*NM Ai - Newsmaker.id*
+*Informasi bersifat edukatif, bukan saran investasi.*`;
+}
+
+function handleBreakevenCalculation(userPrompt: string): string | null {
+  // Parse loss amount and lot size
+  const lossMatch = userPrompt.match(/loss\s*(?:\$|usd)?\s*([\d,.]+)/i) ||
+    userPrompt.match(/rugi\s*(?:\$|usd)?\s*([\d,.]+)/i) ||
+    userPrompt.match(/\$\s*([\d,.]+)\s*loss/i) ||
+    userPrompt.match(/([\d,.]+)\s*(?:dollar|dolar)/i);
+  
+  const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
+  
+  if (!lossMatch) {
+    return `# Breakeven Calculator
+
+Untuk menghitung berapa poin yang dibutuhkan untuk balik modal, saya butuh:
+
+**Format:**
+\`\`\`
+Hitung breakeven setelah loss $500 dengan 2 lot gold
+\`\`\`
+
+**Data yang dibutuhkan:**
+- **Jumlah Loss**: Berapa kerugian yang mau di-recover
+- **Lot Size**: Berapa lot yang akan dipakai (default: 1 lot)
+
+**Contoh:**
+- "Breakeven loss $300 dengan 1 lot"
+- "Balik modal rugi $1000 pakai 2 lot gold"
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung breakeven loss $500 dengan 2 lot"
+2. "Hitung risk reward ratio"
+3. "Berapa margin untuk 3 lot gold?"
+
+---
+*NM Ai - Newsmaker.id*`;
+  }
+  
+  const loss = parseFloat(lossMatch[1].replace(/,/g, ""));
+  const lot = lotMatch ? parseFloat(lotMatch[1]) : 1;
+  
+  // Gold default: $100/poin/lot
+  const pointValue = 100;
+  const fee = 30; // $30/lot
+  
+  // Calculate pips needed
+  const grossNeeded = loss + (lot * fee);
+  const pipsNeeded = grossNeeded / (lot * pointValue);
+  
+  return `# Breakeven Calculator
+
+## Input Data
+| Parameter | Nilai |
+|-----------|-------|
+| Kerugian yang mau di-recover | **$${loss.toLocaleString()}** |
+| Lot Size | ${lot} lot |
+| Instrumen | Gold (XAUUSD) |
+
+## Perhitungan
+| Komponen | Kalkulasi | Nilai |
+|----------|-----------|-------|
+| Loss yang harus di-recover | - | $${loss.toLocaleString()} |
+| Fee Transaksi | ${lot} lot × $30 | $${(lot * fee).toLocaleString()} |
+| **Total yang harus dicapai** | - | **$${grossNeeded.toLocaleString()}** |
+
+## Hasil
+| Metrik | Nilai |
+|--------|-------|
+| Value per Poin | ${lot} lot × $100 = $${(lot * pointValue).toLocaleString()} |
+| **Poin yang dibutuhkan** | **${pipsNeeded.toFixed(2)} poin** |
+
+## Catatan Penting
+> ${pipsNeeded > 10 ? "⚠️ Target lebih dari 10 poin cukup ambisius. Pertimbangkan untuk split target atau terima loss sebagai bagian dari trading." : "✅ Target masih realistis untuk dicapai dalam kondisi market normal."}
+
+**Tips Recovery:**
+1. Jangan langsung revenge trade setelah loss
+2. Tunggu setup yang valid sesuai trading plan
+3. Pertimbangkan untuk membagi target recovery ke beberapa trade
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung risk reward entry 2650 SL 2645 TP 2660"
+2. "Berapa lot ideal untuk modal $10,000?"
+3. "Jelaskan tentang trading psychology"
+
+---
+*NM Ai - Newsmaker.id*
+*Informasi bersifat edukatif, bukan saran investasi.*`;
+}
+
+function handlePositionSizeCalculation(userPrompt: string): string | null {
+  // Parse capital and risk percentage
+  const capitalMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)/i) ||
+    userPrompt.match(/([\d,]+)\s*(?:dollar|dolar|usd)/i) ||
+    userPrompt.match(/modal\s*([\d,]+)/i) ||
+    userPrompt.match(/dana\s*([\d,]+)/i);
+  
+  const riskPctMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*%/i) ||
+    userPrompt.match(/risk\s*(\d+)/i) ||
+    userPrompt.match(/risiko\s*(\d+)/i);
+  
+  const slMatch = userPrompt.match(/sl\s*[:=]?\s*(\d+)/i) ||
+    userPrompt.match(/stop\s*loss\s*[:=]?\s*(\d+)/i) ||
+    userPrompt.match(/(\d+)\s*(?:poin|pip|point)/i);
+  
+  if (!capitalMatch || !riskPctMatch) {
+    return `# Position Size Calculator (by Risk %)
+
+Untuk menghitung ukuran lot berdasarkan persentase risiko, saya butuh:
+
+**Format:**
+\`\`\`
+Position size modal $10,000 risk 2% SL 5 poin
+\`\`\`
+
+**Data yang dibutuhkan:**
+- **Modal**: Total dana trading Anda
+- **Risk %**: Persentase risiko per trade (1-3% recommended)
+- **Stop Loss**: Jarak SL dalam poin (optional, default 5 poin)
+
+**Contoh:**
+- "Position size $5000 risk 2% SL 3 poin"
+- "Ukuran posisi modal $10,000 risiko 1%"
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung position size $10,000 risk 2% SL 5 poin"
+2. "Berapa lot ideal untuk modal $5,000?"
+3. "Jelaskan tentang risk management"
+
+---
+*NM Ai - Newsmaker.id*`;
+  }
+  
+  const capital = parseFloat(capitalMatch[1].replace(/,/g, ""));
+  const riskPct = parseFloat(riskPctMatch[1]);
+  const slPips = slMatch ? parseFloat(slMatch[1]) : 5; // Default 5 poin SL
+  
+  // Gold default: $100/poin/lot
+  const pointValue = 100;
+  const marginPerLot = 1000;
+  const feePerLot = 30;
+  
+  // Calculate risk amount
+  const riskAmount = capital * (riskPct / 100);
+  
+  // Calculate lot size based on risk
+  // Correct formula: Risk = Lot × (SL pips × Point Value + Fee)
+  // Lot = Risk / (SL pips × Point Value + Fee per lot)
+  const riskPerLot = (slPips * pointValue) + feePerLot;
+  const idealLot = riskAmount / riskPerLot;
+  
+  // If calculated lot is too small, return guidance
+  if (idealLot < 0.1) {
+    return `# Position Size Calculator
+
+## Input Data
+| Parameter | Nilai |
+|-----------|-------|
+| Modal | **$${capital.toLocaleString()}** |
+| Risk per Trade | ${riskPct}% = $${riskAmount.toLocaleString()} |
+| Stop Loss | ${slPips} poin |
+
+## Hasil Analisis
+
+⚠️ **Budget risiko tidak mencukupi untuk 0.1 lot minimum.**
+
+| Analisis | Nilai |
+|----------|-------|
+| Risk per 0.1 lot | $${(0.1 * riskPerLot).toFixed(2)} |
+| Budget risiko Anda | $${riskAmount.toFixed(2)} |
+| Selisih | -$${(0.1 * riskPerLot - riskAmount).toFixed(2)} |
+
+### Opsi yang Tersedia:
+1. **Naikkan modal** - Minimal $${Math.ceil(0.1 * riskPerLot / (riskPct / 100)).toLocaleString()} untuk ${riskPct}% risk
+2. **Naikkan risk %** - Pakai ${((0.1 * riskPerLot / capital) * 100).toFixed(1)}% untuk 0.1 lot
+3. **Perkecil SL** - Kurangi jarak stop loss
+
+> **Rekomendasi**: Jangan paksakan trading jika modal tidak memadai. Trading dengan lot minimum yang melebihi risk tolerance sangat berbahaya.
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Berapa lot ideal untuk modal $10,000?"
+2. "Jelaskan tentang risk management"
+3. "Simulasi trading dengan modal $5,000"
+
+---
+*NM Ai - Newsmaker.id*
+*Informasi bersifat edukatif, bukan saran investasi.*`;
+  }
+  
+  const roundedLot = Math.floor(idealLot * 10) / 10; // Round down to 0.1 lot
+  
+  const actualRisk = roundedLot * riskPerLot;
+  const actualRiskPct = (actualRisk / capital) * 100;
+  const marginRequired = roundedLot * marginPerLot;
+  
+  return `# Position Size Calculator
+
+## Input Data
+| Parameter | Nilai |
+|-----------|-------|
+| Modal | **$${capital.toLocaleString()}** |
+| Risk per Trade | ${riskPct}% = $${riskAmount.toLocaleString()} |
+| Stop Loss | ${slPips} poin |
+| Instrumen | Gold (XAUUSD) |
+
+## Perhitungan
+| Komponen | Nilai |
+|----------|-------|
+| Max Risk Amount | $${riskAmount.toLocaleString()} |
+| Value per Poin | $${pointValue}/lot |
+| Fee Transaksi | $${feePerLot}/lot |
+
+## Hasil Rekomendasi
+| Metrik | Nilai |
+|--------|-------|
+| **Lot Size Ideal** | **${roundedLot.toFixed(1)} lot** |
+| Margin Required | $${marginRequired.toLocaleString()} |
+| Risk Aktual | $${actualRisk.toFixed(2)} (${actualRiskPct.toFixed(2)}%) |
+
+## Skenario Jika SL Kena
+| Komponen | Kalkulasi | Nilai |
+|----------|-----------|-------|
+| Loss dari pergerakan | ${roundedLot} × ${slPips} × $100 | -$${(roundedLot * slPips * pointValue).toLocaleString()} |
+| Fee | ${roundedLot} × $30 | -$${(roundedLot * feePerLot).toFixed(2)} |
+| **Total Loss** | - | **-$${actualRisk.toFixed(2)}** |
+
+> ✅ Dengan risk ${riskPct}% per trade, Anda bisa mengalami ${Math.floor(100 / riskPct)} losing trades berturut-turut sebelum modal habis. Ini memberi ruang untuk recovery.
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk ${roundedLot} lot gold"
+2. "Hitung risk reward ratio"
+3. "Jelaskan tentang money management"
+
+---
+*NM Ai - Newsmaker.id*
+*Informasi bersifat edukatif, bukan saran investasi.*`;
 }
