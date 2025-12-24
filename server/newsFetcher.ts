@@ -116,10 +116,10 @@ export function formatNewsForChat(news: NewsItem[], limit = 3): string {
     response += `\n`;
   });
   
-  response += `💡 **Mau lanjut eksplor?**\n`;
-  response += `- "Harga gold sekarang berapa?"\n`;
-  response += `- "Kalender ekonomi hari ini"\n`;
-  response += `- "Bagaimana dampak berita ini ke trading?"\n\n`;
+  response += `💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*\n`;
+  response += `1. "Harga gold sekarang berapa?"\n`;
+  response += `2. "Kalender ekonomi hari ini"\n`;
+  response += `3. "Bagaimana dampak berita ini ke trading?"\n\n`;
   
   response += `---\n`;
   response += `*Sumber: Newsmaker.id - Berita trading & investasi terpercaya*\n\n`;

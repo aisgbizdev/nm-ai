@@ -164,10 +164,10 @@ ${commodityTableMd}
 ### 3. Currency (Forex Pairs)
 ${currencyTableMd}
 
-💡 **Mau lanjut eksplor?**
-- "Hitung margin untuk 2 lot gold"
-- "Berapa lot ideal untuk modal $10,000?"
-- "Jelaskan apa itu margin call"
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 2 lot gold"
+2. "Berapa lot ideal untuk modal $10,000?"
+3. "Jelaskan apa itu margin call"
 
 ---
 *NM Ai - Newsmaker.id*
@@ -205,10 +205,10 @@ Transaksi derivatif di luar Bursa Berjangka yang dilakukan secara bilateral, den
 - Stop Order (SO): untuk membatasi kerugian
 - OCO: kombinasi Limit & Stop
 
-💡 **Mau lanjut eksplor?**
-- "Hitung margin untuk 3 lot gold"
-- "Apa itu auto liquidation?"
-- "Simulasi trading dengan modal $5,000"
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 3 lot gold"
+2. "Apa itu auto liquidation?"
+3. "Simulasi trading dengan modal $5,000"
 
 ---
 *NM Ai - Newsmaker.id*
@@ -249,10 +249,10 @@ function handleFibonacci(userPrompt: string, lowerPrompt: string): string | null
     result += `| ${levels[i]} | ${fmt(data.retr[levels[i]])} | ${fmt(data.proj[projLevels[i]])} |\n`;
   }
 
-  result += `\n💡 **Mau lanjut eksplor?**
-- "Hitung pivot point dengan data OHLC"
-- "Berapa margin untuk 2 lot gold?"
-- "Kalender ekonomi hari ini"
+  result += `\n💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung pivot point dengan data OHLC"
+2. "Berapa margin untuk 2 lot gold?"
+3. "Kalender ekonomi hari ini"
 
 ---
 *NM Ai - Newsmaker.id*`;
@@ -289,10 +289,10 @@ function handlePivot(userPrompt: string, lowerPrompt: string): string | null {
 | S2 | ${fmt(classic.S2)} | ${fmt(woodie.S2)} | ${fmt(camarilla.S2)} |
 | S3 | ${fmt(classic.S3)} | ${fmt(woodie.S3)} | ${fmt(camarilla.S3)} |
 
-💡 **Mau lanjut eksplor?**
-- "Hitung fibonacci dengan high low ini"
-- "Berapa lot ideal untuk modal $10,000?"
-- "Tampilkan harga gold sekarang"
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung fibonacci dengan high low ini"
+2. "Berapa lot ideal untuk modal $10,000?"
+3. "Tampilkan harga gold sekarang"
 
 ---
 *NM Ai - Newsmaker.id*`;
@@ -317,10 +317,10 @@ async function handleCalendar(userPrompt: string, lowerPrompt: string): Promise<
 
 Tidak ada event ekonomi terdaftar untuk tanggal ini.
 
-💡 **Mau lanjut eksplor?**
-- "Kalender ekonomi minggu ini"
-- "Tampilkan berita terbaru"
-- "Harga gold sekarang berapa?"
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Kalender ekonomi minggu ini"
+2. "Tampilkan berita terbaru"
+3. "Harga gold sekarang berapa?"
 
 ---
 *NM Ai - Newsmaker.id*`;
@@ -371,10 +371,10 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
 
 ${calendarTable}
 ${newsSection}
-💡 **Mau lanjut eksplor?**
-- "Tampilkan harga gold sekarang"
-- "Berapa lot ideal untuk modal $10,000?"
-- "Jelaskan cara baca dampak berita ekonomi"
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Tampilkan harga gold sekarang"
+2. "Berapa lot ideal untuk modal $10,000?"
+3. "Jelaskan cara baca dampak berita ekonomi"
 
 ---
 *Sumber: Newsmaker.id - Berita trading & investasi terpercaya*
@@ -433,10 +433,10 @@ Instrumen yang tersedia: ${allSymbols}
 *Update terakhir: ${updatedAt}*
 *Data dari sistem Newsmaker, bersifat indikatif.*
 
-💡 **Mau lanjut eksplor?**
-- "Hitung margin untuk 2 lot ${label.name}"
-- "Kalender ekonomi hari ini"
-- "Berapa lot ideal untuk modal saya?"
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 2 lot ${label.name}"
+2. "Kalender ekonomi hari ini"
+3. "Berapa lot ideal untuk modal saya?"
 
 ---
 *NM Ai - Newsmaker.id*`;
@@ -741,10 +741,10 @@ Net = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()}
 - **Auto Liquidation**: Equity ≤ 30% Initial Margin ($${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.3).toLocaleString()})
 ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 
-💡 **Mau lanjut eksplor?**
-- "Berapa ketahanan dana saya dengan ${dana > 0 ? recommendedLots : lot} lot?"
-- "Kalender ekonomi hari ini ada apa saja?"
-- "Hitung pivot point ${instrumentName.split(" ")[0]}"
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Berapa ketahanan dana saya dengan ${dana > 0 ? recommendedLots : lot} lot?"
+2. "Kalender ekonomi hari ini ada apa saja?"
+3. "Hitung pivot point ${instrumentName.split(" ")[0]}"
 
 ---
 *NM Ai - Newsmaker.id*
