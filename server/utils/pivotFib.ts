@@ -17,7 +17,7 @@ export function calcClassic({ H, L, C }: { H: number; L: number; C: number }) {
     R3: P + 2 * (H - L),
     S3: P - 2 * (H - L),
     R4: P + 3 * (H - L),
-    S4: P - 4 * (H - L),
+    S4: P - 3 * (H - L),
   } as const;
 }
 
