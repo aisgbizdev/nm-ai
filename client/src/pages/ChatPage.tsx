@@ -101,21 +101,56 @@ Silakan tanya atau upload gambar untuk analisis!`;
     }
   };
 
+  // Helper to clean content - remove quick reply section
+  const cleanContentForExport = (content: string): string => {
+    const lines = content.split('\n');
+    const cleanedLines: string[] = [];
+    let skipSection = false;
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Start skipping when we see the follow-up prompt
+      if (trimmedLine.includes('Mau lanjut eksplor') || trimmedLine.includes('Ketik angkanya')) {
+        skipSection = true;
+        continue;
+      }
+      
+      // Skip numbered quick reply options
+      if (/^[1-3][.)]\s*"/.test(trimmedLine)) {
+        continue;
+      }
+      
+      if (!skipSection) {
+        cleanedLines.push(line);
+      }
+      
+      // Reset skip section on signature
+      if (skipSection && (trimmedLine.startsWith('---') || trimmedLine.startsWith('*NM Ai'))) {
+        cleanedLines.push(line);
+        skipSection = false;
+      }
+    }
+    
+    return cleanedLines.join('\n').trim();
+  };
+
   const handleExportNote = () => {
     if (!sessionData?.messages?.length) return;
     
     const exportText = sessionData.messages.map(msg => {
       const role = msg.role === "user" ? "Anda" : "Gwen Stacy";
       const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
-      return `[${time}] ${role}:\n${msg.content}\n`;
+      const cleanContent = cleanContentForExport(msg.content);
+      return `[${time}] ${role}:\n${cleanContent}\n`;
     }).join("\n---\n\n");
     
-    const header = `NM Ai Chat Export\nTanggal: ${format(new Date(), "dd/MM/yyyy HH:mm")}\n\n${"=".repeat(50)}\n\n`;
+    const header = `NM Ai Chat Resume\nTanggal: ${format(new Date(), "dd/MM/yyyy HH:mm")}\n\n${"=".repeat(50)}\n\n`;
     const blob = new Blob([header + exportText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nm-ai-chat-${format(new Date(), "yyyy-MM-dd-HHmm")}.txt`;
+    a.download = `nm-ai-resume-${format(new Date(), "yyyy-MM-dd-HHmm")}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -126,17 +161,18 @@ Silakan tanya atau upload gambar untuk analisis!`;
     const exportText = sessionData.messages.map(msg => {
       const role = msg.role === "user" ? "**Anda**" : "**Gwen Stacy**";
       const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
-      return `### ${role} - ${time}\n\n${msg.content}\n`;
+      const cleanContent = cleanContentForExport(msg.content);
+      return `### ${role} - ${time}\n\n${cleanContent}\n`;
     }).join("\n---\n\n");
     
-    const header = `# NM Ai - Laporan Konsultasi\n\n**Tanggal:** ${format(new Date(), "dd MMMM yyyy, HH:mm")}\n\n**Platform:** Newsmaker.id AI Trading Assistant\n\n---\n\n`;
+    const header = `# NM Ai - Chat Resume\n\n**Tanggal:** ${format(new Date(), "dd MMMM yyyy, HH:mm")}\n\n**Platform:** Newsmaker.id AI Trading Assistant\n\n---\n\n`;
     const footer = `\n---\n\n*Dokumen ini digenerate oleh NM Ai - Newsmaker.id*\n\n*Informasi bersifat edukatif, bukan rekomendasi transaksi.*`;
     
     const blob = new Blob([header + exportText + footer], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nm-ai-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.md`;
+    a.download = `nm-ai-resume-${format(new Date(), "yyyy-MM-dd-HHmm")}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -168,12 +204,12 @@ Silakan tanya atau upload gambar untuk analisis!`;
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("NM Ai - Laporan Konsultasi", margin, 18);
+    doc.text("NM Ai - Chat Resume", margin, 18);
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Newsmaker.id AI Trading Assistant`, margin, 26);
-    doc.text(`Tanggal: ${format(new Date(), "dd MMMM yyyy, HH:mm")}`, pageWidth - margin - 60, 26);
+    doc.text(`${format(new Date(), "dd MMMM yyyy, HH:mm")}`, pageWidth - margin - 45, 26);
     
     yPos = 50;
     
@@ -182,6 +218,9 @@ Silakan tanya atau upload gambar untuk analisis!`;
       const isUser = msg.role === "user";
       const role = isUser ? "Anda" : "Gwen Stacy";
       const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
+      
+      // Clean content - remove quick replies
+      const cleanContent = cleanContentForExport(msg.content);
       
       // Role header
       checkNewPage(20);
@@ -201,7 +240,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       
-      const lines = msg.content.split('\n');
+      const lines = cleanContent.split('\n');
       lines.forEach(line => {
         // Skip empty lines but add spacing
         if (!line.trim()) {
