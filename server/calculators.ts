@@ -488,7 +488,22 @@ Untuk update real-time, kunjungi:
 *NM Ai - Newsmaker.id*`;
   } catch (err) {
     console.error("Calendar fetch error:", err);
-    return null;
+    return `# Kalender Ekonomi
+
+⚠️ **Maaf, data kalender sedang tidak tersedia.**
+
+Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sementara.
+
+**Alternatif:**
+- Kunjungi [newsmaker.id](https://newsmaker.id) untuk jadwal berita ekonomi
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Harga gold sekarang berapa?"
+2. "Hitung margin untuk 2 lot gold"
+3. "Jelaskan tentang high impact news"
+
+---
+*NM Ai - Newsmaker.id*`;
   }
 }
 
@@ -497,7 +512,23 @@ async function handlePriceQuote(userPrompt: string): Promise<string | null> {
     const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
     if (!response.ok) {
       console.error("Quote API not ok:", response.status);
-      return null;
+      return `# Harga Real-Time
+
+⚠️ **Maaf, data harga sedang tidak tersedia.**
+
+Server harga sedang dalam pemeliharaan atau mengalami gangguan sementara.
+
+**Alternatif:**
+- Cek langsung di platform trading Anda
+- Kunjungi [newsmaker.id](https://newsmaker.id) untuk update terbaru
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 2 lot gold"
+2. "Kalender ekonomi hari ini"
+3. "Jelaskan trading rules SPA"
+
+---
+*NM Ai - Newsmaker.id*`;
     }
 
     const data = await response.json();
@@ -544,7 +575,23 @@ Instrumen yang tersedia: ${allSymbols}
 *NM Ai - Newsmaker.id*`;
   } catch (err) {
     console.error("Quote fetch error:", err);
-    return null;
+    return `# Harga Real-Time
+
+⚠️ **Maaf, terjadi kesalahan saat mengambil data harga.**
+
+Silakan coba lagi dalam beberapa saat.
+
+**Alternatif:**
+- Cek langsung di platform trading Anda
+- Kunjungi [newsmaker.id](https://newsmaker.id) untuk update terbaru
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 2 lot gold"
+2. "Kalender ekonomi hari ini"
+3. "Jelaskan trading rules SPA"
+
+---
+*NM Ai - Newsmaker.id*`;
   }
 }
 

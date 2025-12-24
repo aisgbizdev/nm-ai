@@ -24,10 +24,31 @@ function extractQuickReplies(content: string): string[] {
   const questions: string[] = [];
   
   for (const line of lines) {
-    const match = line.match(/^[1-3]\.\s*"(.+)"$/);
+    // More flexible pattern to match various formats:
+    // 1. "text", 1. text, 1."text", 1) "text", etc.
+    const trimmedLine = line.trim();
+    
+    // Pattern 1: Numbered with quotes - 1. "text" or 1."text"
+    let match = trimmedLine.match(/^[1-3][.)]\s*"([^"]+)"$/);
     if (match && match[1]) {
-      questions.push(match[1]);
+      questions.push(match[1].trim());
+      continue;
     }
+    
+    // Pattern 2: Numbered without quotes - 1. text
+    match = trimmedLine.match(/^[1-3][.)]\s+([^"]+)$/);
+    if (match && match[1]) {
+      const cleaned = match[1].trim();
+      // Skip if it looks like a heading or too short
+      if (cleaned.length > 5 && !cleaned.startsWith('#') && !cleaned.startsWith('*')) {
+        questions.push(cleaned);
+      }
+    }
+  }
+  
+  // If we got valid questions, return up to 3
+  if (questions.length >= 1) {
+    return questions.slice(0, 3);
   }
   
   return questions;
@@ -85,17 +106,26 @@ function removeQuickRepliesFromContent(content: string): string {
   let skipSection = false;
   
   for (const line of lines) {
-    if (line.includes('Mau lanjut') || line.includes('Ketik angkanya')) {
+    const trimmedLine = line.trim();
+    
+    // Start skipping when we see the follow-up prompt
+    if (line.includes('Mau lanjut') || line.includes('Ketik angkanya') || line.includes('Want to explore')) {
       skipSection = true;
       continue;
     }
-    if (/^[1-3]\.\s*"/.test(line)) {
+    // Skip numbered lines (quick reply options)
+    if (/^[1-3][.)]\s*"?/.test(trimmedLine)) {
       continue;
     }
     if (!skipSection) {
       filteredLines.push(line);
     }
-    if (skipSection && line.trim() === '') {
+    // Reset skip section on empty line or signature
+    if (skipSection && (trimmedLine === '' || trimmedLine.startsWith('---') || trimmedLine.startsWith('*NM Ai'))) {
+      // Keep the signature lines
+      if (trimmedLine.startsWith('---') || trimmedLine.startsWith('*NM Ai')) {
+        filteredLines.push(line);
+      }
       skipSection = false;
     }
   }
