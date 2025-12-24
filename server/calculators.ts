@@ -552,17 +552,33 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   
   const effectiveMargin = dana > 0 ? dana - totalMargin : 0;
   const maxLots = dana > 0 ? Math.floor(dana / marginPerLot) : 0;
-  const recommendedLots = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.5)) : 0;
+  const idealLotMin = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.1)) : 0;
+  const idealLotMax = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.2)) : 0;
+  const mediumLotMin = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.3)) : 0;
+  const mediumLotMax = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.4)) : 0;
+  const recommendedLots = dana > 0 ? idealLotMax : lot;
   
-  const danaSection = dana > 0 ? `## Analisis Dana Anda
+  const idealBuffer = dana - (idealLotMax * marginPerLot);
+  const idealKetahanan = Math.floor(idealBuffer / (idealLotMax * pointValue));
+  const mediumBuffer = dana - (mediumLotMax * marginPerLot);
+  const mediumKetahanan = Math.floor(mediumBuffer / (mediumLotMax * pointValue));
+  
+  const danaSection = dana > 0 ? `## Analisis Dana Anda: $${dana.toLocaleString()} (Rp ${(dana * 10000).toLocaleString()})
+
 | Parameter | Nilai |
 |-----------|-------|
-| Dana Tersedia | **$${dana.toLocaleString()}** |
-| Maksimal Lot (100% margin) | ${maxLots} lot |
-| **Rekomendasi Lot (50% margin)** | **${recommendedLots} lot** |
-| Sisa Dana (Effective Margin) | $${(dana - (recommendedLots * marginPerLot)).toLocaleString()} |
+| Kapasitas Maksimal | ${maxLots} lot |
+| **IDEAL (Low Risk)** | **${idealLotMin}-${idealLotMax} lot** (10-20%) |
+| **MEDIUM Risk** | **${mediumLotMin}-${mediumLotMax} lot** (30-40%) |
 
-> Disarankan menggunakan maksimal 50% dana untuk margin agar ada ruang untuk floating loss.
+### Rekomendasi Berdasarkan Risk Profile
+
+| Risk Level | Lot | Margin Used | Buffer | Ketahanan |
+|------------|-----|-------------|--------|-----------|
+| **IDEAL** | ${idealLotMax} lot | $${(idealLotMax * marginPerLot).toLocaleString()} | $${idealBuffer.toLocaleString()} | ~${idealKetahanan} ${pointLabel} |
+| **MEDIUM** | ${mediumLotMax} lot | $${(mediumLotMax * marginPerLot).toLocaleString()} | $${mediumBuffer.toLocaleString()} | ~${mediumKetahanan} ${pointLabel} |
+
+> **IDEAL** = risiko rendah, ketahanan tinggi, cocok untuk pemula atau kondisi market tidak pasti.
 
 ` : "";
 

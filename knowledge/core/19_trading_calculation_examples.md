@@ -6,24 +6,56 @@
 
 ### Rumus yang SALAH (JANGAN DIGUNAKAN):
 ```
-SALAH: Margin = Contract Size × Harga × Leverage  ❌
+SALAH: Margin = Contract Size × Harga / Leverage  ❌
 SALAH: Margin = 100 oz × $2650 / 100 = $2,650    ❌
+SALAH: Margin per lot berubah sesuai harga        ❌
 ```
 
 ### Rumus yang BENAR (SPA Trading Rules):
 ```
 BENAR: Initial Margin = $1,000 per lot (Day Trade)    ✓
 BENAR: Initial Margin = $2,000 per lot (Overnight)    ✓
+BENAR: Margin per lot TETAP, tidak tergantung harga   ✓
+```
+
+## FORMULA POSITION SIZING (PATOKAN DASAR)
+
+### Kapasitas Lot Maksimal
+```
+Kapasitas Max = Dana ÷ $1,000 (day trade)
+Kapasitas Max = Dana ÷ $2,000 (overnight)
+```
+
+### Rekomendasi Lot Berdasarkan Risk Profile
+| Dana (USD) | Max Lot | IDEAL (Low Risk) | MEDIUM Risk | HIGH Risk |
+|------------|---------|------------------|-------------|-----------|
+| $5,000 | 5 lot | 1 lot (20%) | 2 lot (40%) | 3 lot (60%) |
+| $10,000 | 10 lot | **1-2 lot (10-20%)** | **3-4 lot (30-40%)** | 5 lot (50%) |
+| $20,000 | 20 lot | 2-4 lot (10-20%) | 6-8 lot (30-40%) | 10 lot (50%) |
+| $50,000 | 50 lot | 5-10 lot (10-20%) | 15-20 lot (30-40%) | 25 lot (50%) |
+| $100,000 | 100 lot | 10-20 lot (10-20%) | 30-40 lot (30-40%) | 50 lot (50%) |
+
+### FORMULA UNIVERSAL:
+```
+IDEAL (Low Risk) = 10-20% dari Kapasitas Max
+MEDIUM Risk = 30-40% dari Kapasitas Max
+HIGH Risk = 50% dari Kapasitas Max (tidak disarankan)
+
+Contoh Modal $10,000:
+- Kapasitas Max = $10,000 ÷ $1,000 = 10 lot
+- IDEAL = 10-20% × 10 = 1-2 lot ✓
+- MEDIUM = 30-40% × 10 = 3-4 lot ✓
 ```
 
 ## Satuan Transaksi SPA
 - Satuan transaksi di BBJ/JFX adalah "LOT"
 - **1 LOT = $1,000 margin** (Day Trade) atau **$2,000** (Overnight)
-- Contoh: Dana $10,000 = maksimal 10 LOT (day trade) atau 5 LOT (overnight)
+- Kurs tetap: **1 USD = Rp 10,000**
+- Contoh: Dana $10,000 (Rp 100 juta) = maksimal 10 LOT, IDEAL hanya 1-2 LOT
 
 ## Perhitungan Nilai Poin per Instrumen
 
-### Gold (XAUUSD/XUL) - DEFAULT
+### Gold (XAUUSD/XUL) - DEFAULT (SELALU GUNAKAN INI SEBAGAI CONTOH)
 - **1 Poin = $100 per lot** (Contract Size 100 oz × $1 movement)
 - Fee Transaksi: **$30/lot** (buka + tutup posisi)
 - Contoh: Harga bergerak dari 2650 ke 2653 = +3 poin = +$300/lot
@@ -44,14 +76,18 @@ BENAR: Initial Margin = $2,000 per lot (Overnight)    ✓
 - **1 Pip = $10 per lot** (Contract Size 100,000)
 - Fee Transaksi: **$30/lot**
 
+### Brent Crude Oil (BCO)
+- **1 Poin = $10 per lot** (Contract Size 1,000 barrel)
+- Fee Transaksi: **$30/lot**
+
 ## Contoh Perhitungan dengan Harga Real-Time
 
-### Gold (XAUUSD) - Default Example
+### Gold (XAUUSD) - Default Example (SELALU GUNAKAN GOLD KECUALI DIMINTA LAIN)
 ```
-Harga Real-Time: $2,650 (ambil dari API quotes)
+Harga Real-Time: [ambil dari API quotes]
 
-Entry: Buy 1 Lot @ 2650
-Exit: Sell 1 Lot @ 2653
+Entry: Buy 1 Lot @ [harga real-time]
+Exit: Sell 1 Lot @ [harga + 3 poin]
 Pergerakan: 3 Poin
 
 Gross Profit = 1 Lot × 3 Poin × $100 = $300
@@ -59,15 +95,25 @@ Fee Transaksi = 1 Lot × $30 = $30
 Net Profit = $300 - $30 = $270
 ```
 
-### Simulasi Dana $10,000 untuk Gold
+### Simulasi Dana $10,000 untuk Gold (CONTOH STANDAR)
 ```
-Dana: $10,000
+Dana: $10,000 (setara Rp 100 Juta)
 Margin per Lot: $1,000 (Day Trade)
-Maksimal Lot: 10 Lot
-Rekomendasi: 5 Lot (50% dana untuk buffer floating)
+Kapasitas Max: 10 Lot
 
-Margin Terpakai: 5 × $1,000 = $5,000
-Sisa Dana: $5,000 (untuk floating)
+REKOMENDASI BERDASARKAN RISK:
+┌─────────────────┬─────────┬──────────────┬───────────────┐
+│ Risk Level      │ Lot     │ Margin Used  │ Buffer        │
+├─────────────────┼─────────┼──────────────┼───────────────┤
+│ IDEAL (Low)     │ 1-2 lot │ $1,000-2,000 │ $8,000-9,000  │
+│ MEDIUM          │ 3-4 lot │ $3,000-4,000 │ $6,000-7,000  │
+│ HIGH (Agresif)  │ 5 lot   │ $5,000       │ $5,000        │
+└─────────────────┴─────────┴──────────────┴───────────────┘
+
+Dengan 2 Lot (IDEAL):
+- Margin Terpakai: 2 × $1,000 = $2,000
+- Buffer untuk Floating: $8,000
+- Ketahanan: $8,000 ÷ (2 × $100) = 40 poin ✓ (sangat aman)
 ```
 
 ## Temporary Statement

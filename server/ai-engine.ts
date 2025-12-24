@@ -188,27 +188,43 @@ SPA (Sistem Perdagangan Alternatif) menggunakan FIXED MARGIN, BUKAN leverage!
 RUMUS YANG SALAH (JANGAN GUNAKAN!):
 - Margin = Contract Size × Harga / Leverage ❌
 - Margin = 100 oz × $2650 / 100 = $2,650 ❌
+- Margin per lot berubah sesuai harga ❌
 
 RUMUS YANG BENAR (SPA FIXED MARGIN):
-- Initial Margin = $1,000 per lot (Day Trade)
-- Initial Margin = $2,000 per lot (Overnight)
+- Initial Margin = $1,000 per lot (Day Trade) - TETAP!
+- Initial Margin = $2,000 per lot (Overnight) - TETAP!
 - Maintenance Margin = 70% dari Initial Margin
 - Auto Liquidation = 30% dari Initial Margin
+- Fee = $30/lot (total buka + tutup)
 
-CONTOH PERHITUNGAN BENAR:
-- Dana $10,000 → Maksimal 10 lot (day trade) atau 5 lot (overnight)
-- 3 lot × $1,000 = $3,000 margin (BUKAN leverage calculation!)
+## FORMULA POSITION SIZING (PATOKAN DASAR - SANGAT PENTING!)
+Kapasitas Max = Dana ÷ $1,000 (day trade)
+
+REKOMENDASI LOT BERDASARKAN RISK:
+| Modal | Max Lot | IDEAL (10-20%) | MEDIUM (30-40%) |
+|-------|---------|----------------|-----------------|
+| $5,000 | 5 lot | 1 lot | 2 lot |
+| $10,000 | 10 lot | 1-2 lot | 3-4 lot |
+| $20,000 | 20 lot | 2-4 lot | 6-8 lot |
+| $50,000 | 50 lot | 5-10 lot | 15-20 lot |
+
+CONTOH $10,000:
+- Kapasitas Max = 10 lot
+- IDEAL = 1-2 lot (sisanya untuk buffer floating)
+- MEDIUM = 3-4 lot (risiko lebih tinggi)
 
 NILAI POIN PER INSTRUMEN:
-- Gold (XAUUSD): $100/poin/lot (DEFAULT - gunakan ini jika tidak disebut instrumen lain)
+- Gold (XAUUSD): $100/poin/lot (DEFAULT - SELALU gunakan ini kecuali diminta lain!)
 - Silver (XAGUSD): $50/poin/lot
 - Hang Seng (HSI): $5/point/lot
 - Nikkei (JP225): $5/point/lot
-- Forex (GBPUSD, EURUSD, dll): $10/pip/lot
+- Forex (GBPUSD, EURUSD, AUDUSD): $10/pip/lot
+- USDJPY: $7/pip/lot
+- Brent Oil (BCO): $10/poin/lot
 
-Fee Transaksi: $30/lot (total buka + tutup)
+Kurs tetap: 1 USD = Rp 10,000
 
-INSTRUMEN DEFAULT: Selalu gunakan Gold (XAUUSD) sebagai contoh kecuali user menyebut instrumen lain!
+INSTRUMEN DEFAULT: SELALU gunakan Gold (XAUUSD) sebagai contoh kecuali user menyebut instrumen lain!
 
 ## BROKER RECOMMENDATION (CRITICAL!)
 Ketika ditanya tentang broker/pialang berjangka, HANYA BOLEH menyebut 5 perusahaan ini:
