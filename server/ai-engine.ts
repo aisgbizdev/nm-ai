@@ -125,10 +125,49 @@ function isNewsRequest(query: string): boolean {
 }
 
 function detectLanguage(query: string): 'id' | 'en' {
-  const indonesianWords = ['apa', 'bagaimana', 'berapa', 'kenapa', 'mengapa', 'dimana', 'kapan', 'siapa', 'tolong', 'minta', 'bisa', 'cara', 'gimana', 'dong', 'donk', 'bro', 'kak', 'mas', 'mba', 'gak', 'tidak', 'iya', 'ya', 'dan', 'atau', 'untuk', 'dari', 'dengan'];
   const queryLower = query.toLowerCase();
-  const hasIndonesian = indonesianWords.some(w => queryLower.includes(w));
-  return hasIndonesian ? 'id' : 'en';
+  
+  // Indonesian question words and common words
+  const indonesianWords = [
+    // Question words
+    'apa', 'bagaimana', 'berapa', 'kenapa', 'mengapa', 'dimana', 'kapan', 'siapa',
+    // Request words
+    'tolong', 'minta', 'bisa', 'cara', 'gimana', 'kasih', 'tahu', 'jelaskan', 'ceritakan',
+    // Informal words
+    'dong', 'donk', 'bro', 'kak', 'mas', 'mba', 'gan', 'sis', 'min', 'gak', 'gk', 'ga', 'nggak', 'ngga',
+    // Common words
+    'tidak', 'iya', 'ya', 'dan', 'atau', 'untuk', 'dari', 'dengan', 'yang', 'ini', 'itu',
+    'saya', 'aku', 'gue', 'gw', 'kamu', 'anda', 'kalian', 'mereka', 'kita',
+    // Trading-specific Indonesian
+    'harga', 'saham', 'untung', 'rugi', 'modal', 'jual', 'beli', 'naik', 'turun',
+    'sekarang', 'hari', 'kemarin', 'besok', 'minggu', 'bulan', 'tahun',
+    // Sentence endings
+    'ya?', 'kan?', 'sih', 'kok', 'deh', 'lho', 'lah', 'nih', 'tuh'
+  ];
+  
+  // English words that indicate English query
+  const englishWords = [
+    'what', 'how', 'why', 'where', 'when', 'who', 'which', 'whose',
+    'please', 'can', 'could', 'would', 'should', 'will', 'shall',
+    'the', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were',
+    'i', 'you', 'he', 'she', 'we', 'they', 'my', 'your', 'his', 'her', 'our', 'their',
+    'calculate', 'show', 'tell', 'explain', 'help', 'need', 'want'
+  ];
+  
+  // Count matches
+  const indonesianMatches = indonesianWords.filter(w => {
+    const regex = new RegExp(`\\b${w}\\b`, 'i');
+    return regex.test(queryLower) || queryLower.includes(w);
+  }).length;
+  
+  const englishMatches = englishWords.filter(w => {
+    const regex = new RegExp(`\\b${w}\\b`, 'i');
+    return regex.test(queryLower);
+  }).length;
+  
+  // If more Indonesian matches, it's Indonesian
+  // Default to Indonesian if no clear winner (since target audience is Indonesian)
+  return indonesianMatches >= englishMatches ? 'id' : 'en';
 }
 
 function getNewsResponse(lang: 'id' | 'en'): string {
