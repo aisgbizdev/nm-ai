@@ -206,7 +206,7 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId, 
                 <button
                   key={idx}
                   onClick={() => onQuickReply(question)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:border-primary/50 transition-all active:scale-[0.98]"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded-full border border-primary/50 bg-primary/20 text-primary-foreground hover:bg-primary/30 hover:border-primary transition-all active:scale-[0.98]"
                   data-testid={`button-quick-reply-${idx}`}
                 >
                   <MessageCircle className="h-3 w-3" />
