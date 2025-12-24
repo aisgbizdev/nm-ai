@@ -307,10 +307,6 @@ Silakan tanya atau upload gambar untuk analisis!`;
   if (!sessionId) {
     return (
       <div className="flex flex-col min-h-screen min-h-[100dvh] bg-background text-foreground">
-        <header className="h-12 sm:h-14 border-b border-border/40 bg-background/80 backdrop-blur flex items-center justify-center px-3 sm:px-4 shrink-0">
-          <img src={nmLogo} alt="NM Ai" className="h-6 sm:h-8 w-auto object-contain" />
-        </header>
-
         <main className="flex-1 flex flex-col items-center justify-start sm:justify-center gap-4 sm:gap-6 py-4 sm:py-8 px-3 sm:px-4 overflow-y-auto">
           <div className="text-center space-y-2 sm:space-y-3">
             <img src={nmLogo} alt="NM Ai" className="h-16 sm:h-24 mx-auto object-contain" />
