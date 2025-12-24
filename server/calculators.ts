@@ -117,6 +117,12 @@ function isMarginQuestion(lowerPrompt: string): boolean {
     lowerPrompt.includes("emas") ||
     lowerPrompt.includes("gold") ||
     lowerPrompt.includes("xau") ||
+    lowerPrompt.includes("xag") ||
+    lowerPrompt.includes("silver") ||
+    lowerPrompt.includes("perak") ||
+    lowerPrompt.includes("bco") ||
+    lowerPrompt.includes("oil") ||
+    lowerPrompt.includes("minyak") ||
     lowerPrompt.includes("lot");
   
   return (hasMarginKeyword && hasInstrument) || hasLotDanaQuestion;
@@ -387,6 +393,32 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
 async function handleMarginCalculation(userPrompt: string): Promise<string | null> {
   const lowerPrompt = userPrompt.toLowerCase();
   
+  const isXAG = lowerPrompt.includes("xag") || lowerPrompt.includes("silver") || lowerPrompt.includes("perak");
+  const isBCO = lowerPrompt.includes("bco") || lowerPrompt.includes("oil") || lowerPrompt.includes("minyak") || lowerPrompt.includes("brent");
+  
+  let instrumentName = "XAUUSD (Gold)";
+  let tradeCode = "XUL10 / XULF";
+  let contractSize = 100;
+  let pointValue = 100;
+  let minPriceMovement = "$0.01";
+  let symbol = "XAU";
+  
+  if (isXAG) {
+    instrumentName = "XAGUSD (Silver)";
+    tradeCode = "XAG10_BBJ / XAGF_BBJ";
+    contractSize = 5000;
+    pointValue = 50;
+    minPriceMovement = "$0.001";
+    symbol = "XAG";
+  } else if (isBCO) {
+    instrumentName = "Brent Crude Oil";
+    tradeCode = "BCO10_BBJ / BCOF_BBJ";
+    contractSize = 1000;
+    pointValue = 10;
+    minPriceMovement = "$0.01";
+    symbol = "BCO";
+  }
+  
   const danaMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
     userPrompt.match(/([\d,]+(?:\.\d+)?)\s*(?:k|ribu|juta|jt)?\s*(?:dollar|dolar|usd)/i) ||
     userPrompt.match(/dana\s*([\d,]+)/i) ||
@@ -410,17 +442,15 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   const maintenanceMargin = totalMargin * 0.7;
   const autoLiquidation = totalMargin * 0.3;
   const facilityFee = 30 * lot;
-  const pointValue = 100;
   
-  let currentPrice = await fetchRealTimePrice("XAU");
+  let currentPrice = await fetchRealTimePrice(symbol);
   let priceSource = "real-time";
   
   if (!currentPrice) {
-    currentPrice = 2650;
+    currentPrice = isXAG ? 30 : (isBCO ? 75 : 2650);
     priceSource = "estimasi";
   }
   
-  const contractSize = 100;
   const contractValue = currentPrice * contractSize * lot;
   
   const effectiveMargin = dana > 0 ? dana - totalMargin : 0;
@@ -439,20 +469,21 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
 
 ` : "";
 
-  return `# Simulasi Trading XAUUSD (Gold)
+  return `# Simulasi Trading ${instrumentName}
 
 ## Aturan Dasar SPA
 | Parameter | Nilai |
 |-----------|-------|
 | **1 LOT** | **$1,000** (setara Rp 10 Juta) |
-| **1 Poin** | **$100/lot** |
+| **1 Poin** | **$${pointValue}/lot** |
 | Fee Transaksi | $30/lot (buka + tutup) |
 
 ## Spesifikasi Kontrak
 | Parameter | Nilai |
 |-----------|-------|
-| Trade Code | XUL10 (Fixed Rate) / XULF (Floating Rate) |
-| Contract Size | 100 Troy Ounce |
+| Trade Code | ${tradeCode} |
+| Contract Size | ${contractSize.toLocaleString()} ${isBCO ? "USD per Barrel" : "Troy Ounce"} |
+| Min Price Movement | ${minPriceMovement} |
 | Harga Saat Ini (${priceSource}) | **$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}** |
 
 ${danaSection}## Simulasi untuk ${dana > 0 ? recommendedLots : lot} LOT
