@@ -15,6 +15,38 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 }
 });
 
+// Store last follow-up questions per session for number expansion
+const sessionFollowUps: Map<number, string[]> = new Map();
+
+function extractFollowUpQuestions(response: string): string[] {
+  const lines = response.split('\n');
+  const questions: string[] = [];
+  
+  for (const line of lines) {
+    const match = line.match(/^[1-3]\.\s*"(.+)"$/);
+    if (match && match[1]) {
+      questions.push(match[1]);
+    }
+  }
+  
+  return questions;
+}
+
+function expandNumberToQuestion(sessionId: number, message: string): string {
+  const trimmed = message.trim();
+  
+  // Check if message is just a number 1, 2, or 3
+  if (/^[1-3]$/.test(trimmed)) {
+    const questions = sessionFollowUps.get(sessionId);
+    if (questions && questions.length >= parseInt(trimmed)) {
+      const questionIndex = parseInt(trimmed) - 1;
+      return questions[questionIndex];
+    }
+  }
+  
+  return message;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -143,10 +175,13 @@ export async function registerRoutes(
   app.post(api.chat.stream.path, async (req, res) => {
     const { message, sessionId } = req.body;
     
+    // Expand number to question if user typed just 1, 2, or 3
+    const expandedMessage = expandNumberToQuestion(sessionId, message);
+    
     await storage.createMessage({
       sessionId,
       role: "user",
-      content: message
+      content: message  // Store original message for display
     });
 
     const session = await storage.getSession(sessionId);
@@ -168,7 +203,8 @@ export async function registerRoutes(
     let responseSource = "openai";
 
     try {
-        for await (const chunk of streamQuery(message, apiMessages, personaId)) {
+        // Use expanded message for AI processing
+        for await (const chunk of streamQuery(expandedMessage, apiMessages, personaId)) {
             if (chunk.content) {
                 fullResponse += chunk.content;
                 res.write(`data: ${JSON.stringify({ content: chunk.content })}\n\n`);
@@ -182,6 +218,12 @@ export async function registerRoutes(
         }
         
         if (fullResponse) {
+            // Extract and store follow-up questions for next turn
+            const followUps = extractFollowUpQuestions(fullResponse);
+            if (followUps.length > 0) {
+                sessionFollowUps.set(sessionId, followUps);
+            }
+            
             await storage.createMessage({
                 sessionId,
                 role: "assistant",
