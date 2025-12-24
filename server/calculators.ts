@@ -306,20 +306,28 @@ Hitung fibonacci high 2680 low 2640
 
   let result = `## Fibonacci ${mode === "down" ? "Downtrend" : "Uptrend"}
 
-- **High (H)**: ${fmt(H)}
-- **Low (L)**: ${fmt(L)}
-- **Range (D)**: ${fmt(D)}
+- **Price (A)**: ${mode === "down" ? fmt(H) : fmt(L)}
+- **Price (B)**: ${mode === "down" ? fmt(L) : fmt(H)}
+- **Range**: ${fmt(D)}
 
-| Level | Retracement | Projection |
-|-------|-------------|------------|
+| Retracement | Level | Projection | Level |
+|-------------|-------|------------|-------|
 `;
 
-  const levels = ["23.60%", "38.20%", "50.00%", "61.80%", "78.60%"];
-  const projLevels = ["138.20%", "150.00%", "161.80%", "200.00%", "238.20%"];
+  // Uptrend: 23.60% to 78.60%, Downtrend: 78.60% to 23.60%
+  const upLevels = ["23.60%", "38.20%", "50.00%", "61.80%", "78.60%"];
+  const downLevels = ["78.60%", "61.80%", "50.00%", "38.20%", "23.60%"];
+  const projLevels = ["138.20%", "150.00%", "161.80%", "200.00%", "238.20%", "261.80%"];
   
+  const retrLevels = mode === "down" ? downLevels : upLevels;
   const data = mode === "down" ? down : up;
-  for (let i = 0; i < levels.length; i++) {
-    result += `| ${levels[i]} | ${fmt(data.retr[levels[i]])} | ${fmt(data.proj[projLevels[i]])} |\n`;
+  
+  for (let i = 0; i < Math.max(retrLevels.length, projLevels.length); i++) {
+    const retrLevel = retrLevels[i] || "";
+    const retrValue = retrLevel ? fmt(data.retr[retrLevel]) : "";
+    const projLevel = projLevels[i] || "";
+    const projValue = projLevel ? fmt(data.proj[projLevel]) : "";
+    result += `| ${retrLevel} | ${retrValue} | ${projLevel} | ${projValue} |\n`;
   }
 
   result += `\n💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
