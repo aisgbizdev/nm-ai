@@ -32,14 +32,21 @@ function extractFollowUpQuestions(response: string): string[] {
   return questions;
 }
 
+// Default follow-up questions for new sessions (matching welcome message)
+const DEFAULT_FOLLOWUPS = [
+  "Harga gold sekarang berapa?",
+  "Kalender ekonomi hari ini",
+  "Berapa lot ideal untuk modal $10,000?"
+];
+
 function expandNumberToQuestion(sessionId: number, message: string): string {
   const trimmed = message.trim();
   
   // Check if message is just a number 1, 2, or 3
   if (/^[1-3]$/.test(trimmed)) {
-    const questions = sessionFollowUps.get(sessionId);
-    if (questions && questions.length >= parseInt(trimmed)) {
-      const questionIndex = parseInt(trimmed) - 1;
+    const questions = sessionFollowUps.get(sessionId) || DEFAULT_FOLLOWUPS;
+    const questionIndex = parseInt(trimmed) - 1;
+    if (questions.length > questionIndex) {
       return questions[questionIndex];
     }
   }
