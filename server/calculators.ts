@@ -436,9 +436,9 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
 Gross Profit = Lot × Poin × $100
 Net Profit = Gross Profit - (Lot × $30)
 
-Contoh: Buy 1 Lot @ 2330, Sell @ 2333 (+3 poin)
-Gross = 1 × 3 × $100 = $300
-Net = $300 - $30 = $270
+Contoh: Buy ${lot} Lot @ ${currentPrice.toFixed(0)}, Sell @ ${(currentPrice + 3).toFixed(0)} (+3 poin)
+Gross = ${lot} × 3 × $100 = $${(lot * 3 * 100).toLocaleString()}
+Net = $${(lot * 3 * 100).toLocaleString()} - $${facilityFee} = $${(lot * 3 * 100 - facilityFee).toLocaleString()}
 \`\`\`
 
 ## Level Margin
