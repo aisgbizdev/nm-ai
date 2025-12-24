@@ -105,7 +105,7 @@ Konfirmasi transaksi harian yang mencakup:
 
 ## Open Positions
 Kolom-kolom pada Open Positions:
-- Item (XUL10, XAG10_BBJ, BCO10_BBJ)
+- Item (XUL10, XAG10_BBJ, BCO10_BBJ, HKK50_BBJ, JPK50_BBJ, GU1010_BBJ, EU1010_BBJ, AU1010_BBJ, UC1010_BBJ, UJ1010_BBJ)
 - Unit (Quantity/Lot)
 - Date (Buy/Sell Date)
 - Bought/Sold Price
@@ -114,7 +114,59 @@ Kolom-kolom pada Open Positions:
 - Storage
 - Floating (Unrealized P/L)
 
+## Kode Instrumen pada Statement
+| Kode | Instrumen | Point Value |
+|------|-----------|-------------|
+| XUL10 | Gold (XAUUSD) | $100/poin/lot |
+| XAG10_BBJ | Silver (XAGUSD) | $50/poin/lot |
+| BCO10_BBJ | Brent Crude Oil | $10/poin/lot |
+| HKK50_BBJ | Hang Seng Index | $5/point/lot |
+| JPK50_BBJ | Nikkei 225 | $5/point/lot |
+| GU1010_BBJ | GBPUSD | $10/pip/lot |
+| EU1010_BBJ | EURUSD | $10/pip/lot |
+| AU1010_BBJ | AUDUSD | $10/pip/lot |
+| UC1010_BBJ | USDCHF | $10/pip/lot |
+| UJ1010_BBJ | USDJPY | $7/pip/lot |
+
+## Analisis Statement - Panduan Konsultasi
+
+### Menghitung Ketahanan Poin
+```
+Ketahanan Poin = Effective Margin ÷ (Total Lot × Point Value)
+
+Contoh: 
+- Effective Margin: $5,000
+- Open Position: 2 Lot Gold
+- Point Value Gold: $100/lot
+
+Ketahanan = $5,000 ÷ (2 × $100) = 25 poin
+
+Artinya: Akun bisa menahan floating loss hingga 25 poin sebelum margin call
+```
+
+### Menghitung Top Up yang Dibutuhkan
+```
+Target Equity Ratio = 500% (sangat aman)
+
+Top Up = (Margin Required × Target Ratio) - Equity
+
+Contoh:
+- Margin Required: $6,000 (6 lot)
+- Equity: $10,000
+- Target: 500%
+
+Top Up = ($6,000 × 5) - $10,000 = $30,000 - $10,000 = $20,000
+
+Jika hasil negatif = tidak perlu top up (sudah aman)
+```
+
+### Rekomendasi Posisi Berdasarkan Floating P/L
+- Floating PROFIT > 30 poin: Pertimbangkan take profit sebagian
+- Floating LOSS < -20 poin: Evaluasi apakah perlu cut loss
+- Floating LOSS mendekati ketahanan: URGENT - pertimbangkan cut loss segera
+
 ## Catatan Penting
 - Semua perhitungan dalam USD
 - Fixed Rate: 1 USD = Rp 10,000
 - Statement adalah dokumen resmi yang harus dicek dalam 2 hari kerja
+- Analisis statement bersifat EDUKATIF, bukan saran investasi
