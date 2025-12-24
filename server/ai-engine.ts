@@ -17,6 +17,57 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const KNOWLEDGE_CORE_PATH = path.join(process.cwd(), "knowledge", "core");
 
+function generateFollowUpQuestions(query: string, response: string): string {
+  const queryLower = query.toLowerCase();
+  const lang = detectLanguage(query);
+  
+  let questions: string[] = [];
+  
+  if (queryLower.includes("margin") || queryLower.includes("lot") || queryLower.includes("modal")) {
+    questions = lang === 'id' 
+      ? ["Berapa ketahanan dana dengan lot ini?", "Kalender ekonomi hari ini", "Harga gold sekarang berapa?"]
+      : ["What's my fund resilience with this lot?", "Economic calendar today", "Show gold price now"];
+  } else if (queryLower.includes("gold") || queryLower.includes("emas") || queryLower.includes("xau")) {
+    questions = lang === 'id'
+      ? ["Hitung margin untuk 2 lot gold", "Kalender ekonomi hari ini", "Pivot point gold dengan OHLC"]
+      : ["Calculate margin for 2 lots gold", "Economic calendar today", "Gold pivot point with OHLC"];
+  } else if (queryLower.includes("kalender") || queryLower.includes("calendar") || queryLower.includes("jadwal")) {
+    questions = lang === 'id'
+      ? ["Harga gold sekarang berapa?", "Berapa lot ideal untuk modal $10,000?", "Jelaskan dampak berita high impact"]
+      : ["Show gold price now", "Ideal lot for $10,000 capital?", "Explain high impact news effect"];
+  } else if (queryLower.includes("berita") || queryLower.includes("news") || queryLower.includes("update")) {
+    questions = lang === 'id'
+      ? ["Harga gold sekarang berapa?", "Kalender ekonomi hari ini", "Bagaimana dampak berita ini ke trading?"]
+      : ["Show gold price now", "Economic calendar today", "How does this news affect trading?"];
+  } else if (queryLower.includes("risiko") || queryLower.includes("risk") || queryLower.includes("manajemen")) {
+    questions = lang === 'id'
+      ? ["Simulasi trading dengan modal $10,000", "Apa itu margin call?", "Kalender ekonomi hari ini"]
+      : ["Trading simulation with $10,000 capital", "What is margin call?", "Economic calendar today"];
+  } else if (queryLower.includes("penipuan") || queryLower.includes("scam") || queryLower.includes("legal") || queryLower.includes("bappebti")) {
+    questions = lang === 'id'
+      ? ["Broker resmi yang terdaftar di Bappebti", "Cara cek legalitas perusahaan", "Ciri-ciri investasi bodong"]
+      : ["Official brokers registered with Bappebti", "How to check company legality", "Signs of investment fraud"];
+  } else if (queryLower.includes("pivot") || queryLower.includes("fibonacci") || queryLower.includes("fibo")) {
+    questions = lang === 'id'
+      ? ["Hitung margin untuk 2 lot gold", "Kalender ekonomi hari ini", "Harga gold sekarang berapa?"]
+      : ["Calculate margin for 2 lots gold", "Economic calendar today", "Show gold price now"];
+  } else if (queryLower.includes("broker") || queryLower.includes("pialang")) {
+    questions = lang === 'id'
+      ? ["Cara cek legalitas broker", "Berapa modal minimum trading?", "Apa itu margin dan lot?"]
+      : ["How to check broker legality", "Minimum trading capital?", "What is margin and lot?"];
+  } else {
+    questions = lang === 'id'
+      ? ["Harga gold sekarang berapa?", "Kalender ekonomi hari ini", "Berapa lot ideal untuk modal $10,000?"]
+      : ["Show gold price now", "Economic calendar today", "Ideal lot for $10,000 capital?"];
+  }
+  
+  const header = lang === 'id' 
+    ? "\n\n💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*"
+    : "\n\n💡 **Want to explore more?** *(Just type the number)*";
+  
+  return `${header}\n1. "${questions[0]}"\n2. "${questions[1]}"\n3. "${questions[2]}"`;
+}
+
 function isGibberishResponse(text: string): boolean {
   if (!text || text.length < 20) return true;
   
@@ -942,7 +993,15 @@ export async function* streamQuery(
   if (ollamaResult.success && ollamaResult.content && !isGibberishResponse(ollamaResult.content)) {
     source = "ollama";
     fullResponse = ollamaResult.content;
-    yield { content: ollamaResult.content, source: "ollama" };
+    
+    // Check if response already has follow-up questions
+    const hasFollowUp = fullResponse.includes("Mau lanjut eksplor") || fullResponse.includes("Want to explore");
+    if (!hasFollowUp) {
+      const followUpQuestions = generateFollowUpQuestions(query, fullResponse);
+      fullResponse += followUpQuestions;
+    }
+    
+    yield { content: fullResponse, source: "ollama" };
   } else {
     if (ollamaResult.success && ollamaResult.content) {
       console.log("Ollama response detected as gibberish, falling back to OpenAI");
@@ -952,6 +1011,14 @@ export async function* streamQuery(
       yield { content: chunk, source: "openai" };
     }
     source = "openai";
+    
+    // Check if response already has follow-up questions, if not add them
+    const hasFollowUp = fullResponse.includes("Mau lanjut eksplor") || fullResponse.includes("Want to explore");
+    if (!hasFollowUp) {
+      const followUpQuestions = generateFollowUpQuestions(query, fullResponse);
+      yield { content: followUpQuestions, source: "openai" };
+      fullResponse += followUpQuestions;
+    }
   }
   
   await saveToLearnedKnowledge(personaId, query, fullResponse, source);
@@ -1007,9 +1074,14 @@ export async function processQuery(
   const ollamaResult = await callOllamaWithTimeout(messages, systemPrompt);
   
   if (ollamaResult.success && ollamaResult.content && !isGibberishResponse(ollamaResult.content)) {
-    await saveToLearnedKnowledge(personaId, query, ollamaResult.content, "ollama");
+    let content = ollamaResult.content;
+    const hasFollowUp = content.includes("Mau lanjut eksplor") || content.includes("Want to explore");
+    if (!hasFollowUp) {
+      content += generateFollowUpQuestions(query, content);
+    }
+    await saveToLearnedKnowledge(personaId, query, content, "ollama");
     return {
-      content: ollamaResult.content,
+      content: content,
       source: "ollama"
     };
   }
@@ -1018,7 +1090,14 @@ export async function processQuery(
     console.log("Ollama response detected as gibberish, falling back to OpenAI");
   }
   
-  const openaiResponse = await callOpenAI(messages, systemPrompt);
+  let openaiResponse = await callOpenAI(messages, systemPrompt);
+  
+  // Add follow-up questions if not present
+  const hasFollowUp = openaiResponse.includes("Mau lanjut eksplor") || openaiResponse.includes("Want to explore");
+  if (!hasFollowUp) {
+    openaiResponse += generateFollowUpQuestions(query, openaiResponse);
+  }
+  
   await saveToLearnedKnowledge(personaId, query, openaiResponse, "openai");
   
   return {
