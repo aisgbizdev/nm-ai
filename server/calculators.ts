@@ -347,27 +347,67 @@ Instrumen yang tersedia: ${allSymbols}
   }
 }
 
+async function fetchRealTimePrice(symbol: string): Promise<number | null> {
+  try {
+    const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    const quotes = Array.isArray(data.data) ? data.data : [];
+    
+    const symbolUpper = symbol.toUpperCase();
+    const quote = quotes.find((q: any) => {
+      const qSymbol = (q.symbol || "").toUpperCase();
+      return qSymbol.includes(symbolUpper) || 
+             qSymbol.includes("XAU") || 
+             qSymbol.includes("GOLD") ||
+             qSymbol.includes("LGD");
+    });
+    
+    if (quote && quote.last) {
+      return parseFloat(quote.last);
+    }
+    return null;
+  } catch (err) {
+    console.error("Failed to fetch real-time price:", err);
+    return null;
+  }
+}
+
 async function handleMarginCalculation(userPrompt: string): Promise<string | null> {
   const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
   const lot = lotMatch ? parseFloat(lotMatch[1]) : 1;
   
-  const goldConfig = COMMODITY_MARGIN_CONFIG["LGD"] || COMMODITY_MARGIN_CONFIG["GOLD"];
-  if (!goldConfig) return null;
-
-  const contractSize = 100;
-  const estimatedPrice = 2650;
-  const leverage = 100;
+  const leverageMatch = userPrompt.match(/leverage\s*(?:1:|1\s*:\s*)?(\d+)/i) || 
+                        userPrompt.match(/1\s*:\s*(\d+)/i);
+  const leverage = leverageMatch ? parseInt(leverageMatch[1]) : 100;
   
-  const marginPerLot = (contractSize * estimatedPrice) / leverage;
+  const contractSize = 100;
+  
+  let currentPrice = await fetchRealTimePrice("XAU");
+  let priceSource = "real-time";
+  
+  if (!currentPrice) {
+    currentPrice = 2650;
+    priceSource = "estimasi";
+  }
+  
+  const marginPerLot = (contractSize * currentPrice) / leverage;
   const totalMargin = marginPerLot * lot;
   
   return `# Simulasi Margin XAUUSD
 
 **Input:**
 - Lot: ${lot}
-- Estimasi Harga: $${estimatedPrice.toLocaleString()}
-- Contract Size: ${contractSize} oz
+- Harga XAUUSD (${priceSource}): **$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}**
+- Contract Size: ${contractSize} troy ounce
 - Leverage: 1:${leverage}
+
+**Perhitungan:**
+\`\`\`
+Margin = (Harga × Lot × Contract Size) ÷ Leverage
+Margin = ($${currentPrice.toLocaleString()} × ${lot} × ${contractSize}) ÷ ${leverage}
+\`\`\`
 
 **Hasil:**
 - Margin per Lot: **$${marginPerLot.toLocaleString("en-US", { minimumFractionDigits: 2 })}**
