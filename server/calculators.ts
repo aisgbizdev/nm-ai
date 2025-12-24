@@ -82,7 +82,10 @@ function isCalendarQuestion(lowerPrompt: string): boolean {
   return lowerPrompt.includes("kalender ekonomi") ||
     lowerPrompt.includes("economic calendar") ||
     lowerPrompt.includes("calendar ekonomi") ||
-    lowerPrompt.includes("jadwal berita");
+    lowerPrompt.includes("jadwal berita") ||
+    lowerPrompt.includes("kalender hari ini") ||
+    lowerPrompt.includes("calendar hari ini") ||
+    (lowerPrompt.includes("kalender") && (lowerPrompt.includes("hari ini") || lowerPrompt.includes("besok") || lowerPrompt.includes("minggu ini")));
 }
 
 function isPriceQuestion(lowerPrompt: string): boolean {
