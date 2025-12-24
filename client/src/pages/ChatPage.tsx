@@ -6,7 +6,8 @@ import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, FileImage, Camera, FolderOpen } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, FileImage, Camera, FolderOpen, FileText, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -100,7 +101,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
     }
   };
 
-  const handleExportChat = () => {
+  const handleExportNote = () => {
     if (!sessionData?.messages?.length) return;
     
     const exportText = sessionData.messages.map(msg => {
@@ -117,6 +118,188 @@ Silakan tanya atau upload gambar untuk analisis!`;
     a.download = `nm-ai-chat-${format(new Date(), "yyyy-MM-dd-HHmm")}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportMD = () => {
+    if (!sessionData?.messages?.length) return;
+    
+    const exportText = sessionData.messages.map(msg => {
+      const role = msg.role === "user" ? "**Anda**" : "**Gwen Stacy**";
+      const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
+      return `### ${role} - ${time}\n\n${msg.content}\n`;
+    }).join("\n---\n\n");
+    
+    const header = `# NM Ai - Laporan Konsultasi\n\n**Tanggal:** ${format(new Date(), "dd MMMM yyyy, HH:mm")}\n\n**Platform:** Newsmaker.id AI Trading Assistant\n\n---\n\n`;
+    const footer = `\n---\n\n*Dokumen ini digenerate oleh NM Ai - Newsmaker.id*\n\n*Informasi bersifat edukatif, bukan rekomendasi transaksi.*`;
+    
+    const blob = new Blob([header + exportText + footer], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nm-ai-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    if (!sessionData?.messages?.length) return;
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let yPos = margin;
+    
+    // Helper function to add new page if needed
+    const checkNewPage = (height: number) => {
+      if (yPos + height > pageHeight - margin) {
+        doc.addPage();
+        yPos = margin;
+        return true;
+      }
+      return false;
+    };
+    
+    // Header
+    doc.setFillColor(0, 82, 147);
+    doc.rect(0, 0, pageWidth, 35, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("NM Ai - Laporan Konsultasi", margin, 18);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Newsmaker.id AI Trading Assistant`, margin, 26);
+    doc.text(`Tanggal: ${format(new Date(), "dd MMMM yyyy, HH:mm")}`, pageWidth - margin - 60, 26);
+    
+    yPos = 50;
+    
+    // Messages
+    sessionData.messages.forEach((msg, idx) => {
+      const isUser = msg.role === "user";
+      const role = isUser ? "Anda" : "Gwen Stacy";
+      const time = msg.createdAt ? format(new Date(msg.createdAt), "dd/MM/yyyy HH:mm") : "";
+      
+      // Role header
+      checkNewPage(20);
+      doc.setTextColor(isUser ? 80 : 0, isUser ? 80 : 82, isUser ? 80 : 147);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${role}`, margin, yPos);
+      
+      doc.setTextColor(128, 128, 128);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "italic");
+      doc.text(time, margin + 35, yPos);
+      yPos += 6;
+      
+      // Message content - parse markdown-like formatting
+      doc.setTextColor(40, 40, 40);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      
+      const lines = msg.content.split('\n');
+      lines.forEach(line => {
+        // Skip empty lines but add spacing
+        if (!line.trim()) {
+          yPos += 3;
+          return;
+        }
+        
+        // Handle headers
+        if (line.startsWith('## ') || line.startsWith('# ')) {
+          checkNewPage(10);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+          doc.setTextColor(0, 82, 147);
+          const headerText = line.replace(/^#+\s*/, '');
+          const splitHeader = doc.splitTextToSize(headerText, maxWidth);
+          doc.text(splitHeader, margin, yPos);
+          yPos += splitHeader.length * 5 + 3;
+          doc.setFontSize(10);
+          doc.setTextColor(40, 40, 40);
+          doc.setFont("helvetica", "normal");
+          return;
+        }
+        
+        // Handle bold text markers
+        if (line.startsWith('**') && line.endsWith('**')) {
+          checkNewPage(8);
+          doc.setFont("helvetica", "bold");
+          const boldText = line.replace(/\*\*/g, '');
+          const splitBold = doc.splitTextToSize(boldText, maxWidth);
+          doc.text(splitBold, margin, yPos);
+          yPos += splitBold.length * 4 + 2;
+          doc.setFont("helvetica", "normal");
+          return;
+        }
+        
+        // Handle bullet points
+        if (line.startsWith('- ') || line.startsWith('* ')) {
+          checkNewPage(8);
+          const bulletText = line.substring(2);
+          const splitBullet = doc.splitTextToSize(bulletText, maxWidth - 8);
+          doc.text('\u2022', margin, yPos);
+          doc.text(splitBullet, margin + 6, yPos);
+          yPos += splitBullet.length * 4 + 1;
+          return;
+        }
+        
+        // Handle table rows (simplified)
+        if (line.startsWith('|') && line.endsWith('|')) {
+          checkNewPage(8);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          const cleanLine = line.replace(/\|/g, '  ').trim();
+          if (!cleanLine.match(/^[-\s]+$/)) {
+            const splitTable = doc.splitTextToSize(cleanLine, maxWidth);
+            doc.text(splitTable, margin, yPos);
+            yPos += splitTable.length * 4;
+          }
+          doc.setFontSize(10);
+          return;
+        }
+        
+        // Regular text
+        checkNewPage(8);
+        // Handle inline bold
+        let processedLine = line.replace(/\*\*([^*]+)\*\*/g, '$1');
+        processedLine = processedLine.replace(/\*([^*]+)\*/g, '$1');
+        const splitText = doc.splitTextToSize(processedLine, maxWidth);
+        doc.text(splitText, margin, yPos);
+        yPos += splitText.length * 4 + 1;
+      });
+      
+      // Separator between messages
+      yPos += 5;
+      if (idx < sessionData.messages.length - 1) {
+        checkNewPage(5);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 8;
+      }
+    });
+    
+    // Footer on last page
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.setFont("helvetica", "italic");
+      doc.text(
+        "NM Ai - Newsmaker.id | Informasi bersifat edukatif, bukan rekomendasi transaksi",
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: "center" }
+      );
+      doc.text(`Halaman ${i} dari ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: "right" });
+    }
+    
+    doc.save(`nm-ai-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`);
   };
 
   const scrollToBottom = () => {
@@ -375,17 +558,47 @@ Silakan tanya atau upload gambar untuk analisis!`;
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleExportChat}
-            disabled={!sessionData?.messages?.length}
-            className="text-muted-foreground hover:text-foreground h-8 w-8 sm:h-9 sm:w-9"
-            title="Export Chat"
-            data-testid="button-export-chat"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline"
+                size="sm"
+                disabled={!sessionData?.messages?.length}
+                className="gap-1.5 text-foreground border-primary/50 hover:bg-primary/10 hover:border-primary h-8 sm:h-9 px-2.5 sm:px-3"
+                title="Download Chat"
+                data-testid="button-export-chat"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline text-xs font-medium">Download</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem 
+                onClick={handleExportNote}
+                className="gap-2 cursor-pointer"
+                data-testid="menu-export-note"
+              >
+                <FileText className="h-4 w-4" />
+                <span>Note (.txt)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={handleExportMD}
+                className="gap-2 cursor-pointer"
+                data-testid="menu-export-md"
+              >
+                <FileDown className="h-4 w-4" />
+                <span>Markdown (.md)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={handleExportPDF}
+                className="gap-2 cursor-pointer"
+                data-testid="menu-export-pdf"
+              >
+                <FileImage className="h-4 w-4" />
+                <span>PDF Report (.pdf)</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button 
             variant="ghost" 
             size="icon" 
