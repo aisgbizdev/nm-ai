@@ -22,7 +22,7 @@ services:
   ollama:
     build:
       context: .
-      dockerfile: dockerFile
+      dockerfile: Dockerfile
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
     volumes:
