@@ -19,8 +19,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/client/public ./client/public
 
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=3000
 
-EXPOSE 5000
+EXPOSE 3000
 
 CMD ["node", "dist/index.cjs"]
