@@ -6,18 +6,7 @@ export const runtime = "nodejs";
 // =============== KALENDER TABLE UTILS ==================
 import { buildCalendarTable, CalendarEventRow } from "./utils/calendarContext";
 
-// =============== TRADING RULES CONFIG IMPORTS ==================
-import { INDEX_MARGIN_CONFIG } from "./config/indexMarginConfig";
-import { COMMODITY_MARGIN_CONFIG } from "./config/commodityMarginConfig";
-import { CURRENCY_MARGIN_CONFIG } from "./config/currencyMarginConfig";
-
-// =============== TRADING RULES UTILS (TABLE BUILDER) ============
-import {
-  buildTradingRulesTableThreeCols,
-  GenericMarginConfig,
-} from "./utils/tradingRules";
-
-// =============== COMMON & UTILS BARU ==================
+// =============== COMMON & UTILS ==================
 import { toText } from "./utils/common";
 import {
   calcClassic,
@@ -27,6 +16,7 @@ import {
   calcFibDown,
   parseHighLowForFib,
   parseOHLCFromPrompt,
+  parseHighLowForFib as _parseHighLowForFib, // (safe alias in case of bundler double-import warnings)
 } from "./utils/pivotFib";
 
 import { formatDateIso, detectRequestedDate } from "./utils/dateUtils";
@@ -52,11 +42,12 @@ const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || "7000");
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
-// Token budget controls
-const OPENAI_MAX_TOKENS = Number(process.env.OPENAI_MAX_TOKENS || "120"); // output cap
+const OPENAI_MAX_TOKENS = process.env.OPENAI_MAX_TOKENS
+  ? Number(process.env.OPENAI_MAX_TOKENS)
+  : undefined;
 const OPENAI_TEMPERATURE = Number(process.env.OPENAI_TEMPERATURE || "0.2");
 
-// Prompt cache (optional). Banyak model TIDAK support -> kita auto retry tanpa cache.
+// Prompt cache (optional)
 const OPENAI_ENABLE_PROMPT_CACHE =
   (process.env.OPENAI_ENABLE_PROMPT_CACHE || "0") === "1";
 const OPENAI_PROMPT_CACHE_RETENTION =
@@ -67,12 +58,10 @@ const QUOTES_API_URL =
   process.env.QUOTES_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/quotes";
 
-// ✅ TODAY khusus
 const CALENDAR_TODAY_API_URL =
   process.env.CALENDAR_TODAY_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/calendar/today";
 
-// ✅ WEEK
 const CALENDAR_WEEK_API_URL =
   process.env.CALENDAR_WEEK_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
@@ -85,33 +74,158 @@ const NEWS_API_URL =
   process.env.NEWS_API_URL ||
   "https://endpoapi-production-3202.up.railway.app/api/news-id";
 
-// ================== TIPE MESSAGE CORE ==================
+// ================== KNOWLEDGE API ==================
+const KNOWLEDGE_API_URL =
+  process.env.KNOWLEDGE_API_URL || "http://nmaibackend.test/api/v1/knowledge";
+
+const KNOWLEDGE_STORE_API_URL =
+  process.env.KNOWLEDGE_STORE_API_URL ||
+  "http://nmaibackend.test/api/v1/knowledge/store";
+
+// ✅ Bearer token (Middleware Bearer Token di backend lu)
+const KNOWLEDGE_API_TOKEN = (process.env.KNOWLEDGE_API_TOKEN || "").trim();
+
+const KNOWLEDGE_TTL_MS = Number(process.env.KNOWLEDGE_TTL_MS || "300000"); // 5 menit
+const KNOWLEDGE_TIMEOUT_MS = Number(process.env.KNOWLEDGE_TIMEOUT_MS || "2500");
+const KNOWLEDGE_STORE_TIMEOUT_MS = Number(
+  process.env.KNOWLEDGE_STORE_TIMEOUT_MS || "1800"
+);
+
+const KNOWLEDGE_DEBUG = (process.env.KNOWLEDGE_DEBUG || "0") === "1";
+const SOURCE_DEBUG = (process.env.SOURCE_DEBUG || "1") === "1";
+
+// threshold
+const KNOWLEDGE_STRONG_SIM = Number(process.env.KNOWLEDGE_STRONG_SIM || "0.32");
+const KNOWLEDGE_MEDIUM_SIM = Number(process.env.KNOWLEDGE_MEDIUM_SIM || "0.20");
+const KNOWLEDGE_FORCE_SIM = Number(process.env.KNOWLEDGE_FORCE_SIM || "0.12");
+
+// ✅ kalau knowledge ada (medium/force), OpenAI diblok
+const DISABLE_OPENAI_WHEN_KNOWLEDGE =
+  (process.env.DISABLE_OPENAI_WHEN_KNOWLEDGE || "1") === "1";
+
+// ✅ bikin jawaban konsisten: MEDIUM langsung jawab Knowledge (bukan inject LLM)
+const KNOWLEDGE_ALWAYS_ANSWER_ON_MEDIUM =
+  (process.env.KNOWLEDGE_ALWAYS_ANSWER_ON_MEDIUM || "0") === "1";
+
+// ✅ MULTI-ANSWER MODE (biar "Hallo" bisa jawab beda-beda)
+const KNOWLEDGE_VARIANTS_MAX = Number(
+  process.env.KNOWLEDGE_VARIANTS_MAX || "6"
+); // ambil max kandidat
+const KNOWLEDGE_TIE_EPS = Number(process.env.KNOWLEDGE_TIE_EPS || "0.035"); // beda sim yg dianggap setara
+const KNOWLEDGE_ROTATE_MODE =
+  process.env.KNOWLEDGE_ROTATE_MODE || "round_robin"; // "round_robin" | "hash"
+
+// ✅ helper header Authorization
+function withKnowledgeBearer(headers: Record<string, string> = {}) {
+  if (!KNOWLEDGE_API_TOKEN) return headers;
+  return { ...headers, Authorization: `Bearer ${KNOWLEDGE_API_TOKEN}` };
+}
+
+// ================== TIPE ==================
+type KnowledgeItem = {
+  id: number;
+  title: string;
+  answer: string;
+  source?: string | null;
+  is_published?: boolean | number | string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+let __knowledgeCache: { fetchedAt: number; items: KnowledgeItem[] } | null =
+  null;
+
 type CoreMessage = {
   role: "system" | "user" | "assistant";
   content: string;
   images?: string[];
 };
 
+type ReplySource =
+  | "shortcircuit:fib"
+  | "shortcircuit:pivot"
+  | "shortcircuit:margin"
+  | "shortcircuit:price"
+  | "shortcircuit:calendar"
+  | "knowledge:strong"
+  | "knowledge:medium"
+  | "knowledge:force"
+  | "knowledge:inject"
+  | "llm:ollama"
+  | "llm:openai"
+  | "llm:other";
+
 // ======================================================
-// ✅ SYSTEM PREFIX (DIBUAT RINGKAS BIAR TOKEN IRIT)
+// SYSTEM PREFIX (TOKEN IRIT) + CIRI KHAS NM Ai/Gwen Stacy
 // ======================================================
 const SYSTEM_PREFIX_LITE = `
-Kamu adalah NM Ai (Newsmaker.id).
+Kamu adalah NM Ai (Newsmaker.id) — persona: Gwen Stacy.
 Aturan: jawab Bahasa Indonesia, singkat-jelas-edukatif.
 Jangan mengarang data. Kalau data internal tidak tersedia, bilang "data tidak tersedia".
 Tidak ada ajakan transaksi/investasi.
+
+PENTING:
+- Jika pertanyaan cocok dengan Knowledge Internal, gunakan jawaban Knowledge Internal.
+- Jangan jawab contoh global (Apple/Microsoft/Google) untuk konteks PBK/Indonesia jika Knowledge tersedia.
 `.trim();
 
-// ================== HELPER: STRIP <think> ==================
+// ================== HELPERS ==================
 function stripThinkBlocks(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
-// ================== HELPER: SAFE TRIM ==================
 function clampText(s: string, maxChars: number) {
   const t = (s || "").trim();
   if (t.length <= maxChars) return t;
   return t.slice(0, maxChars).trimEnd() + "…";
+}
+
+function safeJson(obj: any, max = 1400) {
+  try {
+    return JSON.stringify(obj).slice(0, max);
+  } catch {
+    return "";
+  }
+}
+
+function normalizeTitleCase(s: string) {
+  return (s || "")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function makeKnowledgeTitleFromPrompt(prompt: string) {
+  const p = (prompt || "").trim();
+  if (!p) return "Knowledge Baru";
+
+  const t = p
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (
+    t.includes("perusahaan") &&
+    (t.includes("terpercaya") || t.includes("resmi") || t.includes("legal"))
+  ) {
+    return "Perusahaan Terpercaya (Bappebti)";
+  }
+  if (t.includes("kalender") || t.includes("event")) return "Kalender Ekonomi";
+  if (t.includes("pivot")) return "Pivot Point";
+  if (t.includes("fibo") || t.includes("fibonacci")) return "Fibonacci";
+  if (t.includes("harga") || t.includes("quote")) return "Harga Terkini";
+
+  const words = t.split(" ").slice(0, 6).join(" ");
+  return normalizeTitleCase(words || "Knowledge Baru");
+}
+
+function withSignature(text: string) {
+  const t = (text || "").trim();
+  if (!t) return t;
+  if (/\—\s*NM Ai/i.test(t)) return t;
+  return `${t}`;
 }
 
 // ================== SELECTIVE INJECTION ==================
@@ -163,7 +277,414 @@ function shouldIncludeFxRules(p: string) {
   );
 }
 
-// ================== HELPER: CALL OLLAMA ==================
+// ================== KNOWLEDGE: TEXT SIMILARITY ==================
+function normText(s: string) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/\r/g, " ")
+    .replace(/\n/g, " ")
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const STOPWORDS = new Set(
+  [
+    "yang",
+    "dan",
+    "atau",
+    "di",
+    "ke",
+    "dari",
+    "untuk",
+    "pada",
+    "ini",
+    "itu",
+    "apa",
+    "aja",
+    "yaa",
+    "ya",
+    "gak",
+    "nggak",
+    "tidak",
+    "kok",
+    "sih",
+    "dong",
+    "bro",
+    "gue",
+    "gua",
+    "lu",
+    "kamu",
+    "anda",
+    "the",
+    "and",
+    "or",
+    "to",
+    "of",
+    "in",
+    "on",
+    "a",
+    "an",
+    "is",
+    "are",
+    "it",
+    "for",
+    "with",
+  ].map((x) => x.trim())
+);
+
+function toTokens(s: string) {
+  const t = normText(s);
+  if (!t) return [];
+  return t
+    .split(" ")
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 2 && !STOPWORDS.has(x));
+}
+
+function jaccard(a: string[], b: string[]) {
+  if (!a.length || !b.length) return 0;
+  const A = new Set(a);
+  const B = new Set(b);
+  let inter = 0;
+  for (const x of A) if (B.has(x)) inter++;
+  const union = A.size + B.size - inter;
+  return union ? inter / union : 0;
+}
+
+function includesAll(text: string, words: string[]) {
+  const t = normText(text);
+  return words.every((w) => t.includes(normText(w)));
+}
+
+function keywordBoost(query: string, item: KnowledgeItem) {
+  const q = normText(query);
+  const title = normText(item.title || "");
+  const ans = normText(item.answer || "");
+
+  let boost = 0;
+
+  const qHasPerusahaan =
+    q.includes("perusahaan") || q.includes("pialang") || q.includes("broker");
+  const qHasTerpercaya =
+    q.includes("terpercaya") ||
+    q.includes("aman") ||
+    q.includes("resmi") ||
+    q.includes("legal");
+
+  if (qHasPerusahaan && qHasTerpercaya) {
+    if (includesAll(title, ["perusahaan"]) || includesAll(ans, ["perusahaan"]))
+      boost += 0.14;
+    if (includesAll(ans, ["terpercaya"]) || includesAll(title, ["terpercaya"]))
+      boost += 0.14;
+
+    if (ans.includes("bappebti")) boost += 0.22;
+    if (ans.includes("pialang") || ans.includes("berjangka")) boost += 0.16;
+    if (ans.includes("bbj") || ans.includes("jfx")) boost += 0.12;
+    if (ans.includes("kbi")) boost += 0.12;
+  }
+
+  if (q.includes("bappebti") && ans.includes("bappebti")) boost += 0.25;
+
+  return Math.min(0.45, boost);
+}
+
+function knowledgeSimilarity(query: string, item: KnowledgeItem) {
+  const qTok = toTokens(query);
+  const tTok = toTokens(item.title || "");
+  const aTok = toTokens(item.answer || "");
+
+  const simTitle = jaccard(qTok, tTok);
+  const simAnswer = jaccard(qTok, aTok);
+
+  const qn = normText(query);
+  const tn = normText(item.title || "");
+  const substringBonus =
+    tn && qn && (tn.includes(qn) || qn.includes(tn)) ? 0.2 : 0;
+
+  const base = 0.45 * simTitle + 0.55 * simAnswer + substringBonus;
+  const boost = keywordBoost(query, item);
+
+  return Math.min(1, Math.max(0, base + boost));
+}
+
+// publish flag tolerant
+function toBool(v: any): boolean {
+  if (v === true) return true;
+  if (v === false) return false;
+  if (typeof v === "number") return v === 1;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "1" || s === "true" || s === "yes" || s === "y";
+  }
+  return false;
+}
+
+function normalizeKnowledgeItem(x: any): KnowledgeItem {
+  return {
+    id: Number(x?.id ?? 0),
+    title: String(x?.title ?? ""),
+    answer: String(x?.answer ?? x?.content ?? ""),
+    source: x?.source ?? null,
+    is_published: x?.is_published ?? x?.isPublished ?? x?.published ?? null,
+    created_at: x?.created_at,
+    updated_at: x?.updated_at,
+  };
+}
+
+// ================== ✅ DEDUPE + TIE BREAKER ==================
+function toMs(d?: string) {
+  if (!d) return 0;
+  const t = new Date(d).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function knowledgeDedupeKey(it: KnowledgeItem) {
+  const t = normText(it.title || "");
+  const a = normText(it.answer || "");
+  return `${t}|||${a.slice(0, 180)}`;
+}
+
+/**
+ * Dedup items yang title+answer sama.
+ * Rule: keep yang updated_at paling baru, kalau sama keep id paling besar.
+ */
+function dedupeKnowledgeItems(items: KnowledgeItem[]) {
+  const map = new Map<string, KnowledgeItem>();
+
+  for (const it of items) {
+    const key = knowledgeDedupeKey(it);
+    const prev = map.get(key);
+
+    if (!prev) {
+      map.set(key, it);
+      continue;
+    }
+
+    const prevMs = Math.max(toMs(prev.updated_at), toMs(prev.created_at));
+    const itMs = Math.max(toMs(it.updated_at), toMs(it.created_at));
+
+    const better =
+      itMs > prevMs || (itMs === prevMs && Number(it.id) > Number(prev.id));
+
+    if (better) map.set(key, it);
+  }
+
+  return Array.from(map.values());
+}
+
+async function fetchKnowledgeItems(): Promise<KnowledgeItem[]> {
+  if (
+    __knowledgeCache &&
+    Date.now() - __knowledgeCache.fetchedAt < KNOWLEDGE_TTL_MS
+  ) {
+    return __knowledgeCache.items;
+  }
+
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), KNOWLEDGE_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(KNOWLEDGE_API_URL, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: withKnowledgeBearer({
+        Accept: "application/json",
+      }),
+    });
+
+    const raw = await res.text().catch(() => "");
+    if (!res.ok) {
+      if (KNOWLEDGE_DEBUG) {
+        console.warn("[Knowledge] fetch failed:", res.status, raw);
+        if (res.status === 401 && !KNOWLEDGE_API_TOKEN) {
+          console.warn(
+            "[Knowledge] 401 & token kosong. Pastikan KNOWLEDGE_API_TOKEN terisi."
+          );
+        }
+      }
+      __knowledgeCache = { fetchedAt: Date.now(), items: [] };
+      return [];
+    }
+
+    let json: any = null;
+    try {
+      json = raw ? JSON.parse(raw) : null;
+    } catch {
+      json = null;
+    }
+
+    const rawItems: any[] = Array.isArray(json?.knowledge)
+      ? json.knowledge
+      : Array.isArray(json?.data)
+      ? json.data
+      : [];
+
+    const normalized = rawItems.map(normalizeKnowledgeItem);
+    const published = normalized.filter((x) => x && toBool(x.is_published));
+    const deduped = dedupeKnowledgeItems(published);
+
+    __knowledgeCache = { fetchedAt: Date.now(), items: deduped };
+    return deduped;
+  } catch (e: any) {
+    if (KNOWLEDGE_DEBUG) console.warn("[Knowledge] fetch error:", String(e));
+    __knowledgeCache = { fetchedAt: Date.now(), items: [] };
+    return [];
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
+// ================== ✅ KNOWLEDGE VARIANT PICKER ==================
+const __variantCursorBySession = new Map<string, number>();
+
+function hashToInt(s: string) {
+  // hash ringan (deterministic)
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function pickKnowledgeVariant(args: {
+  sessionKey: string;
+  requestId: string;
+  query: string;
+  candidates: { it: KnowledgeItem; sim: number; ts: number }[];
+}) {
+  const { sessionKey, requestId, query, candidates } = args;
+  if (!candidates.length) return null;
+  if (candidates.length === 1) return candidates[0].it;
+
+  if (KNOWLEDGE_ROTATE_MODE === "hash") {
+    const idx =
+      hashToInt(`${sessionKey}|${requestId}|${query}`) % candidates.length;
+    return candidates[idx].it;
+  }
+
+  // default: round_robin per session
+  const cur = (__variantCursorBySession.get(sessionKey) ?? 0) + 1;
+  __variantCursorBySession.set(sessionKey, cur);
+  const idx = cur % candidates.length;
+  return candidates[idx].it;
+}
+
+// ✅ MULTI VARIANT SEARCH
+async function searchKnowledge(args: {
+  query: string;
+  sessionKey: string;
+  requestId: string;
+}) {
+  const { query, sessionKey, requestId } = args;
+
+  const items = await fetchKnowledgeItems();
+  if (!items.length) return null;
+
+  const scored = items
+    .map((it) => {
+      const sim = knowledgeSimilarity(query, it);
+      const ts = Math.max(toMs(it.updated_at), toMs(it.created_at));
+      return { it, sim, ts };
+    })
+    .sort((a, b) => {
+      if (b.sim !== a.sim) return b.sim - a.sim;
+      if (b.ts !== a.ts) return b.ts - a.ts;
+      return Number(b.it.id) - Number(a.it.id);
+    });
+
+  const best = scored[0];
+  const bestSim = best?.sim ?? 0;
+
+  // Kandidat “setara” = sim dekat bestSim (tie group)
+  const tieGroup = scored
+    .filter((x) => x.sim >= bestSim - KNOWLEDGE_TIE_EPS)
+    .slice(0, KNOWLEDGE_VARIANTS_MAX);
+
+  const candidates = tieGroup.length
+    ? tieGroup
+    : scored.slice(0, KNOWLEDGE_VARIANTS_MAX);
+
+  const picked = pickKnowledgeVariant({
+    sessionKey,
+    requestId,
+    query,
+    candidates,
+  });
+
+  return {
+    best: picked || best?.it,
+    bestSim,
+    top: scored.slice(0, 8),
+    candidatesCount: candidates.length,
+  };
+}
+
+// “force pick” khusus perusahaan terpercaya/resmi/aman
+async function forcePickTrustedCompanyKnowledge(query: string) {
+  const items = await fetchKnowledgeItems();
+  if (!items.length) return null;
+
+  const q = normText(query);
+  const wantCompany =
+    q.includes("perusahaan") || q.includes("pialang") || q.includes("broker");
+  const wantTrusted =
+    q.includes("terpercaya") ||
+    q.includes("aman") ||
+    q.includes("resmi") ||
+    q.includes("legal");
+
+  if (!wantCompany || !wantTrusted) return null;
+
+  const candidates = items
+    .map((it) => {
+      const ans = normText(it.answer || "");
+      const score =
+        (ans.includes("bappebti") ? 3 : 0) +
+        (ans.includes("pialang") || ans.includes("berjangka") ? 2 : 0) +
+        (ans.includes("bbj") || ans.includes("jfx") ? 1 : 0) +
+        (ans.includes("kbi") ? 1 : 0) +
+        knowledgeSimilarity(query, it);
+      return { it, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return candidates[0]?.it || null;
+}
+
+function shouldSkipKnowledge(userPrompt: string, hasImage: boolean) {
+  if (hasImage) return true;
+
+  const s = userPrompt.toLowerCase();
+
+  if (
+    s.includes("pivot") ||
+    s.includes("pp ") ||
+    s.includes("fibo") ||
+    s.includes("fibonacci") ||
+    s.includes("kalender") ||
+    s.includes("calendar") ||
+    s.includes("event") ||
+    s.includes("berita") ||
+    s.includes("news") ||
+    s.includes("headline") ||
+    s.includes("historical") ||
+    s.includes("histori") ||
+    s.includes("harga") ||
+    s.includes("price") ||
+    s.includes("quote")
+  )
+    return true;
+
+  if (/\b(abaikan knowledge|ignore knowledge|tanpa knowledge)\b/i.test(s))
+    return true;
+
+  return false;
+}
+
+// ================== LLM HELPERS ==================
 async function callOllamaChat(messages: CoreMessage[]): Promise<string> {
   if (!OLLAMA_BASE_URL) throw new Error("OLLAMA_BASE_URL is not configured");
 
@@ -204,15 +725,12 @@ async function callOllamaChat(messages: CoreMessage[]): Promise<string> {
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err?.name === "AbortError") {
-      throw new Error(
-        `Ollama timeout setelah ${OLLAMA_TIMEOUT_MS} ms – fallback ke OpenAI`
-      );
+      throw new Error(`Ollama timeout setelah ${OLLAMA_TIMEOUT_MS} ms`);
     }
     throw err;
   }
 }
 
-// ================== HELPER: CONVERT TO OPENAI FORMAT ==================
 function toOpenAIChatMessages(coreMessages: CoreMessage[]) {
   return coreMessages.map((msg) => {
     if (msg.role === "user" && msg.images && msg.images.length > 0) {
@@ -229,7 +747,6 @@ function toOpenAIChatMessages(coreMessages: CoreMessage[]) {
   });
 }
 
-// ================== HELPER: CALL OPENAI (AUTO RETRY NO-CACHE) ==================
 async function callOpenAIChat(args: {
   coreMessages: CoreMessage[];
   apiKey: string;
@@ -241,12 +758,17 @@ async function callOpenAIChat(args: {
 
   const openaiMessages = toOpenAIChatMessages(coreMessages);
 
-  const bodyWithMaybeCache: any = {
+  const baseBody: any = {
     model,
     messages: openaiMessages,
     temperature: OPENAI_TEMPERATURE,
-    max_tokens: OPENAI_MAX_TOKENS,
   };
+
+  if (Number.isFinite(OPENAI_MAX_TOKENS)) {
+    baseBody.max_tokens = OPENAI_MAX_TOKENS;
+  }
+
+  const bodyWithMaybeCache: any = { ...baseBody };
 
   if (args.enableCache) {
     bodyWithMaybeCache.prompt_cache_key = promptCacheKey;
@@ -280,7 +802,6 @@ async function callOpenAIChat(args: {
       throw err;
     }
 
-    // debug usage
     const cached = json?.usage?.prompt_tokens_details?.cached_tokens ?? 0;
     const promptTokens = json?.usage?.prompt_tokens ?? 0;
     const totalTokens = json?.usage?.total_tokens ?? 0;
@@ -313,15 +834,8 @@ async function callOpenAIChat(args: {
       /prompt_cache_retention is not supported/i.test(msg);
 
     if (args.enableCache && looksLikeCacheNotSupported) {
-      console.warn(
-        "[OpenAI] Cache param tidak didukung oleh model ini. Retry tanpa cache..."
-      );
-      const payloadNoCache = {
-        model,
-        messages: openaiMessages,
-        temperature: OPENAI_TEMPERATURE,
-        max_tokens: OPENAI_MAX_TOKENS,
-      };
+      console.warn("[OpenAI] Cache param tidak didukung. Retry tanpa cache...");
+      const payloadNoCache = { ...baseBody };
       return await doReq(payloadNoCache);
     }
 
@@ -329,7 +843,7 @@ async function callOpenAIChat(args: {
   }
 }
 
-// ================== CALENDAR NORMALIZER (TODAY & THIS-WEEK) ==================
+// ================== CALENDAR NORMALIZER ==================
 function normalizeCalendarResponse(
   calData: any,
   fallbackDate: string
@@ -351,44 +865,159 @@ function normalizeCalendarResponse(
 
   const data = calData?.data;
 
-  // Case A: /today => data = [ {time,currency,event,...}, ... ]
   if (Array.isArray(data) && data.length && (data[0]?.time || data[0]?.event)) {
     for (const ev of data) pushEv(ev, fallbackDate);
     return rows;
   }
 
-  // Case B: /this-week => data = [ {date:'YYYY-MM-DD', data:[...]} ] / [ {date, events:[...]} ]
   if (Array.isArray(data) && data.length && data[0]?.date) {
     for (const day of data) {
       const d = String(day.date || fallbackDate);
       const events = day.events || day.data || day.items || [];
-      if (Array.isArray(events)) {
-        for (const ev of events) pushEv(ev, d);
-      }
+      if (Array.isArray(events)) for (const ev of events) pushEv(ev, d);
     }
     return rows;
   }
 
-  // Case C: data = { date:'YYYY-MM-DD', data:[...] } or {date, events:[...]}
   if (data && typeof data === "object" && data.date) {
     const d = String(data.date || fallbackDate);
     const events = data.events || data.data || data.items || [];
-    if (Array.isArray(events)) {
-      for (const ev of events) pushEv(ev, d);
-    }
+    if (Array.isArray(events)) for (const ev of events) pushEv(ev, d);
     return rows;
   }
 
   return rows;
 }
 
+// ================== MARKDOWN ENFORCER FOR STORE ==================
+function looksLikeMarkdown(s: string) {
+  const t = (s || "").trim();
+  if (!t) return false;
+  return (
+    /^#{1,6}\s+/m.test(t) ||
+    /```/.test(t) ||
+    /^\s*[-*]\s+/m.test(t) ||
+    /^\s*\d+\.\s+/m.test(t) ||
+    /^\s*>\s+/m.test(t) ||
+    /\|.+\|/.test(t) ||
+    /\*\*.+\*\*/.test(t) ||
+    /_.+_/.test(t)
+  );
+}
+
+// ✅ STORE: answer hanya jawaban AI (tanpa pertanyaan)
+function ensureMarkdownAnswerOnly(aiReply: string) {
+  const a = (aiReply || "").trim();
+  if (!a) return "";
+  if (looksLikeMarkdown(a)) return a;
+  return `${a}`;
+}
+
+// ================== AUTO STORE KNOWLEDGE ==================
+function shouldAutoStore(engineSource: ReplySource, reply: string) {
+  if (!engineSource.startsWith("llm:")) return false;
+  const r = (reply || "").trim();
+  if (r.length < 80) return false;
+  if (/data tidak tersedia/i.test(r)) return false;
+  if (/tidak ada event/i.test(r)) return false;
+  return true;
+}
+
+async function storeLLMAnswerToKnowledge(args: {
+  userPrompt: string;
+  reply: string;
+  requestId: string;
+}) {
+  const { userPrompt, reply, requestId } = args;
+
+  const title = makeKnowledgeTitleFromPrompt(userPrompt);
+
+  const payload = {
+    title,
+    answer: ensureMarkdownAnswerOnly(reply),
+    source: "AI Generated",
+  };
+
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), KNOWLEDGE_STORE_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(KNOWLEDGE_STORE_API_URL, {
+      method: "POST",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: withKnowledgeBearer({
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "x-request-id": requestId,
+      }),
+      body: JSON.stringify(payload),
+    });
+
+    const text = await res.text().catch(() => "");
+    if (!res.ok) {
+      console.warn("[KnowledgeStore] failed:", res.status, text.slice(0, 400));
+      return { ok: false, status: res.status };
+    }
+
+    __knowledgeCache = null; // invalidate cache
+    return { ok: true };
+  } catch (e: any) {
+    console.warn("[KnowledgeStore] error:", String(e));
+    return { ok: false, error: String(e) };
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
 // ======================================================
-// ================ HANDLER POST ========================
+// HANDLER POST
 // ======================================================
 export async function POST(req: NextRequest) {
   try {
     const sessionKey = req.headers.get("x-session-id") || "anon";
     const PROMPT_CACHE_KEY = `nm-ai:gwenstacy:${sessionKey}`;
+
+    const requestId =
+      req.headers.get("x-request-id") ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const logSource = (source: ReplySource, extra?: any) => {
+      if (!SOURCE_DEBUG) return;
+      console.log(`[NM Ai][SOURCE] ${source}`, extra ? safeJson(extra) : "");
+    };
+
+    const send = (
+      payload: any,
+      source: ReplySource,
+      meta?: Record<string, any>
+    ) => {
+      // ✅ apply signature here biar konsisten (knowledge/ollama/openai sama)
+      const replyText =
+        typeof payload?.reply === "string" ? withSignature(payload.reply) : "";
+
+      logSource(source, { requestId, ...(meta || {}) });
+
+      return NextResponse.json(
+        {
+          ...payload,
+          ...(payload?.reply ? { reply: replyText } : {}),
+          meta: {
+            ...(payload?.meta || {}),
+            source,
+            requestId,
+            ...(meta || {}),
+          },
+        },
+        {
+          status: 200,
+          headers: {
+            "x-nm-source": source,
+            "x-request-id": requestId,
+          },
+        }
+      );
+    };
 
     const formData = await req.formData();
     const prompt = (formData.get("prompt") as string) || "";
@@ -401,10 +1030,7 @@ export async function POST(req: NextRequest) {
     if (historyRaw) {
       try {
         const parsed = JSON.parse(historyRaw);
-        if (Array.isArray(parsed)) {
-          // ✅ hemat token: simpan sedikit aja
-          historyMessages = parsed.slice(-4);
-        }
+        if (Array.isArray(parsed)) historyMessages = parsed.slice(-4);
       } catch (e) {
         console.error("Gagal parse history:", e);
       }
@@ -427,70 +1053,7 @@ export async function POST(req: NextRequest) {
     const lowerPrompt = userPrompt.toLowerCase();
 
     // ===========================
-    // SHORT-CIRCUIT 1: TRADING RULES
-    // ===========================
-    const isTradingRulesQuestion =
-      lowerPrompt.includes("trading rules") ||
-      lowerPrompt.includes("trading rule") ||
-      lowerPrompt.includes("aturan trading") ||
-      lowerPrompt.includes("regulasi trading") ||
-      lowerPrompt.includes("rule trading");
-
-    const isTradingRulesTableQuestion =
-      isTradingRulesQuestion &&
-      (lowerPrompt.includes("tabel") || lowerPrompt.includes("table"));
-
-    if (isTradingRulesTableQuestion) {
-      const indexTableMd = buildTradingRulesTableThreeCols(
-        "Index & Global Index",
-        INDEX_MARGIN_CONFIG
-      );
-
-      const commodityTableMd = buildTradingRulesTableThreeCols(
-        "Commodity (Gold, Silver, Oil, dll.)",
-        COMMODITY_MARGIN_CONFIG
-      );
-
-      const currencyTableMd = buildTradingRulesTableThreeCols(
-        "Currency (Forex Pairs)",
-        CURRENCY_MARGIN_CONFIG
-      );
-
-      const tablesSection =
-        "# 📊 Tabel Trading Rules NM Standard\n\n" +
-        "### 1️⃣ Index & Global Index\n\n" +
-        indexTableMd +
-        "\n\n### 2️⃣ Commodity (Gold, Silver, Oil, dll.)\n\n" +
-        commodityTableMd +
-        "\n\n### 3️⃣ Currency (Forex Pairs)\n\n" +
-        currencyTableMd +
-        "\n\n_Ini ketentuan produk. Manajemen risiko tetap menyesuaikan profil risiko masing-masing._";
-
-      return NextResponse.json(
-        { reply: tablesSection, imagePath: null },
-        { status: 200 }
-      );
-    }
-
-    if (isTradingRulesQuestion) {
-      const replyStandard = [
-        "Ringkasan **Trading Rules NM Standard** (edukatif):",
-        "- Margin call & auto liquidation mengikuti ketentuan produk.",
-        "- Jenis order: MO/LO/SO/OCO.",
-        "- Rollover/overnight bisa ada biaya (sesuai ketentuan).",
-        "- Jaga kerahasiaan UserID/Password/OTP.",
-        "",
-        "_Catatan: edukasi, bukan ajakan transaksi._",
-      ].join("\n");
-
-      return NextResponse.json(
-        { reply: replyStandard, imagePath: null },
-        { status: 200 }
-      );
-    }
-
-    // ===========================
-    // SHORT-CIRCUIT 2: FIBONACCI
+    // SHORT-CIRCUIT: FIBONACCI
     // ===========================
     const isFibQuestion =
       lowerPrompt.includes("fibo") || lowerPrompt.includes("fibonacci");
@@ -506,8 +1069,6 @@ export async function POST(req: NextRequest) {
         /\b(downtren|downtrend|tren turun|trend turun)\b/i.test(lowerPrompt) &&
         !/\b(uptren|uptrend|tren naik|trend naik)\b/i.test(lowerPrompt);
 
-      const wantsBoth = !wantsUpOnly && !wantsDownOnly;
-
       if (!HL) {
         const modeHint = wantsUpOnly
           ? "uptrend"
@@ -515,7 +1076,7 @@ export async function POST(req: NextRequest) {
           ? "downtrend"
           : "uptrend & downtrend";
 
-        return NextResponse.json(
+        return send(
           {
             reply:
               `Untuk hitung Fibonacci (${modeHint}), gue butuh **High (H)** dan **Low (L)**.\n` +
@@ -525,7 +1086,7 @@ export async function POST(req: NextRequest) {
               "- `fibo downtren H=2450 L=2380`\n",
             imagePath: null,
           },
-          { status: 200 }
+          "shortcircuit:fib"
         );
       }
 
@@ -558,7 +1119,6 @@ export async function POST(req: NextRequest) {
             : `| High | Low | Diff |\n|---|---|---:|\n| ${fmt(H)} | ${fmt(
                 L
               )} | ${fmt(D)} |\n\n`;
-
         return cols;
       };
 
@@ -607,14 +1167,14 @@ export async function POST(req: NextRequest) {
         ? downBlock
         : upBlock + downBlock;
 
-      return NextResponse.json(
+      return send(
         { reply: header + body + footer, imagePath: null },
-        { status: 200 }
+        "shortcircuit:fib"
       );
     }
 
     // ===========================
-    // SHORT-CIRCUIT 3: PIVOT
+    // SHORT-CIRCUIT: PIVOT
     // ===========================
     const isPivotQuestion =
       lowerPrompt.includes("pivot") || lowerPrompt.includes("pp ");
@@ -630,47 +1190,195 @@ export async function POST(req: NextRequest) {
 
         const fmt = (n: number) => n.toFixed(2);
 
-        const reply =
+        const header =
           "## Pivot Point\n\n" +
-          `O=${fmt(O)} H=${fmt(H)} L=${fmt(L)} C=${fmt(C)}\n\n` +
+          "Analisis berikut dihitung berdasarkan data yang Anda input. " +
+          "Harga dibuka di **" +
+          fmt(O) +
+          "**, mencatat **high " +
+          fmt(H) +
+          "** dan **low " +
+          fmt(L) +
+          "**, " +
+          "kemudian ditutup di **" +
+          fmt(C) +
+          "**.\n\n" +
+          "---\n\n";
+
+        const body =
           "| Level | Classic | Woodie | Camarilla |\n" +
           "|---|---:|---:|---:|\n" +
-          `| R3 | ${fmt(classicPivot.R3)} | ${fmt(woodiePivot.R3)} | ${fmt(
+          `| **R3** | ${fmt(classicPivot.R3)} | ${fmt(woodiePivot.R3)} | ${fmt(
             camarillaPivot.R3
           )} |\n` +
-          `| R2 | ${fmt(classicPivot.R2)} | ${fmt(woodiePivot.R2)} | ${fmt(
+          `| **R2** | ${fmt(classicPivot.R2)} | ${fmt(woodiePivot.R2)} | ${fmt(
             camarillaPivot.R2
           )} |\n` +
-          `| R1 | ${fmt(classicPivot.R1)} | ${fmt(woodiePivot.R1)} | ${fmt(
+          `| **R1** | ${fmt(classicPivot.R1)} | ${fmt(woodiePivot.R1)} | ${fmt(
             camarillaPivot.R1
           )} |\n` +
-          `| P  | ${fmt(classicPivot.P)}  | ${fmt(woodiePivot.P)}  | ${fmt(
+          `| **P**  | ${fmt(classicPivot.P)}  | ${fmt(woodiePivot.P)}  | ${fmt(
             camarillaPivot.P
           )} |\n` +
-          `| S1 | ${fmt(classicPivot.S1)} | ${fmt(woodiePivot.S1)} | ${fmt(
+          `| **S1** | ${fmt(classicPivot.S1)} | ${fmt(woodiePivot.S1)} | ${fmt(
             camarillaPivot.S1
           )} |\n` +
-          `| S2 | ${fmt(classicPivot.S2)} | ${fmt(woodiePivot.S2)} | ${fmt(
+          `| **S2** | ${fmt(classicPivot.S2)} | ${fmt(woodiePivot.S2)} | ${fmt(
             camarillaPivot.S2
           )} |\n` +
-          `| S3 | ${fmt(classicPivot.S3)} | ${fmt(woodiePivot.S3)} | ${fmt(
+          `| **S3** | ${fmt(classicPivot.S3)} | ${fmt(woodiePivot.S3)} | ${fmt(
             camarillaPivot.S3
           )} |\n`;
 
-        return NextResponse.json({ reply, imagePath: null }, { status: 200 });
+        const footer =
+          "---\n\n" +
+          "> Pivot Point bukan peta pasti arah harga, tapi kompas keseimbangan — membantu melihat di mana pasar sedang ‘bernafas’.";
+
+        return send(
+          { reply: header + body + footer, imagePath: null },
+          "shortcircuit:pivot"
+        );
       }
     }
 
     // ===========================
-    // SHORT-CIRCUIT 4: MARGIN XAUUSD
+    // ✅ KNOWLEDGE FIRST (CONSISTENCY MODE)
+    // ===========================
+    let knowledgeHitForInjection: Awaited<
+      ReturnType<typeof searchKnowledge>
+    > | null = null;
+    let knowledgeExistsForPolicy = false;
+
+    const skipKnowledge = shouldSkipKnowledge(userPrompt, hasImage);
+
+    if (!skipKnowledge) {
+      const hit = await searchKnowledge({
+        query: userPrompt,
+        sessionKey,
+        requestId,
+      });
+
+      if (KNOWLEDGE_DEBUG) {
+        console.log("[Knowledge] query:", userPrompt);
+        console.log(
+          "[Knowledge] picked best:",
+          hit?.best?.title,
+          "bestSim:",
+          hit?.bestSim,
+          "candidates:",
+          hit?.candidatesCount,
+          "top:",
+          hit?.top?.map((x: any) => `${x.it.title} (${x.sim.toFixed(2)})`)
+        );
+      }
+
+      // Strong: jawab langsung
+      if (hit?.best && (hit.bestSim ?? 0) >= KNOWLEDGE_STRONG_SIM) {
+        knowledgeExistsForPolicy = true;
+        return send(
+          { reply: hit.best.answer, imagePath: null },
+          "knowledge:strong",
+          {
+            matchId: hit.best.id,
+            matchTitle: hit.best.title,
+            bestSim: Number(((hit.bestSim || 0) as number).toFixed(4)),
+            candidatesCount: hit.candidatesCount,
+          }
+        );
+      }
+
+      // Medium: kalau flag ON => jawab knowledge langsung (biar konsisten)
+      if (hit?.best && (hit.bestSim ?? 0) >= KNOWLEDGE_MEDIUM_SIM) {
+        knowledgeExistsForPolicy = true;
+
+        if (KNOWLEDGE_ALWAYS_ANSWER_ON_MEDIUM) {
+          return send(
+            { reply: hit.best.answer, imagePath: null },
+            "knowledge:medium",
+            {
+              matchId: hit.best.id,
+              matchTitle: hit.best.title,
+              bestSim: Number(((hit.bestSim || 0) as number).toFixed(4)),
+              candidatesCount: hit.candidatesCount,
+              note: "MEDIUM -> forced answer from Knowledge (consistency mode)",
+            }
+          );
+        }
+
+        // kalau flag OFF, baru inject untuk bantu LLM
+        knowledgeHitForInjection = hit;
+        logSource("knowledge:inject", {
+          requestId,
+          matchId: hit.best.id,
+          matchTitle: hit.best.title,
+          bestSim: Number(((hit.bestSim || 0) as number).toFixed(4)),
+          candidatesCount: hit.candidatesCount,
+        });
+      }
+
+      // Force: perusahaan terpercaya/resmi/aman
+      const forceCompanyTrusted =
+        lowerPrompt.includes("perusahaan") ||
+        lowerPrompt.includes("pialang") ||
+        lowerPrompt.includes("broker");
+
+      const forceTrustedWord =
+        lowerPrompt.includes("terpercaya") ||
+        lowerPrompt.includes("aman") ||
+        lowerPrompt.includes("resmi") ||
+        lowerPrompt.includes("legal");
+
+      if (forceCompanyTrusted && forceTrustedWord) {
+        const forced = await forcePickTrustedCompanyKnowledge(userPrompt);
+
+        if (forced) {
+          const forcedSim =
+            (hit?.bestSim as number) ?? knowledgeSimilarity(userPrompt, forced);
+
+          if (forcedSim >= KNOWLEDGE_FORCE_SIM) {
+            knowledgeExistsForPolicy = true;
+            return send(
+              { reply: forced.answer, imagePath: null },
+              "knowledge:force",
+              {
+                matchId: forced.id,
+                matchTitle: forced.title,
+                bestSim: Number((forcedSim || 0).toFixed(4)),
+              }
+            );
+          }
+        }
+
+        // kalau ada hit tapi belum di-inject
+        if (
+          hit?.best &&
+          !knowledgeHitForInjection &&
+          !KNOWLEDGE_ALWAYS_ANSWER_ON_MEDIUM
+        ) {
+          knowledgeHitForInjection = hit;
+          knowledgeExistsForPolicy = true;
+          logSource("knowledge:inject", {
+            requestId,
+            forced: true,
+            matchId: hit.best.id,
+            matchTitle: hit.best.title,
+            bestSim: Number(((hit.bestSim || 0) as number).toFixed(4)),
+          });
+        }
+      }
+    }
+
+    // ===========================
+    // SHORT-CIRCUIT: MARGIN XAUUSD
     // ===========================
     const isMarginQuestion =
       lowerPrompt.includes("margin") &&
       (lowerPrompt.includes("xauusd") ||
         lowerPrompt.includes(" emas") ||
-        lowerPrompt.includes(" gold"));
+        lowerPrompt.includes(" gold") ||
+        lowerPrompt.includes("leverage") ||
+        lowerPrompt.includes(" lot"));
 
-    // ====== Decide data fetch needs ======
     const requestedInstrument: InstrumentKey =
       detectInstrumentFromPrompt(userPrompt);
 
@@ -679,17 +1387,16 @@ export async function POST(req: NextRequest) {
     const wantsNews = shouldIncludeNews(userPrompt);
     const wantsHistorical = shouldIncludeHistorical(userPrompt);
 
-    // ================== Waktu Jakarta ==================
     const nowJakarta = new Date(
       new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
     );
     const todayIso = formatDateIso(nowJakarta);
 
-    // ================== Parse tanggal kalender ==================
-    const targetCalendarDate = detectRequestedDate(userPrompt) || todayIso;
+    const requestedDate = detectRequestedDate(userPrompt);
+    const targetCalendarDate = requestedDate || todayIso;
     const isCalendarToday = targetCalendarDate === todayIso;
+    const userAskedSpecificDate = !!requestedDate;
 
-    // ================== Parse "X hari sebelumnya" ==================
     const historicalDaysAgoMatch = lowerPrompt.match(
       /(\d+)\s*hari\s*(sebelum(?:nya)?|yg lalu|yang lalu|lalu)/
     );
@@ -699,7 +1406,6 @@ export async function POST(req: NextRequest) {
       if (!isNaN(n) && n > 0 && n < 3650) historicalDaysAgo = n;
     }
 
-    // ================== Fetch data selectively ==================
     let quotesRows: any[] = [];
     let quotesUpdatedAtLocal = "";
     let quotesSummary = "";
@@ -707,7 +1413,7 @@ export async function POST(req: NextRequest) {
     let calendarHasData = false;
     let calendarTableAll = "";
     let calendarTableHighImpact = "";
-    let calendarDateFilterNote = ""; // ✅ catatan kalau request by-date tapi endpoint cuma week/today
+    let calendarDateFilterNote = "";
 
     let historicalInstrumentWindowSummary = "";
 
@@ -745,7 +1451,6 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // ✅ hemat token: hanya 1–3 instrumen relevan
           const wanted = detectInstrumentsFromPromptMulti(userPrompt);
           const picks: InstrumentKey[] = wanted.length
             ? wanted
@@ -793,27 +1498,25 @@ export async function POST(req: NextRequest) {
 
           let normalized = allNormalized;
 
-          // ✅ kalau user minta tanggal selain hari ini: coba filter dari weekly
-          if (!isCalendarToday) {
+          if (!isCalendarToday && userAskedSpecificDate) {
             const hasRealDate = allNormalized.some((x) => !!x.date);
-            const filtered = allNormalized.filter(
-              (x) => x.date === targetCalendarDate
-            );
 
-            if (filtered.length > 0) {
-              normalized = filtered;
+            if (!hasRealDate) {
+              normalized = [];
+              calendarDateFilterNote = `Tidak ada event untuk tanggal ${targetCalendarDate}.`;
             } else {
-              if (hasRealDate) {
-                calendarDateFilterNote = `Catatan: Data minggu ini tidak menemukan event untuk tanggal ${targetCalendarDate}. Ditampilkan data minggu ini.`;
-              } else {
-                calendarDateFilterNote =
-                  "Catatan: Endpoint this-week tidak menyediakan field tanggal per event, jadi tidak bisa dipilah per hari. Ditampilkan data minggu ini.";
+              const filtered = allNormalized.filter(
+                (x) => x.date === targetCalendarDate
+              );
+              if (filtered.length > 0) normalized = filtered;
+              else {
+                normalized = [];
+                calendarDateFilterNote = `Tidak ada event untuk tanggal ${targetCalendarDate}.`;
               }
-              normalized = allNormalized;
             }
           }
 
-          const limited = normalized.slice(0, 20); // ✅ hemat token
+          const limited = normalized;
           calendarHasData = limited.length > 0;
 
           const highImpact = limited.filter(
@@ -823,11 +1526,11 @@ export async function POST(req: NextRequest) {
                 ev.impact.toLowerCase().includes("high"))
           );
 
-          calendarTableAll = buildCalendarTable(limited.slice(0, 10), {
+          calendarTableAll = buildCalendarTable(limited, {
             emptyMessage: "- Tidak ada event pada tanggal ini.",
           });
 
-          calendarTableHighImpact = buildCalendarTable(highImpact.slice(0, 8), {
+          calendarTableHighImpact = buildCalendarTable(highImpact, {
             emptyMessage:
               "- Tidak ada event high impact (★★★) pada tanggal ini.",
           });
@@ -933,7 +1636,7 @@ export async function POST(req: NextRequest) {
               );
             });
 
-            const latest = sorted.slice(0, 3); // ✅ hemat token: top 3
+            const latest = sorted.slice(0, 3);
             newsHasData = latest.length > 0;
 
             const allLines: string[] = [];
@@ -969,7 +1672,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ===========================
-    // SHORT-CIRCUIT 4 (lanjut): margin xauusd
+    // SHORT-CIRCUIT: margin xauusd
     // ===========================
     if (isMarginQuestion) {
       const lotMatch = lowerPrompt.match(/(\d+(?:[.,]\d+)?)\s*lot/);
@@ -1012,8 +1715,8 @@ export async function POST(req: NextRequest) {
           `- Lot: ${lot}\n` +
           `- Harga: ~${price.toFixed(2)} USD/toz\n` +
           `- Leverage: 1:${leverage}\n` +
-          `- Notional ≈ ${notionalUsd.toFixed(2)} USD\n` +
-          `- Margin ≈ ${marginUsd.toFixed(2)} USD (≈ Rp ${Math.round(
+          `- Notional ~ ${notionalUsd.toFixed(2)} USD\n` +
+          `- Margin ~ ${marginUsd.toFixed(2)} USD (~ Rp ${Math.round(
             marginIdr
           ).toLocaleString(
             "id-ID"
@@ -1022,16 +1725,37 @@ export async function POST(req: NextRequest) {
           )})\n\n` +
           `Catatan: ini simulasi edukatif, ketentuan riil bisa berbeda.`;
 
-        return NextResponse.json(
+        return send(
           { reply: replyMargin, imagePath: null },
-          { status: 200 }
+          "shortcircuit:margin"
         );
       }
-      // kalau price/leverage nggak kebaca, lanjut ke AI engine
+
+      const examplePrice = 2350;
+      const contractSize = 100;
+      const exampleMarginUsd =
+        (examplePrice * contractSize * lot) / (leverage || 100);
+      const exampleMarginIdr = exampleMarginUsd * FIXED_USD_IDR_RATE;
+
+      const replyNeedPrice =
+        `Butuh harga emas (XAUUSD) terbaru supaya bisa dihitung. ` +
+        `Kirim format: "harga emas 2350, leverage 1:100, lot 0.5".\n\n` +
+        `Formula: Margin = (Harga x ${contractSize} x Lot) / Leverage.\n` +
+        `Contoh dengan harga ${examplePrice} USD, lot ${lot}, leverage 1:${leverage}:\n` +
+        `- Margin ~ ${exampleMarginUsd.toFixed(2)} USD ` +
+        `(~ Rp ${Math.round(exampleMarginIdr).toLocaleString(
+          "id-ID"
+        )} asumsi 1 USD = Rp ${FIXED_USD_IDR_RATE.toLocaleString("id-ID")}).`;
+
+      return send(
+        { reply: replyNeedPrice, imagePath: null },
+        "shortcircuit:margin",
+        { note: "missing_price" }
+      );
     }
 
     // ===========================
-    // SHORT-CIRCUIT 5: HARGA LANGSUNG
+    // SHORT-CIRCUIT: HARGA LANGSUNG
     // ===========================
     const isPriceIntent =
       !lowerPrompt.includes("margin") &&
@@ -1063,7 +1787,7 @@ export async function POST(req: NextRequest) {
 
         if (isFinite(last)) {
           lines.push(
-            `- ${label.name}: ${last.toFixed(2)} ${label.unit} (${
+            `- ${label.name}: **${last.toFixed(2)}** ${label.unit} (${
               isFinite(pct) ? pct.toFixed(2) : "0.00"
             }%)`
           );
@@ -1074,20 +1798,20 @@ export async function POST(req: NextRequest) {
         const upd = quotesUpdatedAtLocal
           ? ` (update ~${quotesUpdatedAtLocal} WIB)`
           : "";
-        return NextResponse.json(
+        return send(
           {
-            reply: `Harga terkini (internal Newsmaker)${upd}:\n\n${lines.join(
+            reply: `Harga terkini (Internal Newsmaker)${upd}:\n\n${lines.join(
               "\n"
             )}`,
             imagePath: null,
           },
-          { status: 200 }
+          "shortcircuit:price"
         );
       }
     }
 
     // ===========================
-    // SHORT-CIRCUIT 6: KALENDER
+    // SHORT-CIRCUIT: KALENDER
     // ===========================
     const isCalendarOverview =
       lowerPrompt.includes("kalender ekonomi") ||
@@ -1101,40 +1825,55 @@ export async function POST(req: NextRequest) {
       lowerPrompt.includes("★★★");
 
     if (isCalendarOverview) {
-      if (calendarHasData) {
-        const body = wantsHighImpactOnly
-          ? calendarTableHighImpact
-          : calendarTableAll;
-
+      if (!calendarHasData) {
+        const impactHint = wantsHighImpactOnly ? " (high impact)" : "";
         const note = calendarDateFilterNote
-          ? `\n\n${calendarDateFilterNote}`
+          ? `\n${calendarDateFilterNote}`
           : "";
-
-        return NextResponse.json(
+        return send(
           {
-            reply: `Kalender ekonomi ${targetCalendarDate} (internal Newsmaker):\n\n${body}${note}`,
+            reply: `Tidak ada event kalender ekonomi${impactHint} untuk tanggal ${targetCalendarDate}.${note}`,
             imagePath: null,
           },
-          { status: 200 }
+          "shortcircuit:calendar",
+          { targetCalendarDate }
         );
       }
-      return NextResponse.json(
+
+      const body = wantsHighImpactOnly
+        ? calendarTableHighImpact
+        : calendarTableAll;
+      const note = calendarDateFilterNote
+        ? `\n\n${calendarDateFilterNote}`
+        : "";
+
+      return send(
         {
-          reply:
-            `Kalender ekonomi ${targetCalendarDate} di sistem Newsmaker tidak tersedia/kosong.\n` +
-            "NM Ai tidak bisa menyebut jam/event spesifik tanpa data.",
+          reply: `Kalender ekonomi ${targetCalendarDate} (Internal Newsmaker):\n\n${body}${note}`,
           imagePath: null,
         },
-        { status: 200 }
+        "shortcircuit:calendar",
+        { targetCalendarDate }
       );
     }
 
     // ======================================================
-    // 3) SUSUN CORE MESSAGES UNTUK ENGINE (TOKENS DIHEMAT)
+    // SUSUN CORE MESSAGES UNTUK ENGINE
     // ======================================================
     const coreMessages: CoreMessage[] = [];
-
     coreMessages.push({ role: "system", content: SYSTEM_PREFIX_LITE });
+
+    const injectedBest = knowledgeHitForInjection?.best;
+    if (injectedBest?.answer) {
+      coreMessages.push({
+        role: "system",
+        content:
+          "KNOWLEDGE INTERNAL (wajib jadi rujukan utama jika relevan):\n" +
+          `Judul: ${injectedBest.title}\n` +
+          clampText(injectedBest.answer, 1400) +
+          "\n\nAturan: Jika pertanyaan user sesuai, jawaban harus mengikuti Knowledge Internal di atas. Jangan buat contoh perusahaan global yang tidak relevan.",
+      });
+    }
 
     if (shouldIncludeFxRules(userPrompt)) {
       coreMessages.push({
@@ -1161,7 +1900,6 @@ export async function POST(req: NextRequest) {
       const note = calendarDateFilterNote
         ? `\n${clampText(calendarDateFilterNote, 160)}`
         : "";
-
       coreMessages.push({
         role: "system",
         content:
@@ -1204,18 +1942,51 @@ export async function POST(req: NextRequest) {
     coreMessages.push(userMsg);
 
     // ======================================================
-    // 4) HYBRID ENGINE: OLLAMA -> fallback OPENAI
+    // HYBRID ENGINE: OLLAMA -> fallback OPENAI
+    // ✅ tapi: kalau knowledge ada, OpenAI DIBLOK total.
     // ======================================================
     let reply: string | null = null;
     let lastError: string | null = null;
+    let engineSource: ReplySource = "llm:other";
+
+    const disallowOpenAI =
+      DISABLE_OPENAI_WHEN_KNOWLEDGE &&
+      (knowledgeExistsForPolicy || !!knowledgeHitForInjection);
 
     if (OLLAMA_BASE_URL) {
       try {
         reply = await callOllamaChat(coreMessages);
+        if (reply) engineSource = "llm:ollama";
       } catch (err: any) {
         lastError = `Ollama error: ${String(err)}`;
         console.error(lastError);
       }
+    }
+
+    if (!reply && disallowOpenAI) {
+      const best = knowledgeHitForInjection?.best;
+
+      if (best?.answer) {
+        return send(
+          { reply: best.answer, imagePath: null },
+          "knowledge:inject",
+          {
+            note: "Ollama gagal, OpenAI diblok karena knowledge tersedia. Fallback ke knowledge.",
+            matchId: best.id,
+            matchTitle: best.title,
+          }
+        );
+      }
+
+      return send(
+        {
+          reply:
+            "Maaf, mesin lokal sedang bermasalah dan OpenAI dinonaktifkan saat Knowledge tersedia. Coba ulangi beberapa saat lagi.",
+          imagePath: null,
+        },
+        "llm:other",
+        { note: "blocked_openai_due_to_knowledge", lastError }
+      );
     }
 
     if (!reply) {
@@ -1239,6 +2010,7 @@ export async function POST(req: NextRequest) {
           promptCacheKey: PROMPT_CACHE_KEY,
           enableCache: OPENAI_ENABLE_PROMPT_CACHE,
         });
+        if (reply) engineSource = "llm:openai";
       } catch (err: any) {
         lastError = `OpenAI error: ${String(err)}`;
         console.error(lastError);
@@ -1249,10 +2021,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(
-      { reply: reply || "NM Ai tidak memberikan respon.", imagePath: null },
-      { status: 200 }
-    );
+    const finalReply = reply || "NM Ai tidak memberikan respon.";
+
+    // ======================================================
+    // AUTO-SAVE: kalau jawaban dari LLM => simpan jadi Knowledge (answer AI saja)
+    // ======================================================
+    if (shouldAutoStore(engineSource, finalReply)) {
+      const saved = await storeLLMAnswerToKnowledge({
+        userPrompt,
+        reply: finalReply,
+        requestId,
+      });
+
+      if (SOURCE_DEBUG) {
+        console.log(
+          "[KnowledgeStore] result:",
+          safeJson({ requestId, ok: saved?.ok, engineSource })
+        );
+      }
+    }
+
+    return send({ reply: finalReply, imagePath: null }, engineSource);
   } catch (err) {
     console.error("API /GwenStacy error:", err);
     return NextResponse.json(
