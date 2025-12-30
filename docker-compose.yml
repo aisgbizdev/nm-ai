@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  nm-ai:
+    build: .
+    container_name: nm-ai
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    env_file:
+      - .env
+    networks:
+      - nm-ai-network
+
+networks:
+  nm-ai-network:
+    driver: bridge
