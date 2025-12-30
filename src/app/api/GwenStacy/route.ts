@@ -31,13 +31,6 @@ import {
   pickQuoteForInstrument,
 } from "./utils/instrumentUtils";
 
-// =============== OLLAMA CONFIG ==================
-const OLLAMA_BASE_URL = (
-  process.env.OLLAMA_BASE_URL || "http://localhost:11434"
-).replace(/\/+$/, "");
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "NM-Ai";
-const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || "7000");
-
 // =============== OPENAI CONFIG ==================
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -151,7 +144,6 @@ type ReplySource =
   | "knowledge:medium"
   | "knowledge:force"
   | "knowledge:inject"
-  | "llm:ollama"
   | "llm:openai"
   | "llm:other";
 
@@ -685,52 +677,6 @@ function shouldSkipKnowledge(userPrompt: string, hasImage: boolean) {
 }
 
 // ================== LLM HELPERS ==================
-async function callOllamaChat(messages: CoreMessage[]): Promise<string> {
-  if (!OLLAMA_BASE_URL) throw new Error("OLLAMA_BASE_URL is not configured");
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
-
-  try {
-    const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages,
-        stream: false,
-        options: {
-          temperature: 0.2,
-          top_p: 0.9,
-          top_k: 40,
-          repeat_penalty: 1.05,
-          num_ctx: 4096,
-          num_predict: 220,
-          seed: 1,
-        },
-      }),
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`Ollama HTTP ${res.status}: ${errText}`);
-    }
-
-    const json: any = await res.json();
-    const raw = json?.message?.content?.toString() || "";
-    return stripThinkBlocks(raw || "");
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    if (err?.name === "AbortError") {
-      throw new Error(`Ollama timeout setelah ${OLLAMA_TIMEOUT_MS} ms`);
-    }
-    throw err;
-  }
-}
-
 function toOpenAIChatMessages(coreMessages: CoreMessage[]) {
   return coreMessages.map((msg) => {
     if (msg.role === "user" && msg.images && msg.images.length > 0) {
@@ -992,7 +938,7 @@ export async function POST(req: NextRequest) {
       source: ReplySource,
       meta?: Record<string, any>
     ) => {
-      // ✅ apply signature here biar konsisten (knowledge/ollama/openai sama)
+      // ✅ apply signature here biar konsisten (knowledge/openai sama)
       const replyText =
         typeof payload?.reply === "string" ? withSignature(payload.reply) : "";
 
@@ -1942,8 +1888,7 @@ export async function POST(req: NextRequest) {
     coreMessages.push(userMsg);
 
     // ======================================================
-    // HYBRID ENGINE: OLLAMA -> fallback OPENAI
-    // ✅ tapi: kalau knowledge ada, OpenAI DIBLOK total.
+    // ENGINE: OPENAI (diblok jika knowledge aktif sesuai kebijakan)
     // ======================================================
     let reply: string | null = null;
     let lastError: string | null = null;
@@ -1953,17 +1898,7 @@ export async function POST(req: NextRequest) {
       DISABLE_OPENAI_WHEN_KNOWLEDGE &&
       (knowledgeExistsForPolicy || !!knowledgeHitForInjection);
 
-    if (OLLAMA_BASE_URL) {
-      try {
-        reply = await callOllamaChat(coreMessages);
-        if (reply) engineSource = "llm:ollama";
-      } catch (err: any) {
-        lastError = `Ollama error: ${String(err)}`;
-        console.error(lastError);
-      }
-    }
-
-    if (!reply && disallowOpenAI) {
+    if (disallowOpenAI) {
       const best = knowledgeHitForInjection?.best;
 
       if (best?.answer) {
@@ -1971,7 +1906,7 @@ export async function POST(req: NextRequest) {
           { reply: best.answer, imagePath: null },
           "knowledge:inject",
           {
-            note: "Ollama gagal, OpenAI diblok karena knowledge tersedia. Fallback ke knowledge.",
+            note: "OpenAI diblok karena knowledge tersedia. Fallback ke knowledge.",
             matchId: best.id,
             matchTitle: best.title,
           }
@@ -1981,7 +1916,7 @@ export async function POST(req: NextRequest) {
       return send(
         {
           reply:
-            "Maaf, mesin lokal sedang bermasalah dan OpenAI dinonaktifkan saat Knowledge tersedia. Coba ulangi beberapa saat lagi.",
+            "Maaf, OpenAI dinonaktifkan saat Knowledge tersedia. Coba ulangi beberapa saat lagi.",
           imagePath: null,
         },
         "llm:other",
@@ -1989,36 +1924,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!reply) {
-      if (!OPENAI_API_KEY) {
-        return NextResponse.json(
-          {
-            error: "No engine available",
-            detail:
-              lastError ||
-              "Tidak ada mesin AI yang siap digunakan (Ollama & OpenAI tidak tersedia).",
-          },
-          { status: 500 }
-        );
-      }
+    if (!OPENAI_API_KEY) {
+      return NextResponse.json(
+        {
+          error: "No engine available",
+          detail:
+            lastError || "Tidak ada mesin AI yang siap digunakan (OpenAI tidak tersedia).",
+        },
+        { status: 500 }
+      );
+    }
 
-      try {
-        reply = await callOpenAIChat({
-          coreMessages,
-          apiKey: OPENAI_API_KEY,
-          model: OPENAI_MODEL,
-          promptCacheKey: PROMPT_CACHE_KEY,
-          enableCache: OPENAI_ENABLE_PROMPT_CACHE,
-        });
-        if (reply) engineSource = "llm:openai";
-      } catch (err: any) {
-        lastError = `OpenAI error: ${String(err)}`;
-        console.error(lastError);
-        return NextResponse.json(
-          { error: "AI engine error", detail: lastError },
-          { status: 500 }
-        );
-      }
+    try {
+      reply = await callOpenAIChat({
+        coreMessages,
+        apiKey: OPENAI_API_KEY,
+        model: OPENAI_MODEL,
+        promptCacheKey: PROMPT_CACHE_KEY,
+        enableCache: OPENAI_ENABLE_PROMPT_CACHE,
+      });
+      if (reply) engineSource = "llm:openai";
+    } catch (err: any) {
+      lastError = `OpenAI error: ${String(err)}`;
+      console.error(lastError);
+      return NextResponse.json(
+        { error: "AI engine error", detail: lastError },
+        { status: 500 }
+      );
     }
 
     const finalReply = reply || "NM Ai tidak memberikan respon.";
