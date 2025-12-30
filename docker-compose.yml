@@ -11,12 +11,34 @@ services:
       - NODE_ENV=production
       - PORT=5000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DATABASE_URL=${DATABASE_URL}
-    env_file:
-      - .env
+      - DATABASE_URL=postgresql://nmai:nmaipassword@postgres:5432/nmaidb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nm-ai-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: nm-ai-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=nmai
+      - POSTGRES_PASSWORD=nmaipassword
+      - POSTGRES_DB=nmaidb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nmai -d nmaidb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - nm-ai-network
 
 networks:
   nm-ai-network:
     driver: bridge
+
+volumes:
+  postgres_data:
