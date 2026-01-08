@@ -36,11 +36,11 @@ export const WelcomeNavigator: FC<WelcomeNavigatorProps> = ({
 
       <p className="text-xs text-zinc-600 leading-relaxed">
         Contoh:{" "}
-        <span className="rounded-full bg-linear-to-r from-sky-100 to-sky-200 px-2 py-0.5">
+        <span className="rounded-full bg-blue-100 px-2 py-0.5">
           “Hitung margin XAUUSD 1 lot leverage 1:100”
         </span>{" "}
         atau{" "}
-        <span className="rounded-full bg-linear-to-r from-sky-100 to-sky-200 px-2 py-0.5">
+        <span className="rounded-full bg-blue-100 px-2 py-0.5">
           “Berita terbaru soal emas hari ini apa?”
         </span>
       </p>
