@@ -2,6 +2,7 @@
 import {
   collection,
   addDoc,
+  setDoc,
   query,
   orderBy,
   getDocs,
@@ -13,6 +14,7 @@ import { db } from "@/lib/firebase";
 
 export interface ChatMessage {
   id?: string;
+  clientId?: string;
   sessionId: string;
   role: "user" | "ai";
   text: string;
@@ -23,13 +25,19 @@ export interface ChatMessage {
 // Simpan 1 message
 export async function saveMessage(msg: ChatMessage) {
   const messagesCol = collection(db, "sessions", msg.sessionId, "messages");
-  await addDoc(messagesCol, {
+  const payload = {
     sessionId: msg.sessionId, // opsional, cuma biar keliatan di Console
     role: msg.role,
     text: msg.text,
     imagePath: msg.imagePath || null,
     createdAt: serverTimestamp(),
-  });
+  };
+
+  if (msg.clientId) {
+    await setDoc(doc(messagesCol, msg.clientId), payload, { merge: true });
+  } else {
+    await addDoc(messagesCol, payload);
+  }
 }
 
 // Simpan shareable snippet (text + optional image) dan kembalikan id

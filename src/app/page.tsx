@@ -49,6 +49,7 @@ export default function Home() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   // 🔥 SPLASH STATE
   const [showSplash, setShowSplash] = useState(true);
@@ -118,6 +119,29 @@ export default function Home() {
       setCanSpeak(false);
     }
   }, []);
+
+  // ====== Theme (dark mode) ======
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("nm-theme");
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+      return;
+    }
+    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      setTheme("dark");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("nm-theme", theme);
+    }
+  }, [theme]);
 
   // ====== Firebase anon auth ======
   useEffect(() => {
@@ -499,14 +523,15 @@ export default function Home() {
   // ====== AI typing helper ======
   const showAiMessageWithTyping = (
     fullText: string,
-    imagePath?: string | null
+    imagePath?: string | null,
+    targetId?: string
   ) => {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
 
-    const id = (Date.now() + 1).toString();
+    const id = targetId || (Date.now() + 1).toString();
     setTypingMessageId(id);
     const baseMessage: UiMessage = {
       id,
@@ -516,7 +541,15 @@ export default function Home() {
       imagePath: imagePath || undefined,
     };
 
-    setMessages((prev) => [...prev, baseMessage]);
+    setMessages((prev) => {
+      const hasTarget = targetId
+        ? prev.some((msg) => msg.id === targetId)
+        : false;
+      if (targetId && hasTarget) {
+        return prev.map((msg) => (msg.id === id ? baseMessage : msg));
+      }
+      return [...prev, baseMessage];
+    });
 
     const total = fullText.length;
     let index = 0;
@@ -544,6 +577,7 @@ export default function Home() {
     if (sessionId) {
       saveMessage({
         sessionId,
+        clientId: id,
         role: "ai",
         text: fullText,
         imagePath: imagePath || undefined,
@@ -600,6 +634,7 @@ export default function Home() {
 
     saveMessage({
       sessionId,
+      clientId: userMessage.id,
       role: "user",
       text: displayText,
       imagePath: imageDataUrl,
@@ -679,13 +714,32 @@ export default function Home() {
     const hasAiAfterUser =
       lastUserIndex >= 0 &&
       messages.slice(lastUserIndex + 1).some((m) => m.sender === "ai");
+    let lastAiId: string | null = null;
+    if (lastUserIndex >= 0) {
+      for (let i = messages.length - 1; i > lastUserIndex; i--) {
+        if (messages[i].sender === "ai") {
+          lastAiId = messages[i].id;
+          break;
+        }
+      }
+    }
 
     if (!lastUserMessage || !hasAiAfterUser) return;
 
     setMessages((prev) => {
       const lastUserIdx = findLastUserIndex(prev);
       if (lastUserIdx < 0) return prev;
-      return prev.slice(0, lastUserIdx + 1);
+      let keepAiId: string | null = null;
+      for (let i = prev.length - 1; i > lastUserIdx; i--) {
+        if (prev[i].sender === "ai") {
+          keepAiId = prev[i].id;
+          break;
+        }
+      }
+      if (!keepAiId) return prev;
+      return prev.filter(
+        (msg, idx) => idx <= lastUserIdx || msg.id === keepAiId
+      );
     });
 
     setIsTyping(true);
@@ -722,7 +776,7 @@ export default function Home() {
           ? data.reply
           : "NM Ai tidak memberikan respon.";
 
-      showAiMessageWithTyping(fullReply, data.imagePath);
+      showAiMessageWithTyping(fullReply, data.imagePath, lastAiId || undefined);
     } catch (error) {
       if ((error as any)?.name === "AbortError") return;
       const errorMessage: UiMessage = {
@@ -819,11 +873,11 @@ export default function Home() {
         </div>
       )}
 
-      <main className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gray-100 shadow-2xl">
+      <main className="flex h-screen max-h-screen w-full flex-col overflow-hidden bg-gray-100 shadow-2xl dark:bg-zinc-950">
         <audio ref={audioRef} className="hidden" />
 
         {firebaseError && (
-          <div className="mx-auto w-full max-w-5xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <div className="mx-auto w-full max-w-5xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-950/40 dark:text-red-200">
             {firebaseError}
           </div>
         )}
@@ -850,12 +904,16 @@ export default function Home() {
           modelMenuRef={modelMenuRef}
           onDeleteHistoryClick={handleDeleteHistory}
           canDeleteHistory={canDeleteHistory}
+          isDark={theme === "dark"}
+          onToggleTheme={() =>
+            setTheme((prev) => (prev === "dark" ? "light" : "dark"))
+          }
         />
 
         <section className="relative flex-1 overflow-hidden">
           <div
             ref={chatScrollRef}
-            className="relative h-full bg-gray-50 nm-scroll overflow-y-auto"
+            className="relative h-full bg-gray-50 nm-scroll overflow-y-auto dark:bg-zinc-900"
           >
             <div className="mx-auto h-full w-full max-w-5xl px-3 md:px-5">
               <div className="relative z-10 flex min-h-full flex-col px-2 sm:px-4 py-32 md:py-36 space-y-4">
@@ -919,19 +977,19 @@ export default function Home() {
 
         {shareModal.open && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 px-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-950 dark:text-zinc-100">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-zinc-900">
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                     Bagikan jawaban
                   </h3>
-                  <p className="text-sm text-zinc-500 mt-1">
+                  <p className="text-sm text-zinc-500 mt-1 dark:text-zinc-400">
                     Salin teks atau tautan khusus untuk pesan ini.
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="h-9 w-9 rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                  className="h-9 w-9 rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   onClick={() =>
                     setShareModal({
                       open: false,
@@ -948,10 +1006,10 @@ export default function Home() {
 
               <div className="mt-4 space-y-3">
                 <div>
-                  <p className="text-xs uppercase font-semibold text-zinc-500 mb-1">
+                  <p className="text-xs uppercase font-semibold text-zinc-500 mb-1 dark:text-zinc-400">
                     Teks
                   </p>
-                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 max-h-48 overflow-y-auto whitespace-pre-wrap">
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 max-h-48 overflow-y-auto whitespace-pre-wrap dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
                     {shareModal.text || "Tidak ada teks."}
                   </div>
                   <button
@@ -965,7 +1023,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <p className="text-xs uppercase font-semibold text-zinc-500 mb-1">
+                  <p className="text-xs uppercase font-semibold text-zinc-500 mb-1 dark:text-zinc-400">
                     Tautan
                   </p>
                   <div className="flex items-center gap-2">
@@ -977,7 +1035,7 @@ export default function Home() {
                           ? "Menyiapkan tautan..."
                           : shareModal.link || "Tautan belum tersedia"
                       }
-                      className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800"
+                      className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                     <button
                       type="button"

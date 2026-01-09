@@ -48,8 +48,8 @@ const OPENAI_PROMPT_CACHE_RETENTION =
 
 // ================== DATA SOURCE URL ==================
 const QUOTES_API_URL =
-  process.env.QUOTES_API_URL ||
-  "https://endpoapi-production-3202.up.railway.app/api/quotes";
+  process.env.QUOTES_API_URL || "wss://wsprc.royalassetindo.co.id";
+const QUOTES_API_SAMPLE = process.env.QUOTES_API_SAMPLE || "";
 
 const CALENDAR_TODAY_API_URL =
   process.env.CALENDAR_TODAY_API_URL ||
@@ -180,6 +180,14 @@ function safeJson(obj: any, max = 1400) {
   }
 }
 
+function safeParseJson(text: string) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function normalizeTitleCase(s: string) {
   return (s || "")
     .split(" ")
@@ -267,6 +275,187 @@ function shouldIncludeFxRules(p: string) {
     s.includes("margin") ||
     s.includes("leverage")
   );
+}
+
+// ================== QUOTES: WS NORMALIZER ==================
+const WS_SYMBOL_MAP: Array<[RegExp, string]> = [
+  [/^XUL/, "XAUUSD"],
+  [/^XAG/, "XAGUSD"],
+  [/^BCO/, "BCO"],
+  [/^HKK/, "HSI"],
+  [/^JPK/, "NIKKEI"],
+  [/^AU/, "AUDUSD"],
+  [/^EU/, "EURUSD"],
+  [/^GU/, "GBPUSD"],
+  [/^UC/, "USDCHF"],
+  [/^UJ/, "USDJPY"],
+];
+
+function normalizeWsSymbol(rawSymbol: string) {
+  const cleaned = rawSymbol.toUpperCase().replace(/_BBJ$/i, "");
+  for (const [re, sym] of WS_SYMBOL_MAP) {
+    if (re.test(cleaned)) return sym;
+  }
+  return cleaned;
+}
+
+function parseWsQuotesPayload(payload: any) {
+  if (!payload || typeof payload !== "object") {
+    return { rows: [] as any[], updatedAt: null as Date | null };
+  }
+
+  const rows: any[] = [];
+  let latestMs = 0;
+
+  for (const [rawSymbol, q] of Object.entries(payload)) {
+    if (!q || typeof q !== "object") continue;
+
+    const symbol = normalizeWsSymbol(String(rawSymbol));
+    const priceNum = Number((q as any).price);
+    const sellNum = Number((q as any).sell);
+    const buyNum = Number((q as any).buy);
+    const oNum = Number((q as any).oprice);
+    const hNum = Number((q as any).hprice);
+    const lNum = Number((q as any).lprice);
+
+    const dtRaw = String((q as any).date_time || "");
+    const dt = dtRaw ? new Date(dtRaw.replace(" ", "T")) : null;
+    const dtMs = dt && !isNaN(dt.getTime()) ? dt.getTime() : 0;
+    if (dtMs > latestMs) latestMs = dtMs;
+
+    const percentChange =
+      isFinite(priceNum) && isFinite(oNum) && oNum !== 0
+        ? ((priceNum - oNum) / oNum) * 100
+        : 0;
+
+    rows.push({
+      symbol,
+      rawSymbol: String(rawSymbol),
+      last: isFinite(priceNum) ? priceNum : (q as any).price,
+      price: (q as any).price,
+      buy: isFinite(buyNum) ? buyNum : (q as any).buy,
+      sell: isFinite(sellNum) ? sellNum : (q as any).sell,
+      open: isFinite(oNum) ? oNum : (q as any).oprice,
+      high: isFinite(hNum) ? hNum : (q as any).hprice,
+      low: isFinite(lNum) ? lNum : (q as any).lprice,
+      priceChange: (q as any).price_change,
+      time: (q as any).time,
+      dateTime: (q as any).date_time,
+      percentChange,
+    });
+  }
+
+  return {
+    rows,
+    updatedAt: latestMs ? new Date(latestMs) : null,
+  };
+}
+
+async function getWebSocketCtor() {
+  if (typeof WebSocket !== "undefined") return WebSocket;
+  const mod = await import("ws");
+  return (mod as any).WebSocket || (mod as any).default;
+}
+
+function coerceWsDataToString(data: any) {
+  if (typeof data === "string") return data;
+  if (Buffer.isBuffer(data)) return data.toString("utf-8");
+  if (data instanceof ArrayBuffer)
+    return Buffer.from(data).toString("utf-8");
+  if (ArrayBuffer.isView(data)) {
+    return Buffer.from(
+      data.buffer,
+      data.byteOffset || 0,
+      data.byteLength || data.buffer.byteLength
+    ).toString("utf-8");
+  }
+  return "";
+}
+
+async function fetchWsQuotes(
+  url: string,
+  timeoutMs = 5000,
+  idleMs = 400
+) {
+  const WebSocketCtor = await getWebSocketCtor();
+  if (!WebSocketCtor) {
+    throw new Error("WebSocket not available in this runtime.");
+  }
+
+  const ws = new WebSocketCtor(url);
+
+  const rawMessage = await new Promise<string>((resolve, reject) => {
+    let settled = false;
+    let tid: ReturnType<typeof setTimeout> | null = null;
+    let idleTid: ReturnType<typeof setTimeout> | null = null;
+    let lastText = "";
+    const add = (event: string, handler: (...args: any[]) => void) => {
+      if (typeof (ws as any).addEventListener === "function") {
+        (ws as any).addEventListener(event, handler);
+      } else if (typeof (ws as any).on === "function") {
+        (ws as any).on(event, handler);
+      }
+    };
+    const remove = (event: string, handler: (...args: any[]) => void) => {
+      if (typeof (ws as any).removeEventListener === "function") {
+        (ws as any).removeEventListener(event, handler);
+      } else if (typeof (ws as any).off === "function") {
+        (ws as any).off(event, handler);
+      } else if (typeof (ws as any).removeListener === "function") {
+        (ws as any).removeListener(event, handler);
+      }
+    };
+
+    const cleanup = (err?: unknown, result?: string) => {
+      if (settled) return;
+      settled = true;
+      if (tid) clearTimeout(tid);
+      if (idleTid) clearTimeout(idleTid);
+      remove("message", onMessage);
+      remove("error", onError);
+      remove("close", onClose);
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+      if (err) return reject(err);
+      resolve(result || lastText || "");
+    };
+
+    const onMessage = (ev: any) => {
+      const data = ev?.data ?? ev;
+      const msg = coerceWsDataToString(data);
+      if (!msg) return;
+      if (safeParseJson(msg)) {
+        lastText = msg;
+        if (idleTid) clearTimeout(idleTid);
+        idleTid = setTimeout(() => cleanup(undefined, lastText), idleMs);
+      }
+    };
+
+    const onError = (err: unknown) => cleanup(err);
+    const onClose = () =>
+      cleanup(
+        lastText ? undefined : new Error("WebSocket closed before message"),
+        lastText
+      );
+
+    add("message", onMessage);
+    add("error", onError);
+    add("close", onClose);
+
+    tid = setTimeout(
+      () =>
+        cleanup(
+          lastText ? undefined : new Error("WebSocket timeout"),
+          lastText
+        ),
+      timeoutMs
+    );
+  });
+
+  return rawMessage;
 }
 
 // ================== KNOWLEDGE: TEXT SIMILARITY ==================
@@ -1370,39 +1559,50 @@ export async function POST(req: NextRequest) {
     // ---- QUOTES ----
     if (wantsQuotes) {
       try {
-        const quotesRes = await fetch(QUOTES_API_URL, {
-          method: "GET",
-          cache: "no-store",
-        });
-        if (quotesRes.ok) {
-          const quotesData: any = await quotesRes.json();
-          const rows: any[] = Array.isArray(quotesData.data)
-            ? quotesData.data
-            : [];
-          quotesRows = rows;
+        let updatedAt: Date | null = null;
 
-          if (quotesData.updatedAt) {
-            const updatedRaw = new Date(quotesData.updatedAt);
-            if (!isNaN(updatedRaw.getTime())) {
-              const updatedJakarta = new Date(
-                updatedRaw.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
-              );
-              quotesUpdatedAtLocal = updatedJakarta.toLocaleString("id-ID", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-            }
-          }
+        if (!/^wss?:/i.test(QUOTES_API_URL)) {
+          throw new Error("QUOTES_API_URL must be a websocket (wss://) URL.");
+        }
 
+        let wsPayload: any = null;
+        try {
+          const raw = await fetchWsQuotes(QUOTES_API_URL, 5000);
+          wsPayload = safeParseJson(raw);
+        } catch (e) {
+          console.error("Quotes ws error:", e);
+        }
+
+        if (!wsPayload && QUOTES_API_SAMPLE) {
+          wsPayload = safeParseJson(QUOTES_API_SAMPLE);
+        }
+
+        if (wsPayload) {
+          const parsed = parseWsQuotesPayload(wsPayload);
+          quotesRows = parsed.rows;
+          updatedAt = parsed.updatedAt;
+        }
+
+        if (updatedAt && !isNaN(updatedAt.getTime())) {
+          const updatedJakarta = new Date(
+            updatedAt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
+          );
+          quotesUpdatedAtLocal = updatedJakarta.toLocaleString("id-ID", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
+
+        if (quotesRows.length) {
           const wanted = detectInstrumentsFromPromptMulti(userPrompt);
           const picks: InstrumentKey[] = wanted.length
             ? wanted
             : [requestedInstrument];
           const pickedRows = picks
-            .map((k) => pickQuoteForInstrument(rows, k))
+            .map((k) => pickQuoteForInstrument(quotesRows, k))
             .filter(Boolean)
             .slice(0, 3);
 
@@ -1929,7 +2129,8 @@ export async function POST(req: NextRequest) {
         {
           error: "No engine available",
           detail:
-            lastError || "Tidak ada mesin AI yang siap digunakan (OpenAI tidak tersedia).",
+            lastError ||
+            "Tidak ada mesin AI yang siap digunakan (OpenAI tidak tersedia).",
         },
         { status: 500 }
       );

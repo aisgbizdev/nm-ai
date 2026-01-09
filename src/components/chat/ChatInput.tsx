@@ -154,16 +154,16 @@ export const ChatInput: FC<ChatInputProps> = ({
       <div className="mx-auto w-full max-w-5xl px-3 md:px-6">
         {/* Card input chat */}
         <div
-          className={`pointer-events-auto rounded-2xl border border-white/70 bg-white/90 shadow-[0_12px_45px_rgba(15,23,42,0.22)] backdrop-blur-lg transition-all ${
+          className={`pointer-events-auto rounded-2xl border border-white/70 bg-white/90 shadow-[0_12px_45px_rgba(15,23,42,0.22)] backdrop-blur-lg transition-all dark:border-zinc-800/80 dark:bg-zinc-950/80 ${
             showInfoModal ? "opacity-40 blur-[1px]" : ""
           }`}
           aria-hidden={showInfoModal}
         >
           <div className="px-3 pt-3 md:px-4 md:pt-4">
             {canAttachFile && selectedFile && (
-              <div className="mb-3 flex items-center gap-3 rounded-xl border border-dashed border-blue-200/80 bg-blue-50/60 p-2.5">
+              <div className="mb-3 flex items-center gap-3 rounded-xl border border-dashed border-blue-200/80 bg-blue-50/60 p-2.5 dark:border-blue-500/30 dark:bg-blue-950/40">
                 {previewUrl ? (
-                  <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-blue-100 shadow-sm">
+                  <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-blue-100 shadow-sm dark:border-blue-500/30">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={previewUrl}
@@ -172,15 +172,15 @@ export const ChatInput: FC<ChatInputProps> = ({
                     />
                   </div>
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-blue-100 bg-white text-blue-500 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-blue-100 bg-white text-blue-500 shadow-sm dark:border-blue-500/40 dark:bg-blue-900/40 dark:text-blue-200">
                     <FontAwesomeIcon icon={faPaperclip} size="sm" />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-blue-700">
+                  <p className="truncate text-sm font-medium text-blue-700 dark:text-blue-200">
                     {selectedFile.name}
                   </p>
-                  <p className="text-xs text-blue-500">
+                  <p className="text-xs text-blue-500 dark:text-blue-300">
                     {(selectedFile.size / 1024).toFixed(1)} KB
                   </p>
                 </div>
@@ -190,7 +190,7 @@ export const ChatInput: FC<ChatInputProps> = ({
                     if (fileInputRef.current) fileInputRef.current.value = "";
                     onClearFile?.();
                   }}
-                  className="flex h-9 items-center justify-center rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-blue-600 shadow-sm transition hover:-translate-y-px hover:border-blue-300 hover:bg-blue-50"
+                  className="flex h-9 items-center justify-center rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-blue-600 shadow-sm transition hover:-translate-y-px hover:border-blue-300 hover:bg-blue-50 dark:border-blue-500/30 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
                   aria-label="Batalkan lampiran"
                 >
                   <FontAwesomeIcon icon={faXmark} />
@@ -210,7 +210,7 @@ export const ChatInput: FC<ChatInputProps> = ({
               className="flex items-end gap-2 md:gap-3 pb-3 md:pb-4"
             >
               {canAttachFile && (
-                <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-600 transition-all hover:-translate-y-px hover:border-blue-200 hover:bg-blue-50 md:h-11 md:w-11 shadow-sm mb-1.5">
+                <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-600 transition-all hover:-translate-y-px hover:border-blue-200 hover:bg-blue-50 md:h-11 md:w-11 shadow-sm mb-1.5 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:border-blue-500/40">
                   <FontAwesomeIcon icon={faPaperclip} size="sm" />
                   <input
                     type="file"
@@ -230,7 +230,7 @@ export const ChatInput: FC<ChatInputProps> = ({
                 }}
                 onFocus={syncTextareaHeight}
                 placeholder="Tanya apapun..."
-                className="min-h-14 max-h-52 flex-1 resize-none rounded-xl border border-zinc-200/80 bg-white/70 px-4 py-3 text-base text-gray-900 shadow-inner outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                className="min-h-14 max-h-52 flex-1 resize-none rounded-xl border border-zinc-200/80 bg-white/70 px-4 py-3 text-base text-gray-900 shadow-inner outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-zinc-700/80 dark:bg-zinc-900/70 dark:text-zinc-100 dark:focus:border-blue-500 dark:focus:bg-zinc-900 dark:focus:ring-blue-900/40"
                 rows={1}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
@@ -259,12 +259,12 @@ export const ChatInput: FC<ChatInputProps> = ({
               </button>
             </form>
           </div>
-          <p className="pb-3 px-10 text-center text-[9px] md:text-xs font-mono text-zinc-400 select-none">
+          <p className="pb-3 px-10 text-center text-[9px] md:text-xs font-mono text-zinc-400 select-none dark:text-zinc-500">
             <em>Newsmaker Ai</em> dapat membuat kesalahan. Periksa info penting{" "}
             <button
               type="button"
               onClick={openInfoModal}
-              className="cursor-pointer text-blue-400 hover:text-blue-500 transition-all"
+              className="cursor-pointer text-blue-400 hover:text-blue-500 transition-all dark:text-blue-300 dark:hover:text-blue-200"
             >
               di sini
             </button>
@@ -287,7 +287,7 @@ export const ChatInput: FC<ChatInputProps> = ({
         >
           <div
             className={`
-      relative w-full max-w-3xl max-h-[85vh] rounded-2xl bg-white shadow-2xl ring-1 ring-black/5
+      relative w-full max-w-3xl max-h-[85vh] rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-950 dark:ring-white/10
       transition-all duration-200 ease-out
       ${
         showInfoModal
@@ -298,8 +298,8 @@ export const ChatInput: FC<ChatInputProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-zinc-200 bg-white/90 backdrop-blur-md rounded-t-2xl">
-              <h2 className="text-xl font-semibold text-gray-900">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-zinc-200 bg-white/90 backdrop-blur-md rounded-t-2xl dark:border-zinc-800 dark:bg-zinc-950/90">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
                 <FontAwesomeIcon
                   icon={byPrefixAndName.far["triangle-exclamation"]}
                 />{" "}
@@ -309,14 +309,14 @@ export const ChatInput: FC<ChatInputProps> = ({
               <button
                 type="button"
                 onClick={closeInfoModal}
-                className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-800 cursor-pointer"
+                className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-800 cursor-pointer dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
                 Tutup
               </button>
             </div>
 
             {/* Body */}
-            <div className="relative px-5 py-4 overflow-y-auto text-sm leading-relaxed text-gray-700 space-y-5 max-h-[65vh] nm-scroll">
+            <div className="relative px-5 py-4 overflow-y-auto text-sm leading-relaxed text-gray-700 space-y-5 max-h-[65vh] nm-scroll dark:text-zinc-200">
               <ul className="list-disc space-y-3 pl-5">
                 <li>
                   Konten pada platform Newsmaker.id dan sistem NM Ai (Newsmaker
@@ -340,17 +340,17 @@ export const ChatInput: FC<ChatInputProps> = ({
                 </li>
               </ul>
 
-              <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4 shadow-sm">
-                <p className="text-lg font-semibold text-blue-900">
+              <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4 shadow-sm dark:border-blue-500/30 dark:bg-blue-950/40">
+                <p className="text-lg font-semibold text-blue-900 dark:text-blue-200">
                   Pernyataan Tambahan NM Ai
                 </p>
-                <p className="mt-2 text-sm text-blue-900">
+                <p className="mt-2 text-sm text-blue-900 dark:text-blue-200">
                   NM Ai (Newsmaker Intelligence) adalah sistem editorial digital
                   milik Newsmaker.id yang dikembangkan untuk memberikan analisa
                   pasar, edukasi finansial, dan wawasan perilaku trader secara
                   netral dan bertanggung jawab.
                 </p>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-blue-900">
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-blue-900 dark:text-blue-200">
                   <li>Menyajikan informasi cepat, akurat, dan bersahabat.</li>
                   <li>Menjaga integritas dan netralitas redaksi.</li>
                   <li>
@@ -366,8 +366,8 @@ export const ChatInput: FC<ChatInputProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-zinc-200 bg-white/80 backdrop-blur-sm rounded-b-2xl">
-              <p className="text-center text-base font-semibold text-blue-900">
+            <div className="px-6 py-4 border-t border-zinc-200 bg-white/80 backdrop-blur-sm rounded-b-2xl dark:border-zinc-800 dark:bg-zinc-950/80">
+              <p className="text-center text-base font-semibold text-blue-900 dark:text-blue-200">
                 🧩 "Edukasi finansial untuk semua. Cepat, akurat, dan
                 bersahabat."
               </p>

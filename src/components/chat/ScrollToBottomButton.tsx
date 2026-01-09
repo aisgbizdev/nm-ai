@@ -19,7 +19,7 @@ export const ScrollToBottomButton: FC<ScrollToBottomButtonProps> = ({
     <button
       type="button"
       onClick={onClick}
-      className="fixed bottom-33 md:bottom-35 left-1/2 md:-translate-x-1/2 z-40 text-xs rounded-full bg-blue-300/50 text-black/50 backdrop-blur-sm p-2 shadow-lg transition hover:bg-blue-400/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 border border-blue-500 cursor-pointer animate-bounce"
+      className="fixed bottom-33 md:bottom-35 left-1/2 md:-translate-x-1/2 z-40 text-xs rounded-full bg-blue-300/50 text-black/50 backdrop-blur-sm p-2 shadow-lg transition hover:bg-blue-400/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 border border-blue-500 cursor-pointer animate-bounce dark:bg-blue-950/50 dark:text-blue-200 dark:border-blue-400/60 dark:focus:ring-offset-zinc-900"
       style={{
         animation: `${
           visible

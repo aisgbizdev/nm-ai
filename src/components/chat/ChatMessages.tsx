@@ -56,6 +56,27 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   canRegenerate,
   isRegenerating,
 }) => {
+  const normalizeFencedCode = (text: string) =>
+    text.replace(/```([^\n`][\s\S]*?)```/g, (_m, code) => {
+      const trimmed = String(code).trim();
+      return `\n\`\`\`\n${trimmed}\n\`\`\`\n`;
+    });
+
+  const normalizeMarkdownBlocks = (text: string) => {
+    const withFences = normalizeFencedCode(text);
+    if (/```/.test(withFences)) return withFences;
+
+    const formulaRe =
+      /(Equity\s*Ratio|Margin\s*Call|Auto\s*Liquidation)/i;
+    if (!formulaRe.test(withFences)) return withFences;
+
+    const normalized = withFences
+      .replace(/\s+(Margin\s+Call)/gi, "\n$1")
+      .replace(/\s+(Auto\s+Liquidation)/gi, "\n$1");
+
+    return `\n\`\`\`\n${normalized.trim()}\n\`\`\`\n`;
+  };
+
   const lastAiMessageId =
     [...messages].reverse().find((msg) => msg.sender === "ai")?.id || null;
   const lastUserMessageId =
@@ -112,7 +133,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                   "relative w-full px-4 py-3 md:px-5 text-base rounded-lg shadow-md",
                   isUser
                     ? "bg-linear-to-r from-blue-500/70 to-blue-600/70 text-white backdrop-blur"
-                    : "text-zinc-900 bg-white",
+                    : "text-zinc-900 bg-white dark:text-zinc-100 dark:bg-zinc-900/80",
                 ].join(" ")}
               >
                 {isAi ? (
@@ -124,7 +145,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <blockquote
                           {...props}
                           className={
-                            "border-l-4 border-blue-300 px-2 pe-10 py-2 italic text-[0.95rem] text-zinc-700 mt-2 bg-zinc-100 rounded mb-4" +
+                            "border-l-4 border-blue-300 px-2 pe-10 py-2 italic text-[0.95rem] text-zinc-700 mt-2 bg-zinc-100 rounded mb-4 dark:border-blue-500/60 dark:text-zinc-200 dark:bg-zinc-800/70" +
                             (props.className || "")
                           }
                         />
@@ -141,7 +162,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <h1
                           {...props}
                           className={
-                            "mb-2 text-lg font-semibold text-zinc-900 " +
+                            "mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100 " +
                             (props.className || "")
                           }
                         />
@@ -150,7 +171,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <h2
                           {...props}
                           className={
-                            "mb-2 text-base font-semibold text-zinc-900 " +
+                            "mb-2 text-base font-semibold text-zinc-900 dark:text-zinc-100 " +
                             (props.className || "")
                           }
                         />
@@ -159,7 +180,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <h3
                           {...props}
                           className={
-                            "mb-2 text-sm font-semibold text-zinc-900 " +
+                            "mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100 " +
                             (props.className || "")
                           }
                         />
@@ -174,7 +195,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <hr
                           {...props}
                           className={[
-                            "my-5 border-0 h-px bg-gray-300",
+                            "my-5 border-0 h-px bg-gray-300 dark:bg-zinc-700",
                             props.className || "",
                           ].join(" ")}
                         />
@@ -233,7 +254,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                             <code
                               {...props}
                               className={
-                                "rounded bg-zinc-100 px-1 py-px text-[0.75rem] font-mono " +
+                                "rounded bg-zinc-100 px-1 py-px text-[0.75rem] font-mono dark:bg-zinc-800 dark:text-zinc-100 " +
                                 (className || "")
                               }
                             >
@@ -268,7 +289,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         );
                       },
                       table: ({ node, ...props }) => (
-                        <div className="bg-zinc-50 p-2 rounded w-full overflow-x-auto">
+                        <div className="bg-zinc-50 p-2 rounded w-full overflow-x-auto dark:bg-zinc-900/70">
                           <table
                             {...props}
                             className={
@@ -281,7 +302,10 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                       thead: ({ node, ...props }) => (
                         <thead
                           {...props}
-                          className={"bg-zinc-100 " + (props.className || "")}
+                          className={
+                            "bg-zinc-100 dark:bg-zinc-800 " +
+                            (props.className || "")
+                          }
                         />
                       ),
                       tbody: ({ node, ...props }) => (
@@ -291,7 +315,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <tr
                           {...props}
                           className={
-                            "border-b border-blue-200 last:border-0 " +
+                            "border-b border-blue-200 last:border-0 dark:border-blue-800/60 " +
                             (props.className || "")
                           }
                         />
@@ -300,7 +324,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <th
                           {...props}
                           className={
-                            "border border-blue-200 px-2 py-1 text-left font-semibold text-base bg-blue-100 " +
+                            "border border-blue-200 px-2 py-1 text-left font-semibold text-base bg-blue-100 dark:border-blue-800/60 dark:bg-blue-950/60 dark:text-blue-100 " +
                             (props.className || "")
                           }
                         />
@@ -309,14 +333,14 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <td
                           {...props}
                           className={
-                            "border border-blue-200 px-2 py-1 align-top " +
+                            "border border-blue-200 px-2 py-1 align-top dark:border-blue-800/60 dark:text-zinc-100 " +
                             (props.className || "")
                           }
                         />
                       ),
                     }}
                   >
-                    {msg.text}
+                    {normalizeMarkdownBlocks(msg.text)}
                   </ReactMarkdown>
                 ) : (
                   <p className="whitespace-pre-wrap leading-relaxed">
@@ -337,7 +361,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                           alt="Gambar yang dianalisis"
                           width={240}
                           height={160}
-                          className="h-auto w-auto max-w-full rounded-lg border border-zinc-200 object-contain transition hover:scale-[1.015] hover:shadow-lg"
+                          className="h-auto w-auto max-w-full rounded-lg border border-zinc-200 object-contain transition hover:scale-[1.015] hover:shadow-lg dark:border-zinc-700"
                         />
                         <span className="absolute inset-0 rounded-lg bg-black/10 opacity-0 transition group-hover:opacity-100" />
                       </button>
@@ -351,7 +375,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         <img
                           src={msg.imagePath}
                           alt="Lampiran pengguna"
-                          className="h-auto max-h-64 w-auto max-w-full rounded-lg border border-zinc-200 object-contain transition hover:scale-[1.015] hover:shadow-lg"
+                          className="h-auto max-h-64 w-auto max-w-full rounded-lg border border-zinc-200 object-contain transition hover:scale-[1.015] hover:shadow-lg dark:border-zinc-700"
                         />
                         <span className="absolute inset-0 rounded-lg bg-black/10 opacity-0 transition group-hover:opacity-100" />
                       </button>
@@ -369,7 +393,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                   <button
                     type="button"
                     onClick={onReinput}
-                    className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 h-6 px-2 transition-all"
+                    className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 h-6 px-2 transition-all dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60"
                     aria-label="Re-input"
                     title="Kirim ulang pesan ini"
                   >
@@ -380,7 +404,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                 <button
                   type="button"
                   onClick={() => onCopy(msg.text)}
-                  className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700 h-6 w-6 transition-all"
+                  className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700 h-6 w-6 transition-all dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                   aria-label="Salin jawaban"
                   title="Salin Jawaban"
                 >
@@ -392,7 +416,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                     <button
                       type="button"
                       onClick={() => onShare(msg)}
-                      className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700 h-6 w-6 transition-all"
+                      className="text-xs flex items-center justify-center gap-1 cursor-pointer rounded bg-zinc-200 hover:bg-zinc-300 text-gray-700 h-6 w-6 transition-all dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                       aria-label="Bagikan"
                       title="Bagikan"
                     >
@@ -406,7 +430,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                     type="button"
                     onClick={onRegenerate}
                     disabled={isRegenerating}
-                    className="rounded bg-amber-100 h-6 w-6 flex items-center gap-1 justify-center text-amber-700 transition hover:bg-amber-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded bg-amber-100 h-6 w-6 flex items-center gap-1 justify-center text-amber-700 transition hover:bg-amber-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
                     aria-label="Regenerate"
                     title="Regenerate jawaban terakhir"
                   >
@@ -421,7 +445,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
 
       {isTyping && (
         <div className="flex justify-start">
-          <div className="max-w-[60%] rounded-2xl border border-zinc-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur">
+          <div className="max-w-[60%] rounded-2xl border border-zinc-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
             <div className="flex gap-1">
               <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
               <div className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.15s]" />
@@ -455,7 +479,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               />
               <button
                 type="button"
-                className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-white text-zinc-700 shadow-md hover:bg-zinc-100"
+                className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-white text-zinc-700 shadow-md hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 onClick={closePreview}
                 aria-label="Tutup preview"
               >

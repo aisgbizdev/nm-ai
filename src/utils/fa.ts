@@ -7,6 +7,7 @@ import {
   faPlay,
   faStop,
   faRotateRight,
+  faMoon,
   faArrowUpFromBracket,
   faTriangleExclamation,
   faAngleDown,
@@ -40,6 +41,7 @@ export const byPrefixAndName: Record<
     "rotate-right": faRotateRight,
     "arrow-up-from-bracket": faArrowUpFromBracket,
     "angle-down": faAngleDown,
+    "fa-solid fa-moon": faMoon,
     faAngleLeft: faAngleLeft,
   },
   far: {

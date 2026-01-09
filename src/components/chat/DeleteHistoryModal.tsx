@@ -34,7 +34,7 @@ export const DeleteHistoryModal: FC<DeleteHistoryModalProps> = ({
       }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
         style={{
           animation: `${
             open
@@ -46,7 +46,7 @@ export const DeleteHistoryModal: FC<DeleteHistoryModalProps> = ({
         <div className="flex items-start justify-between px-5 py-4 border-zinc-100">
           <div className="flex flex-col gap-3 w-full">
             <div className="flex justify-between">
-              <div className="flex items-center gap-2 text-red-500">
+              <div className="flex items-center gap-2 text-red-500 dark:text-red-300">
                 <FontAwesomeIcon
                   icon={faTriangleExclamation}
                   className="text-xl"
@@ -57,7 +57,7 @@ export const DeleteHistoryModal: FC<DeleteHistoryModalProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
-                className="text-zinc-500 transition hover:text-zinc-700 px-1 py-0.5 rounded bg-zinc-200 hover:bg-zinc-300 cursor-pointer"
+                className="text-zinc-500 transition hover:text-zinc-700 px-1 py-0.5 rounded bg-zinc-200 hover:bg-zinc-300 cursor-pointer dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 aria-label="Tutup"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -67,7 +67,7 @@ export const DeleteHistoryModal: FC<DeleteHistoryModalProps> = ({
             <hr />
 
             <div className="py-3">
-              <p className="text-sm text-zinc-600">
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">
                 Tindakan ini akan menghapus semua pesan di sesi ini dan tidak
                 bisa dibatalkan.
               </p>
@@ -80,7 +80,7 @@ export const DeleteHistoryModal: FC<DeleteHistoryModalProps> = ({
                 type="button"
                 onClick={onCancel}
                 disabled={isDeleting}
-                className="w-full rounded-full border border-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+                className="w-full rounded-full border border-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
               >
                 Batal
               </button>
@@ -88,7 +88,7 @@ export const DeleteHistoryModal: FC<DeleteHistoryModalProps> = ({
                 type="button"
                 onClick={onConfirm}
                 disabled={isDeleting}
-                className="w-full rounded-full border border-red-200 bg-red-500 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
+                className="w-full rounded-full border border-red-200 bg-red-500 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer dark:border-red-500/40 dark:bg-red-600 dark:hover:bg-red-500"
               >
                 {isDeleting ? "Menghapus..." : "Hapus"}
               </button>
