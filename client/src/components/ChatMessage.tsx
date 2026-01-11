@@ -103,31 +103,42 @@ function generateFallbackQuickReplies(content: string): string[] {
 function removeQuickRepliesFromContent(content: string): string {
   const lines = content.split('\n');
   const filteredLines: string[] = [];
-  let skipSection = false;
+  let inQuickReplySection = false;
   
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmedLine = line.trim();
     
-    // Start skipping when we see the follow-up prompt
-    if (line.includes('Mau lanjut') || line.includes('Ketik angkanya') || line.includes('Want to explore')) {
-      skipSection = true;
+    // Detect start of quick reply section - prompt lines that indicate follow-up questions
+    if (trimmedLine.includes('Mau lanjut') || 
+        trimmedLine.includes('Ketik angkanya') || 
+        trimmedLine.includes('Want to explore') ||
+        trimmedLine.includes('Pertanyaan lanjutan')) {
+      inQuickReplySection = true;
       continue;
     }
-    // Skip numbered lines (quick reply options)
-    if (/^[1-3][.)]\s*"?/.test(trimmedLine)) {
-      continue;
-    }
-    if (!skipSection) {
-      filteredLines.push(line);
-    }
-    // Reset skip section on empty line or signature
-    if (skipSection && (trimmedLine === '' || trimmedLine.startsWith('---') || trimmedLine.startsWith('*NM Ai'))) {
-      // Keep the signature lines
+    
+    // If we're in quick reply section, skip numbered items 1-3
+    if (inQuickReplySection) {
+      // Skip quick reply numbered items
+      if (/^[1-3][.)]\s*"?/.test(trimmedLine)) {
+        continue;
+      }
+      // Keep signature lines
       if (trimmedLine.startsWith('---') || trimmedLine.startsWith('*NM Ai')) {
         filteredLines.push(line);
+        inQuickReplySection = false;
+        continue;
       }
-      skipSection = false;
+      // Empty line ends the quick reply section
+      if (trimmedLine === '') {
+        inQuickReplySection = false;
+      }
+      continue;
     }
+    
+    // Normal content - keep everything
+    filteredLines.push(line);
   }
   
   return filteredLines.join('\n').trim();
