@@ -17,6 +17,7 @@ interface ChatMessageProps {
   meta?: { imageData?: string } | null;
   isLastMessage?: boolean;
   onQuickReply?: (question: string) => void;
+  onResetChat?: () => void;
 }
 
 function extractQuickReplies(content: string): string[] {
@@ -144,9 +145,29 @@ function removeQuickRepliesFromContent(content: string): string {
   return filteredLines.join('\n').trim();
 }
 
-export function ChatMessage({ role, content, createdAt, isStreaming, messageId, meta, isLastMessage, onQuickReply }: ChatMessageProps) {
+export function ChatMessage({ role, content, createdAt, isStreaming, messageId, meta, isLastMessage, onQuickReply, onResetChat }: ChatMessageProps) {
   const isUser = role === "user";
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  
+  const handleLinkClick = (text: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    const linkText = text.trim().toLowerCase();
+    
+    if (linkText === "gwen stacy") {
+      onResetChat?.();
+    } else if (onQuickReply) {
+      // Map link text to appropriate questions
+      if (linkText === "obrolan bebas") {
+        onQuickReply("Halo, saya mau tanya seputar trading dan finansial");
+      } else if (linkText === "analisis dokumen") {
+        onQuickReply("Saya ingin menganalisis gambar chart atau dokumen keuangan");
+      } else if (linkText === "kalender ekonomi") {
+        onQuickReply("Tampilkan kalender ekonomi hari ini");
+      } else {
+        onQuickReply(`Jelaskan tentang ${text.trim()}`);
+      }
+    }
+  };
   
   const quickReplies = useMemo(() => {
     if (isUser || isStreaming) return [];
@@ -227,7 +248,25 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId, 
             "[&_pre]:text-xs sm:[&_pre]:text-sm [&_pre]:overflow-x-auto",
             "[&_ol]:pl-4 sm:[&_ol]:pl-6 [&_ul]:pl-4 sm:[&_ul]:pl-6"
           )}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent || (isStreaming ? "" : "")}</ReactMarkdown>
+            <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ children, href, ...props }) => {
+                      const text = String(children);
+                      return (
+                        <a 
+                          href={href || "#"}
+                          onClick={(e) => handleLinkClick(text, e)}
+                          className="text-primary hover:underline cursor-pointer font-medium"
+                          data-testid={`link-${text.toLowerCase().replace(/\s+/g, '-')}`}
+                          {...props}
+                        >
+                          {children}
+                        </a>
+                      );
+                    }
+                  }}
+                >{cleanContent || (isStreaming ? "" : "")}</ReactMarkdown>
             {isStreaming && (
               <span className="inline-flex items-center gap-0.5 sm:gap-1 ml-1">
                 <motion.span 

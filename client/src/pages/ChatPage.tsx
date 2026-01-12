@@ -85,15 +85,15 @@ export default function ChatPage() {
     onIncomingMessage: () => scrollToBottom(),
   });
 
-  const WELCOME_MESSAGE = `Halo! Saya **Gwen Stacy**, asisten AI edukasi trading dari Newsmaker.id.
+  const WELCOME_MESSAGE = `Halo! Saya [Gwen Stacy](#), asisten AI edukasi trading dari Newsmaker.id.
 
 Saya bisa membantu kamu untuk:
-- **Market Hub** - Memahami logika pasar dan strategi trading
-- **Analisis Dokumen** - Upload gambar chart atau statement untuk dianalisis
-- **Risk Planner** - Simulasi margin dan ketahanan modal
-- **User Protection** - Legalitas dan perlindungan dari penipuan
-- **Kalender Ekonomi** - Jadwal berita dan event penting
-- **Obrolan Bebas** - Tanya apa saja tentang trading dan finansial
+- [Market Hub](#) - Memahami logika pasar dan strategi trading
+- [Analisis Dokumen](#) - Upload gambar chart atau statement untuk dianalisis
+- [Risk Planner](#) - Simulasi margin dan ketahanan modal
+- [User Protection](#) - Legalitas dan perlindungan dari penipuan
+- [Kalender Ekonomi](#) - Jadwal berita dan event penting
+- [Obrolan Bebas](#) - Tanya apa saja tentang trading dan finansial
 
 Silakan tanya atau upload gambar untuk analisis!`;
 
@@ -741,6 +741,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
                   meta={msg.meta as { imageData?: string } | null}
                   isLastMessage={idx === sessionData.messages.length - 1 && msg.role === "assistant" && !isStreaming && !isAnalyzing}
                   onQuickReply={handleQuickReply}
+                  onResetChat={handleBackToHome}
                 />
               ))}
               {isStreaming && streamingContent && (
@@ -748,6 +749,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
                   role="assistant"
                   content={streamingContent}
                   isStreaming={true}
+                  onQuickReply={handleQuickReply}
+                  onResetChat={handleBackToHome}
                 />
               )}
               {isAnalyzing && chartStreamingContent && (
@@ -755,6 +758,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
                   role="assistant"
                   content={chartStreamingContent}
                   isStreaming={true}
+                  onQuickReply={handleQuickReply}
+                  onResetChat={handleBackToHome}
                 />
               )}
               {((isStreaming && !streamingContent) || (isAnalyzing && !chartStreamingContent)) && (
@@ -778,6 +783,8 @@ Silakan tanya atau upload gambar untuk analisis!`;
                 <ChatMessage 
                   role="assistant"
                   content={WELCOME_MESSAGE}
+                  onQuickReply={handleQuickReply}
+                  onResetChat={handleBackToHome}
                 />
               )}
             </>
