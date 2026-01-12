@@ -7,12 +7,35 @@ interface UseStreamChatProps {
   onIncomingMessage?: () => void;
 }
 
+const TYPEWRITER_DELAY = 8;
+
 export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatProps) {
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const bufferRef = useRef<string>("");
+  const displayedRef = useRef<string>("");
+  const typewriterRef = useRef<NodeJS.Timeout | null>(null);
+  const streamDoneRef = useRef<boolean>(false);
+
+  const processBuffer = () => {
+    if (displayedRef.current.length < bufferRef.current.length) {
+      const nextChar = bufferRef.current[displayedRef.current.length];
+      displayedRef.current += nextChar;
+      setStreamingContent(displayedRef.current);
+      onIncomingMessage?.();
+      
+      typewriterRef.current = setTimeout(processBuffer, TYPEWRITER_DELAY);
+    } else if (streamDoneRef.current) {
+      setIsStreaming(false);
+      setStreamingContent("");
+      bufferRef.current = "";
+      displayedRef.current = "";
+      streamDoneRef.current = false;
+    }
+  };
 
   const sendMessage = async (message: string) => {
     if (!sessionId) return;
@@ -20,9 +43,13 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
     setIsStreaming(true);
     setStreamingContent("");
     setError(null);
+    bufferRef.current = "";
+    displayedRef.current = "";
+    streamDoneRef.current = false;
     
-    // Optimistically update UI or just handle state locally
-    // The parent component handles adding the user message to the UI list
+    if (typewriterRef.current) {
+      clearTimeout(typewriterRef.current);
+    }
     
     abortControllerRef.current = new AbortController();
 
@@ -40,6 +67,7 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
       if (!reader) throw new Error("No response body");
 
       const decoder = new TextDecoder();
+      let typewriterStarted = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -54,10 +82,7 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
               const json = JSON.parse(line.slice(6));
               
               if (json.done) {
-                // Stream finished
-                setIsStreaming(false);
-                setStreamingContent("");
-                // Invalidate query to fetch the full saved message from DB
+                streamDoneRef.current = true;
                 queryClient.invalidateQueries({ queryKey: [api.sessions.get.path, sessionId] });
                 break;
               }
@@ -67,8 +92,11 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
               }
 
               if (json.content) {
-                setStreamingContent(prev => prev + json.content);
-                onIncomingMessage?.();
+                bufferRef.current += json.content;
+                if (!typewriterStarted) {
+                  typewriterStarted = true;
+                  processBuffer();
+                }
               }
             } catch (e) {
               console.error("Error parsing SSE data", e);
@@ -82,20 +110,33 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
         console.error("Stream error:", err);
       }
     } finally {
-      setIsStreaming(false);
+      if (!streamDoneRef.current) {
+        setIsStreaming(false);
+      }
     }
   };
 
   const stopStream = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      setIsStreaming(false);
     }
+    if (typewriterRef.current) {
+      clearTimeout(typewriterRef.current);
+    }
+    setIsStreaming(false);
+    bufferRef.current = "";
+    displayedRef.current = "";
+    streamDoneRef.current = false;
   };
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => stopStream();
+    return () => {
+      stopStream();
+      if (typewriterRef.current) {
+        clearTimeout(typewriterRef.current);
+      }
+    };
   }, []);
 
   return { sendMessage, streamingContent, isStreaming, error, stopStream };
