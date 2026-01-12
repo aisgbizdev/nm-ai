@@ -663,41 +663,44 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
     
     const symbolUpper = symbol.toUpperCase();
     
-    // Find quote matching the specific symbol
+    // Find quote matching the specific symbol based on actual API response format
+    // API returns: XUL10 (Gold), BCO10_BBJ (Oil), HKK50_BBJ (HSI), JPK50_BBJ (Nikkei)
+    // AU10F_BBJ (AUDUSD), EU10F_BBJ (EURUSD), GU10F_BBJ (GBPUSD), UC10F_BBJ (USDCHF), UJ10F_BBJ (USDJPY)
     const quote = quotes.find((q: any) => {
       const qSymbol = (q.symbol || "").toUpperCase();
       
-      // Specific matching for each instrument type
+      // Commodities - match actual API symbols
       if (symbolUpper === "XAU" || symbolUpper === "GOLD") {
-        return qSymbol.includes("XAU") || qSymbol.includes("GOLD") || qSymbol.includes("LGD");
+        return qSymbol.includes("XUL") || qSymbol.includes("XAU") || qSymbol.includes("GOLD");
       }
       if (symbolUpper === "XAG" || symbolUpper === "SILVER") {
         return qSymbol.includes("XAG") || qSymbol.includes("SILVER") || qSymbol.includes("LSI");
       }
       if (symbolUpper === "BCO" || symbolUpper === "OIL") {
-        return qSymbol.includes("BCO") || qSymbol.includes("OIL") || qSymbol.includes("LCO");
+        return qSymbol.includes("BCO");
       }
+      // Indices - match actual API symbols
       if (symbolUpper === "HSI") {
-        return qSymbol.includes("HSI") || qSymbol.includes("HANG");
+        return qSymbol.includes("HKK50") || qSymbol.includes("HSI");
       }
-      if (symbolUpper === "NIKKEI" || symbolUpper === "JP225") {
-        return qSymbol.includes("NIKKEI") || qSymbol.includes("JP225") || qSymbol.includes("JPN");
+      if (symbolUpper === "NKD" || symbolUpper === "NIKKEI" || symbolUpper === "JP225") {
+        return qSymbol.includes("JPK50") || qSymbol.includes("JPN");
       }
-      // Forex pairs - exact match preferred
+      // Forex pairs - match actual API symbols (GU, EU, AU, UJ, UC format)
       if (symbolUpper === "GBP") {
-        return qSymbol.includes("GBP");
+        return qSymbol.includes("GU10") || qSymbol.includes("GBPUSD");
       }
       if (symbolUpper === "EUR") {
-        return qSymbol.includes("EUR") && !qSymbol.includes("EURO50");
+        return qSymbol.includes("EU10") || qSymbol.includes("EURUSD");
       }
       if (symbolUpper === "AUD") {
-        return qSymbol.includes("AUD");
+        return qSymbol.includes("AU10") || qSymbol.includes("AUDUSD");
       }
       if (symbolUpper === "JPY") {
-        return qSymbol.includes("JPY") || qSymbol.includes("USDJPY");
+        return qSymbol.includes("UJ10") || qSymbol.includes("USDJPY");
       }
       if (symbolUpper === "CHF") {
-        return qSymbol.includes("CHF") || qSymbol.includes("USDCHF");
+        return qSymbol.includes("UC10") || qSymbol.includes("USDCHF");
       }
       
       // Default: check if symbol is contained
