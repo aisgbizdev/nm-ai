@@ -149,9 +149,17 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId, 
   const isUser = role === "user";
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   
-  const handleLinkClick = (text: string, e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleLinkClick = (href: string | undefined, text: string, e: React.MouseEvent) => {
     const linkText = text.trim().toLowerCase();
+    
+    // If it's an external URL, let it open normally in a new tab
+    if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+      // Don't prevent default - let the browser handle it
+      return;
+    }
+    
+    // For internal action links, prevent default and handle
+    e.preventDefault();
     
     if (linkText === "gwen stacy") {
       onResetChat?.();
@@ -253,12 +261,15 @@ export function ChatMessage({ role, content, createdAt, isStreaming, messageId, 
                   components={{
                     a: ({ children, href, ...props }) => {
                       const text = String(children);
+                      const isExternal = href && (href.startsWith('http://') || href.startsWith('https://'));
                       return (
                         <a 
                           href={href || "#"}
-                          onClick={(e) => handleLinkClick(text, e)}
+                          onClick={(e) => handleLinkClick(href, text, e)}
                           className="text-primary hover:underline cursor-pointer font-medium"
                           data-testid={`link-${text.toLowerCase().replace(/\s+/g, '-')}`}
+                          target={isExternal ? "_blank" : undefined}
+                          rel={isExternal ? "noopener noreferrer" : undefined}
                           {...props}
                         >
                           {children}
