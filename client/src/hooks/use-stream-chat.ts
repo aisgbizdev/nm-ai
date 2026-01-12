@@ -19,6 +19,7 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
   const displayedRef = useRef<string>("");
   const typewriterRef = useRef<NodeJS.Timeout | null>(null);
   const streamDoneRef = useRef<boolean>(false);
+  const sessionIdRef = useRef<number | null>(null);
 
   const processBuffer = () => {
     if (displayedRef.current.length < bufferRef.current.length) {
@@ -29,11 +30,18 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
       
       typewriterRef.current = setTimeout(processBuffer, TYPEWRITER_DELAY);
     } else if (streamDoneRef.current) {
+      // Typewriter finished - NOW fetch the saved message from DB
+      if (sessionIdRef.current) {
+        queryClient.invalidateQueries({ queryKey: [api.sessions.get.path, sessionIdRef.current] });
+      }
       setIsStreaming(false);
       setStreamingContent("");
       bufferRef.current = "";
       displayedRef.current = "";
       streamDoneRef.current = false;
+    } else {
+      // Buffer caught up but stream not done yet - check again soon
+      typewriterRef.current = setTimeout(processBuffer, TYPEWRITER_DELAY);
     }
   };
 
@@ -46,6 +54,7 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
     bufferRef.current = "";
     displayedRef.current = "";
     streamDoneRef.current = false;
+    sessionIdRef.current = sessionId;
     
     if (typewriterRef.current) {
       clearTimeout(typewriterRef.current);
@@ -83,7 +92,7 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
               
               if (json.done) {
                 streamDoneRef.current = true;
-                queryClient.invalidateQueries({ queryKey: [api.sessions.get.path, sessionId] });
+                // Don't invalidate here - wait for typewriter to finish in processBuffer
                 break;
               }
               
