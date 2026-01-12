@@ -1033,8 +1033,11 @@ export async function* streamQuery(
     source = "ollama";
     fullResponse = ollamaResult.content;
     
-    // Check if response already has follow-up questions
-    const hasFollowUp = fullResponse.includes("Mau lanjut eksplor") || fullResponse.includes("Want to explore");
+    // Check if response already has follow-up questions (various patterns)
+    const hasFollowUp = fullResponse.includes("Mau lanjut eksplor") || 
+                        fullResponse.includes("Mau eksplor") ||
+                        fullResponse.includes("Want to explore") ||
+                        fullResponse.includes("Ketik angkanya");
     if (!hasFollowUp) {
       const followUpQuestions = generateFollowUpQuestions(query, fullResponse);
       fullResponse += followUpQuestions;
@@ -1052,7 +1055,10 @@ export async function* streamQuery(
     source = "openai";
     
     // Check if response already has follow-up questions, if not add them
-    const hasFollowUp = fullResponse.includes("Mau lanjut eksplor") || fullResponse.includes("Want to explore");
+    const hasFollowUp = fullResponse.includes("Mau lanjut eksplor") || 
+                        fullResponse.includes("Mau eksplor") ||
+                        fullResponse.includes("Want to explore") ||
+                        fullResponse.includes("Ketik angkanya");
     if (!hasFollowUp) {
       const followUpQuestions = generateFollowUpQuestions(query, fullResponse);
       yield { content: followUpQuestions, source: "openai" };
@@ -1114,7 +1120,10 @@ export async function processQuery(
   
   if (ollamaResult.success && ollamaResult.content && !isGibberishResponse(ollamaResult.content)) {
     let content = ollamaResult.content;
-    const hasFollowUp = content.includes("Mau lanjut eksplor") || content.includes("Want to explore");
+    const hasFollowUp = content.includes("Mau lanjut eksplor") || 
+                        content.includes("Mau eksplor") ||
+                        content.includes("Want to explore") ||
+                        content.includes("Ketik angkanya");
     if (!hasFollowUp) {
       content += generateFollowUpQuestions(query, content);
     }
@@ -1132,7 +1141,10 @@ export async function processQuery(
   let openaiResponse = await callOpenAI(messages, systemPrompt);
   
   // Add follow-up questions if not present
-  const hasFollowUp = openaiResponse.includes("Mau lanjut eksplor") || openaiResponse.includes("Want to explore");
+  const hasFollowUp = openaiResponse.includes("Mau lanjut eksplor") || 
+                      openaiResponse.includes("Mau eksplor") ||
+                      openaiResponse.includes("Want to explore") ||
+                      openaiResponse.includes("Ketik angkanya");
   if (!hasFollowUp) {
     openaiResponse += generateFollowUpQuestions(query, openaiResponse);
   }
