@@ -7,7 +7,7 @@ interface UseStreamChatProps {
   onIncomingMessage?: () => void;
 }
 
-const TYPEWRITER_DELAY = 8;
+const TYPEWRITER_DELAY = 18;
 
 export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatProps) {
   const [streamingContent, setStreamingContent] = useState<string>("");
