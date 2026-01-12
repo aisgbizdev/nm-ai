@@ -739,7 +739,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
                   createdAt={msg.createdAt || undefined}
                   messageId={msg.id}
                   meta={msg.meta as { imageData?: string } | null}
-                  isLastMessage={idx === sessionData.messages.length - 1 && msg.role === "assistant"}
+                  isLastMessage={idx === sessionData.messages.length - 1 && msg.role === "assistant" && !isStreaming && !isAnalyzing}
                   onQuickReply={handleQuickReply}
                 />
               ))}
