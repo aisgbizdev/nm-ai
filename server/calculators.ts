@@ -24,7 +24,7 @@ import { COMMODITY_MARGIN_CONFIG } from "./config/commodityMarginConfig";
 import { CURRENCY_MARGIN_CONFIG } from "./config/currencyMarginConfig";
 import { fetchNews, formatNewsForChat } from "./newsFetcher";
 
-const QUOTES_API_URL = process.env.QUOTES_API_URL || "https://endpoapi-production-3202.up.railway.app/api/quotes";
+const QUOTES_API_URL = process.env.QUOTES_API_URL || "https://endpoapi-production-3202.up.railway.app/api/live-quotes";
 const CALENDAR_API_URL = process.env.CALENDAR_API_URL || "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
 
 export interface CalculatorResult {
