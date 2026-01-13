@@ -20,17 +20,22 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
   const typewriterRef = useRef<NodeJS.Timeout | null>(null);
   const streamDoneRef = useRef<boolean>(false);
   const sessionIdRef = useRef<number | null>(null);
+  const requestIdRef = useRef<number>(0);
+  const stoppedRef = useRef<boolean>(false);
 
-  const processBuffer = () => {
+  const processBuffer = (currentRequestId: number) => {
+    if (stoppedRef.current || currentRequestId !== requestIdRef.current) {
+      return;
+    }
+    
     if (displayedRef.current.length < bufferRef.current.length) {
       const nextChar = bufferRef.current[displayedRef.current.length];
       displayedRef.current += nextChar;
       setStreamingContent(displayedRef.current);
       onIncomingMessage?.();
       
-      typewriterRef.current = setTimeout(processBuffer, TYPEWRITER_DELAY);
+      typewriterRef.current = setTimeout(() => processBuffer(currentRequestId), TYPEWRITER_DELAY);
     } else if (streamDoneRef.current) {
-      // Typewriter finished - NOW fetch the saved message from DB
       if (sessionIdRef.current) {
         queryClient.invalidateQueries({ queryKey: [api.sessions.get.path, sessionIdRef.current] });
       }
@@ -40,14 +45,25 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
       displayedRef.current = "";
       streamDoneRef.current = false;
     } else {
-      // Buffer caught up but stream not done yet - check again soon
-      typewriterRef.current = setTimeout(processBuffer, TYPEWRITER_DELAY);
+      typewriterRef.current = setTimeout(() => processBuffer(currentRequestId), TYPEWRITER_DELAY);
     }
   };
 
   const sendMessage = async (message: string) => {
     if (!sessionId) return;
     
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    if (typewriterRef.current) {
+      clearTimeout(typewriterRef.current);
+      typewriterRef.current = null;
+    }
+    
+    requestIdRef.current += 1;
+    const currentRequestId = requestIdRef.current;
+    
+    stoppedRef.current = false;
     setIsStreaming(true);
     setStreamingContent("");
     setError(null);
@@ -55,10 +71,6 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
     displayedRef.current = "";
     streamDoneRef.current = false;
     sessionIdRef.current = sessionId;
-    
-    if (typewriterRef.current) {
-      clearTimeout(typewriterRef.current);
-    }
     
     abortControllerRef.current = new AbortController();
 
@@ -71,6 +83,10 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
       });
 
       if (!res.ok) throw new Error(res.statusText);
+      
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
 
       const reader = res.body?.getReader();
       if (!reader) throw new Error("No response body");
@@ -79,8 +95,18 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
       let typewriterStarted = false;
 
       while (true) {
+        if (stoppedRef.current || currentRequestId !== requestIdRef.current) {
+          reader.cancel();
+          break;
+        }
+        
         const { done, value } = await reader.read();
         if (done) break;
+
+        if (currentRequestId !== requestIdRef.current) {
+          reader.cancel();
+          break;
+        }
 
         const chunk = decoder.decode(value);
         const lines = chunk.split("\n\n");
@@ -92,7 +118,6 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
               
               if (json.done) {
                 streamDoneRef.current = true;
-                // Don't invalidate here - wait for typewriter to finish in processBuffer
                 break;
               }
               
@@ -100,11 +125,11 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
                 throw new Error(json.error);
               }
 
-              if (json.content) {
+              if (json.content && currentRequestId === requestIdRef.current && !stoppedRef.current) {
                 bufferRef.current += json.content;
                 if (!typewriterStarted) {
                   typewriterStarted = true;
-                  processBuffer();
+                  processBuffer(currentRequestId);
                 }
               }
             } catch (e) {
@@ -119,29 +144,37 @@ export function useStreamChat({ sessionId, onIncomingMessage }: UseStreamChatPro
         console.error("Stream error:", err);
       }
     } finally {
-      if (!streamDoneRef.current) {
+      if (currentRequestId === requestIdRef.current && !streamDoneRef.current) {
         setIsStreaming(false);
       }
     }
   };
 
   const stopStream = () => {
+    stoppedRef.current = true;
+    
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
     if (typewriterRef.current) {
       clearTimeout(typewriterRef.current);
+      typewriterRef.current = null;
     }
+    
     setIsStreaming(false);
+    setStreamingContent("");
     bufferRef.current = "";
     displayedRef.current = "";
     streamDoneRef.current = false;
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopStream();
+      stoppedRef.current = true;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       if (typewriterRef.current) {
         clearTimeout(typewriterRef.current);
       }
