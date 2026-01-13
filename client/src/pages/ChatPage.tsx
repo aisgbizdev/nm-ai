@@ -870,7 +870,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
               }}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={selectedImage ? "Tambah instruksi (opsional)..." : "Tanya apapun... (Ctrl+V untuk paste gambar)"}
+              placeholder={selectedImage ? "Tambah instruksi..." : "Tanya apapun..."}
               className="min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 py-2.5 sm:py-3 px-2 sm:px-3 text-sm sm:text-base"
               rows={1}
               data-testid="input-message"
