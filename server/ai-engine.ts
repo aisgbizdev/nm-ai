@@ -998,11 +998,90 @@ async function saveToLearnedKnowledge(
   }
 }
 
+function isImageAnalysisRequest(query: string): boolean {
+  const lowerQuery = query.toLowerCase();
+  const imageKeywords = [
+    'analisis gambar', 'analisa gambar', 'analisis chart', 'analisa chart',
+    'analisis dokumen', 'analisa dokumen', 'analyze image', 'analyze chart',
+    'baca chart', 'lihat chart', 'cek chart', 'review chart',
+    'analisis statement', 'analisa statement', 'cek statement',
+    'upload gambar', 'kirim gambar', 'send image',
+    'menganalisis gambar', 'menganalisa gambar'
+  ];
+  return imageKeywords.some(k => lowerQuery.includes(k));
+}
+
+function getImageAnalysisGuide(lang: 'id' | 'en'): string {
+  if (lang === 'en') {
+    return `## Image Analysis Feature Available!
+
+Yes, I can help analyze your trading chart or statement! Here's how:
+
+**How to Upload:**
+1. Click the **image/attachment icon** in the chat input field
+2. Select your chart screenshot or trading statement
+3. Send it along with your message
+
+**What I Can Analyze:**
+- **Trading Charts**: Support/resistance levels, trend patterns, candlestick analysis, technical indicators
+- **Trading Statements**: Profit/loss evaluation, win rate calculation, risk management recommendations
+
+**Tips for Better Analysis:**
+- Use clear, high-resolution screenshots
+- Include the full chart with visible timeframe and indicators
+- For statements, make sure all numbers are readable
+
+💡 **Want to explore more?** *(Just type the number)*
+1. "How to read candlestick patterns?"
+2. "What are important technical indicators?"
+3. "Calculate margin for 2 lots gold"
+
+---
+*NM Ai - Newsmaker.id*
+*Information is educational, not investment advice.*`;
+  }
+  
+  return `## Fitur Analisis Gambar Tersedia!
+
+Ya, saya bisa membantu menganalisis chart trading atau statement Anda! Begini caranya:
+
+**Cara Upload Gambar:**
+1. Klik **ikon gambar/attachment** di kolom input chat
+2. Pilih screenshot chart atau statement trading Anda
+3. Kirim bersama pesan Anda
+
+**Yang Bisa Saya Analisis:**
+- **Chart Trading**: Level support/resistance, pola trend, analisis candlestick, indikator teknikal
+- **Statement Trading**: Evaluasi profit/loss, kalkulasi win rate, rekomendasi manajemen risiko
+
+**Tips Agar Analisis Lebih Akurat:**
+- Gunakan screenshot yang jelas dan beresolusi tinggi
+- Sertakan chart lengkap dengan timeframe dan indikator yang terlihat
+- Untuk statement, pastikan semua angka terbaca dengan jelas
+
+💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Bagaimana cara membaca pola candlestick?"
+2. "Apa saja indikator teknikal yang penting?"
+3. "Hitung margin untuk 2 lot gold"
+
+---
+*NM Ai - Newsmaker.id*
+*Informasi bersifat edukatif, bukan saran investasi.*`;
+}
+
 export async function* streamQuery(
   query: string,
   messages: { role: string; content: string }[],
   personaId: number
 ): AsyncGenerator<{ content?: string; source?: string; done?: boolean }, void, unknown> {
+  
+  // Check for image analysis request without actual image
+  if (isImageAnalysisRequest(query)) {
+    const lang = detectLanguage(query);
+    const guideResponse = getImageAnalysisGuide(lang);
+    yield { content: guideResponse, source: "knowledge", done: true };
+    return;
+  }
   
   if (isNewsRequest(query)) {
     try {
