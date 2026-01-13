@@ -6,7 +6,7 @@ import { useStreamChat } from "@/hooks/use-stream-chat";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, FileImage, Camera, FolderOpen, FileText, FileDown } from "lucide-react";
+import { Send, Trash2, TrendingUp, Calculator, Calendar, BookOpen, Shield, MessageCircle, AlertTriangle, Home, ImagePlus, X, Download, FileImage, Camera, FolderOpen, FileText, FileDown, Square } from "lucide-react";
 import jsPDF from "jspdf";
 import {
   DropdownMenu,
@@ -80,7 +80,7 @@ export default function ChatPage() {
   const createSession = useCreateSession();
   const deleteSession = useDeleteSession();
 
-  const { sendMessage, streamingContent, isStreaming } = useStreamChat({
+  const { sendMessage, streamingContent, isStreaming, stopStream } = useStreamChat({
     sessionId,
     onIncomingMessage: () => scrollToBottom(),
   });
@@ -875,22 +875,34 @@ Silakan tanya atau upload gambar untuk analisis!`;
               rows={1}
               data-testid="input-message"
             />
-            <Button 
-              onClick={() => selectedImage ? handleChartAnalysis() : handleSend()} 
-              disabled={(!inputMessage.trim() && !selectedImage) || isStreaming || isAnalyzing}
-              size="icon"
-              className={cn(
-                "h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg sm:rounded-xl transition-all mb-0.5 sm:mb-1",
-                (inputMessage.trim() || selectedImage) ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted text-muted-foreground"
-              )}
-              data-testid="button-send"
-            >
-              {isAnalyzing ? (
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-              )}
-            </Button>
+            {isStreaming ? (
+              <Button 
+                onClick={stopStream} 
+                size="icon"
+                variant="destructive"
+                className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg sm:rounded-xl transition-all mb-0.5 sm:mb-1 shadow-lg"
+                data-testid="button-stop"
+              >
+                <Square className="h-4 w-4 sm:h-5 sm:w-5 fill-current" />
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => selectedImage ? handleChartAnalysis() : handleSend()} 
+                disabled={(!inputMessage.trim() && !selectedImage) || isAnalyzing}
+                size="icon"
+                className={cn(
+                  "h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg sm:rounded-xl transition-all mb-0.5 sm:mb-1",
+                  (inputMessage.trim() || selectedImage) ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted text-muted-foreground"
+                )}
+                data-testid="button-send"
+              >
+                {isAnalyzing ? (
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                )}
+              </Button>
+            )}
           </div>
           <p className="text-center text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">
             {selectedImage ? "Upload chart untuk analisis teknikal" : "NM Ai dapat membuat kesalahan. Periksa info penting."}
