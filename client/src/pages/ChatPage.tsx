@@ -59,12 +59,32 @@ const MENU_OPTIONS = [
   },
 ];
 
+const ACTIVE_SESSION_KEY = "nm_ai_active_session";
+
 export default function ChatPage() {
   const [match, params] = useRoute("/chat/:id");
   const sessionId = match && params?.id ? parseInt(params.id) : null;
   const [, setLocation] = useLocation();
   
+  // Restore last active session when landing on root
+  useEffect(() => {
+    if (!sessionId) {
+      const savedSessionId = localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (savedSessionId) {
+        setLocation(`/chat/${savedSessionId}`);
+      }
+    }
+  }, [sessionId, setLocation]);
+  
+  // Save session ID to localStorage when active
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem(ACTIVE_SESSION_KEY, sessionId.toString());
+    }
+  }, [sessionId]);
+  
   const [inputMessage, setInputMessage] = useState("");
+  const [sessionNotFound, setSessionNotFound] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -75,7 +95,18 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: sessionData, isLoading: isLoadingChat } = useSession(sessionId);
+  const { data: sessionData, isLoading: isLoadingChat, isError } = useSession(sessionId);
+  
+  // Clear localStorage if saved session no longer exists
+  useEffect(() => {
+    if (sessionId && !isLoadingChat && sessionData === null) {
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+      setSessionNotFound(true);
+      setLocation("/");
+    } else {
+      setSessionNotFound(false);
+    }
+  }, [sessionId, sessionData, isLoadingChat, setLocation]);
   
   const createSession = useCreateSession();
   const deleteSession = useDeleteSession();
@@ -420,6 +451,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
     if (!sessionId) return;
     if (confirm("Hapus riwayat chat dan kembali ke menu?")) {
       await deleteSession.mutateAsync(sessionId);
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
       setLocation("/");
     }
   };
