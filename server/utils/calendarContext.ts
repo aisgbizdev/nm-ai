@@ -79,7 +79,7 @@ export function buildCalendarTable(
 
   const headerLines = [
     "| Waktu | Negara | Impact | Event | Previous | Forecast | Actual |",
-    "|:------|:----------|:------:|:------|:---------|:---------|:-------|",
+    "|:------|:-------|:------:|:------|:---------|:---------|:-------|",
   ];
 
   const bodyLines = rows.map((ev) => {
