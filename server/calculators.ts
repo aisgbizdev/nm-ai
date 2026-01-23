@@ -8,9 +8,16 @@ import {
   parseOHLCFromPrompt,
 } from "./utils/pivotFib";
 
-import { buildTradingRulesTableThreeCols, GenericMarginConfig } from "./utils/tradingRules";
+import {
+  buildTradingRulesTableThreeCols,
+  GenericMarginConfig,
+} from "./utils/tradingRules";
 import { buildCalendarTable, CalendarEventRow } from "./utils/calendarContext";
-import { formatDateIso, detectRequestedDate, buildCalendarUrl } from "./utils/dateUtils";
+import {
+  formatDateIso,
+  detectRequestedDate,
+  buildCalendarUrl,
+} from "./utils/dateUtils";
 import {
   InstrumentKey,
   INSTRUMENT_LABEL,
@@ -24,15 +31,24 @@ import { COMMODITY_MARGIN_CONFIG } from "./config/commodityMarginConfig";
 import { CURRENCY_MARGIN_CONFIG } from "./config/currencyMarginConfig";
 import { fetchNews, formatNewsForChat } from "./newsFetcher";
 
-const QUOTES_API_URL = process.env.QUOTES_API_URL || "https://endpoapi-production-3202.up.railway.app/api/live-quotes";
-const CALENDAR_API_URL = process.env.CALENDAR_API_URL || "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
+const QUOTES_API_URL =
+  process.env.QUOTES_API_URL ||
+  "https://endpoapi-production-3202.up.railway.app/api/live-quotes";
+const CALENDAR_API_URL =
+  process.env.CALENDAR_API_URL ||
+  "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
+const CALENDAR_TODAY_API_URL =
+  process.env.CALENDAR_TODAY_API_URL ||
+  "https://endpoapi-production-3202.up.railway.app/api/calendar/today";
 
 export interface CalculatorResult {
   handled: boolean;
   reply?: string;
 }
 
-export async function handleCalculation(userPrompt: string): Promise<CalculatorResult> {
+export async function handleCalculation(
+  userPrompt: string,
+): Promise<CalculatorResult> {
   const lowerPrompt = userPrompt.toLowerCase();
 
   if (isTradingRulesTableQuestion(lowerPrompt)) {
@@ -88,54 +104,94 @@ export async function handleCalculation(userPrompt: string): Promise<CalculatorR
 }
 
 function isTradingRulesQuestion(lowerPrompt: string): boolean {
-  return lowerPrompt.includes("trading rules") ||
+  return (
+    lowerPrompt.includes("trading rules") ||
     lowerPrompt.includes("trading rule") ||
     lowerPrompt.includes("aturan trading") ||
-    lowerPrompt.includes("regulasi trading");
+    lowerPrompt.includes("regulasi trading")
+  );
 }
 
 function isTradingRulesTableQuestion(lowerPrompt: string): boolean {
-  return isTradingRulesQuestion(lowerPrompt) &&
-    (lowerPrompt.includes("tabel") || lowerPrompt.includes("table"));
+  return (
+    isTradingRulesQuestion(lowerPrompt) &&
+    (lowerPrompt.includes("tabel") || lowerPrompt.includes("table"))
+  );
 }
 
 function isCalendarQuestion(lowerPrompt: string): boolean {
-  return lowerPrompt.includes("kalender ekonomi") ||
+  return (
+    lowerPrompt.includes("kalender ekonomi") ||
     lowerPrompt.includes("economic calendar") ||
     lowerPrompt.includes("calendar ekonomi") ||
     lowerPrompt.includes("jadwal berita") ||
     lowerPrompt.includes("kalender hari ini") ||
     lowerPrompt.includes("calendar hari ini") ||
-    (lowerPrompt.includes("kalender") && (lowerPrompt.includes("hari ini") || lowerPrompt.includes("besok") || lowerPrompt.includes("minggu ini")));
+    (lowerPrompt.includes("kalender") &&
+      (lowerPrompt.includes("hari ini") ||
+        lowerPrompt.includes("besok") ||
+        lowerPrompt.includes("minggu ini")))
+  );
 }
 
 function isPriceQuestion(lowerPrompt: string): boolean {
   if (lowerPrompt.includes("margin") || lowerPrompt.includes("leverage")) {
     return false;
   }
-  
+
   const priceKeywords = [
-    "berapa harga", "harga berapa", "harga sekarang",
-    "harga emas", "harga gold", "harga xau", "harga xauusd",
-    "harga perak", "harga silver", "harga minyak", "harga oil",
-    "harga hangseng", "harga hsi", "harga nikkei",
-    "harga eurusd", "harga gbpusd", "harga usdjpy", "harga audusd",
-    "price ", "quote ", "quotes",
-    "xau berapa", "gold berapa", "emas berapa",
-    "silver berapa", "perak berapa", "oil berapa", "minyak berapa"
+    "berapa harga",
+    "harga berapa",
+    "harga sekarang",
+    "harga emas",
+    "harga gold",
+    "harga xau",
+    "harga xauusd",
+    "harga perak",
+    "harga silver",
+    "harga minyak",
+    "harga oil",
+    "harga hangseng",
+    "harga hang seng",
+    "harga hsi",
+    "hang seng berapa",
+    "hangseng berapa",
+    "harga nikkei",
+    "harga eurusd",
+    "harga gbpusd",
+    "harga usdjpy",
+    "harga audusd",
+    "price ",
+    "quote ",
+    "quotes",
+    "xau berapa",
+    "gold berapa",
+    "emas berapa",
+    "silver berapa",
+    "perak berapa",
+    "oil berapa",
+    "minyak berapa",
   ];
-  
-  return priceKeywords.some(kw => lowerPrompt.includes(kw));
+
+  return priceKeywords.some((kw) => lowerPrompt.includes(kw));
 }
 
 function isKetahananQuestion(lowerPrompt: string): boolean {
-  return lowerPrompt.includes("ketahanan") || 
-    (lowerPrompt.includes("berapa") && lowerPrompt.includes("kuat") && lowerPrompt.includes("lot"));
+  return (
+    lowerPrompt.includes("ketahanan") ||
+    (lowerPrompt.includes("berapa") &&
+      lowerPrompt.includes("kuat") &&
+      lowerPrompt.includes("lot"))
+  );
 }
 
 function isMarginQuestion(lowerPrompt: string): boolean {
   // Exclude pivot and fibonacci questions
-  if (lowerPrompt.includes("pivot") || lowerPrompt.includes("fibonacci") || lowerPrompt.includes("fibo")) {
+  if (
+    lowerPrompt.includes("pivot") ||
+    lowerPrompt.includes("fibonacci") ||
+    lowerPrompt.includes("fibo")
+  ) {
     return false;
   }
   // Exclude ketahanan questions - they have dedicated handler
@@ -147,23 +203,39 @@ function isMarginQuestion(lowerPrompt: string): boolean {
     return false;
   }
   // Exclude breakeven questions
-  if (lowerPrompt.includes("breakeven") || lowerPrompt.includes("balik modal") || lowerPrompt.includes("impas")) {
+  if (
+    lowerPrompt.includes("breakeven") ||
+    lowerPrompt.includes("balik modal") ||
+    lowerPrompt.includes("impas")
+  ) {
     return false;
   }
   // Exclude position size questions
-  if (lowerPrompt.includes("position size") || lowerPrompt.includes("ukuran posisi")) {
+  if (
+    lowerPrompt.includes("position size") ||
+    lowerPrompt.includes("ukuran posisi")
+  ) {
     return false;
   }
-  
-  const hasMarginKeyword = lowerPrompt.includes("margin") || 
+
+  const hasMarginKeyword =
+    lowerPrompt.includes("margin") ||
     lowerPrompt.includes("simulasi") ||
-    (lowerPrompt.includes("hitung") && (lowerPrompt.includes("lot") || lowerPrompt.includes("margin"))) ||
+    (lowerPrompt.includes("hitung") &&
+      (lowerPrompt.includes("lot") || lowerPrompt.includes("margin"))) ||
     lowerPrompt.includes("kalkulasi");
-  
-  const hasLotDanaQuestion = (lowerPrompt.includes("lot") || lowerPrompt.includes("dana") || lowerPrompt.includes("modal")) &&
-    (lowerPrompt.includes("berapa") || lowerPrompt.includes("brp") || lowerPrompt.includes("masuk") || lowerPrompt.includes("punya"));
-  
-  const hasInstrument = lowerPrompt.includes("xauusd") ||
+
+  const hasLotDanaQuestion =
+    (lowerPrompt.includes("lot") ||
+      lowerPrompt.includes("dana") ||
+      lowerPrompt.includes("modal")) &&
+    (lowerPrompt.includes("berapa") ||
+      lowerPrompt.includes("brp") ||
+      lowerPrompt.includes("masuk") ||
+      lowerPrompt.includes("punya"));
+
+  const hasInstrument =
+    lowerPrompt.includes("xauusd") ||
     lowerPrompt.includes("emas") ||
     lowerPrompt.includes("gold") ||
     lowerPrompt.includes("xau") ||
@@ -186,14 +258,23 @@ function isMarginQuestion(lowerPrompt: string): boolean {
     lowerPrompt.includes("usdchf") ||
     lowerPrompt.includes("forex") ||
     lowerPrompt.includes("lot");
-  
+
   return (hasMarginKeyword && hasInstrument) || hasLotDanaQuestion;
 }
 
 function buildTradingRulesTable(): string {
-  const indexTableMd = buildTradingRulesTableThreeCols("Index & Global Index", INDEX_MARGIN_CONFIG as GenericMarginConfig);
-  const commodityTableMd = buildTradingRulesTableThreeCols("Commodity (Gold, Silver, Oil)", COMMODITY_MARGIN_CONFIG as GenericMarginConfig);
-  const currencyTableMd = buildTradingRulesTableThreeCols("Currency (Forex Pairs)", CURRENCY_MARGIN_CONFIG as GenericMarginConfig);
+  const indexTableMd = buildTradingRulesTableThreeCols(
+    "Index & Global Index",
+    INDEX_MARGIN_CONFIG as GenericMarginConfig,
+  );
+  const commodityTableMd = buildTradingRulesTableThreeCols(
+    "Commodity (Gold, Silver, Oil)",
+    COMMODITY_MARGIN_CONFIG as GenericMarginConfig,
+  );
+  const currencyTableMd = buildTradingRulesTableThreeCols(
+    "Currency (Forex Pairs)",
+    CURRENCY_MARGIN_CONFIG as GenericMarginConfig,
+  );
 
   return `# Trading Rules NM Standard
 
@@ -210,7 +291,7 @@ ${commodityTableMd}
 ### 3. Currency (Forex Pairs)
 ${currencyTableMd}
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Jelaskan apa itu margin call"
@@ -251,7 +332,7 @@ Transaksi derivatif di luar Bursa Berjangka yang dilakukan secara bilateral, den
 - Stop Order (SO): untuk membatasi kerugian
 - OCO: kombinasi Limit & Stop
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 3 lot gold"
 2. "Apa itu auto liquidation?"
 3. "Simulasi trading dengan modal $5,000"
@@ -261,8 +342,12 @@ Transaksi derivatif di luar Bursa Berjangka yang dilakukan secara bilateral, den
 *Informasi bersifat edukatif, bukan saran investasi.*`;
 }
 
-function handleFibonacci(userPrompt: string, lowerPrompt: string): string | null {
-  if (!lowerPrompt.includes("fibo") && !lowerPrompt.includes("fibonacci")) return null;
+function handleFibonacci(
+  userPrompt: string,
+  lowerPrompt: string,
+): string | null {
+  if (!lowerPrompt.includes("fibo") && !lowerPrompt.includes("fibonacci"))
+    return null;
 
   const HL = parseHighLowForFib(userPrompt);
   if (!HL) {
@@ -285,7 +370,7 @@ Hitung fibonacci high 2680 low 2640
 - Retracement: 23.6%, 38.2%, 50%, 61.8%, 78.6%
 - Projection: 138.2%, 150%, 161.8%, 200%, 238.2%
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung fibonacci high 2680 low 2640"
 2. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
 3. "Tampilkan harga gold sekarang"
@@ -297,20 +382,26 @@ Hitung fibonacci high 2680 low 2640
   const { H, L } = HL;
   const isDownTrend = /downtren|downtrend|tren turun|turun/.test(lowerPrompt);
   const mode = isDownTrend ? "down" : "up";
-  
+
   // Detect if user wants retracement only or projection only
   const wantsRetracement = /retrace|retracement|retr/.test(lowerPrompt);
-  const wantsProjection = /project|projection|proj|extension|ext/.test(lowerPrompt);
-  
+  const wantsProjection = /project|projection|proj|extension|ext/.test(
+    lowerPrompt,
+  );
+
   // If neither specified, show both. If one specified, show only that one.
   const showRetracement = !wantsProjection || wantsRetracement;
   const showProjection = !wantsRetracement || wantsProjection;
-  
+
   const up = calcFibUp({ H, L });
   const down = calcFibDown({ H, L });
   const D = H - L;
-  
-  const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const fmt = (n: number) =>
+    n.toLocaleString("id-ID", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   let result = `## Fibonacci ${mode === "down" ? "Downtrend" : "Uptrend"}${wantsRetracement && !wantsProjection ? " - Retracement" : ""}${wantsProjection && !wantsRetracement ? " - Projection" : ""}
 
@@ -323,11 +414,18 @@ Hitung fibonacci high 2680 low 2640
   // Uptrend: 23.60% to 78.60%, Downtrend: 78.60% to 23.60%
   const upLevels = ["23.60%", "38.20%", "50.00%", "61.80%", "78.60%"];
   const downLevels = ["78.60%", "61.80%", "50.00%", "38.20%", "23.60%"];
-  const projLevels = ["138.20%", "150.00%", "161.80%", "200.00%", "238.20%", "261.80%"];
-  
+  const projLevels = [
+    "138.20%",
+    "150.00%",
+    "161.80%",
+    "200.00%",
+    "238.20%",
+    "261.80%",
+  ];
+
   const retrLevels = mode === "down" ? downLevels : upLevels;
   const data = mode === "down" ? down : up;
-  
+
   // Show only retracement
   if (showRetracement && !showProjection) {
     result += `| Retracement | Level |
@@ -360,7 +458,8 @@ Hitung fibonacci high 2680 low 2640
     }
   }
 
-  result += `\n💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+  result += `
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung pivot point dengan data OHLC"
 2. "Berapa margin untuk 2 lot gold?"
 3. "Kalender ekonomi hari ini"
@@ -396,7 +495,7 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 - Woodie Pivot
 - Camarilla Pivot
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
 2. "Hitung fibonacci high 2680 low 2640"
 3. "Tampilkan harga gold sekarang"
@@ -431,7 +530,7 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 | S3 | ${fmt(classic.S3)} | ${fmt(woodie.S3)} | ${fmt(camarilla.S3)} |
 | S4 | ${fmt(classic.S4)} | ${fmt(woodie.S4)} | ${fmt(camarilla.S4)} |
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung fibonacci dengan high low ini"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Tampilkan harga gold sekarang"
@@ -440,15 +539,32 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 *NM Ai - Newsmaker.id*`;
 }
 
-async function handleCalendar(userPrompt: string, lowerPrompt: string): Promise<string | null> {
+async function handleCalendar(
+  userPrompt: string,
+  lowerPrompt: string,
+): Promise<string | null> {
   try {
-    const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const nowJakarta = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }),
+    );
     const todayIso = formatDateIso(nowJakarta);
-    const targetDate = detectRequestedDate(userPrompt) || todayIso;
-    
-    const calendarUrl = buildCalendarUrl(CALENDAR_API_URL, targetDate);
-    const response = await fetch(calendarUrl, { method: "GET", cache: "no-store" });
-    
+    const wantsWeek =
+      lowerPrompt.includes("minggu ini") || lowerPrompt.includes("this week");
+    const targetDate = wantsWeek
+      ? todayIso
+      : detectRequestedDate(userPrompt) || todayIso;
+
+    const isToday = !wantsWeek && targetDate === todayIso;
+    const calendarUrl = wantsWeek
+      ? CALENDAR_API_URL
+      : isToday
+        ? CALENDAR_TODAY_API_URL
+        : buildCalendarUrl(CALENDAR_API_URL, targetDate);
+    const response = await fetch(calendarUrl, {
+      method: "GET",
+      cache: "no-store",
+    });
+
     if (!response.ok) {
       console.error("Calendar API not ok:", response.status);
       return `# Kalender Ekonomi
@@ -460,7 +576,7 @@ Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sement
 **Alternatif:**
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk jadwal berita ekonomi
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Harga gold sekarang berapa?"
 2. "Hitung margin untuk 2 lot gold"
 3. "Jelaskan tentang high impact news"
@@ -468,16 +584,30 @@ Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sement
 ---
 *NM Ai - Newsmaker.id*`;
     }
-    
+
     const data = await response.json();
-    const events = Array.isArray(data.data) ? data.data.slice(0, 20) : [];
-    
-    if (events.length === 0) {
-      return `# Kalender Ekonomi (${targetDate})
+    const rawEvents = Array.isArray(data.data) ? data.data : [];
+    const extractDate = (ev: any): string | null => {
+      if (typeof ev?.date === "string" && ev.date.trim() !== "")
+        return ev.date.trim();
+      const timeStr = String(ev?.time ?? "");
+      const match = timeStr.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+      return match ? match[1] : null;
+    };
+    const events = wantsWeek
+      ? rawEvents
+      : isToday
+        ? rawEvents
+        : rawEvents.filter((ev: any) => extractDate(ev) === targetDate);
+    const limitedEvents = events.slice(0, 20);
 
-Tidak ada event ekonomi terdaftar untuk tanggal ini.
+    if (limitedEvents.length === 0) {
+      const emptyLabel = wantsWeek ? "minggu ini" : `tanggal ${targetDate}`;
+      return `# Kalender Ekonomi (${wantsWeek ? "Minggu Ini" : targetDate})
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+Tidak ada event ekonomi terdaftar untuk ${emptyLabel}.
+
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Kalender ekonomi minggu ini"
 2. "Tampilkan berita terbaru"
 3. "Harga gold sekarang berapa?"
@@ -486,21 +616,36 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
 *NM Ai - Newsmaker.id*`;
     }
 
-    const wantsHighImpact = lowerPrompt.includes("high impact") || lowerPrompt.includes("dampak tinggi");
-    const filtered = wantsHighImpact 
-      ? events.filter((e: any) => e.impact?.includes("★★★") || e.impact?.toLowerCase().includes("high"))
-      : events;
+    const wantsHighImpact =
+      lowerPrompt.includes("high impact") ||
+      lowerPrompt.includes("dampak tinggi");
+    const filtered = wantsHighImpact
+      ? limitedEvents.filter((e: any) => {
+          const impactRaw = String(e.impact ?? "");
+          const impactLower = impactRaw.toLowerCase();
+          const starCount = (impactRaw.match(/[★*]/g) || []).length;
+          return impactLower.includes("high") || starCount >= 3;
+        })
+      : limitedEvents;
 
-    const calendarTable = buildCalendarTable(filtered.map((ev: any) => ({
-      date: targetDate,
-      time: ev.time ?? "-",
-      currency: ev.currency ?? "-",
-      impact: ev.impact ?? "-",
-      event: ev.event ?? "-",
-      previous: ev.previous ?? "-",
-      forecast: ev.forecast ?? "-",
-      actual: ev.actual ?? "",
-    })));
+    const calendarTable = buildCalendarTable(
+      filtered.map((ev: any) => ({
+        date: extractDate(ev) ?? targetDate,
+        time: (() => {
+          const timeStr = String(ev.time ?? "-");
+          if (/\b\d{4}-\d{2}-\d{2}\b/.test(timeStr)) {
+            return timeStr.replace(/^\d{4}-\d{2}-\d{2}\s*/, "") || "-";
+          }
+          return timeStr;
+        })(),
+        currency: ev.currency ?? "-",
+        impact: ev.impact ?? "-",
+        event: ev.event ?? "-",
+        previous: ev.previous ?? "-",
+        forecast: ev.forecast ?? "-",
+        actual: ev.actual ?? "",
+      })),
+    );
 
     // Fetch latest news to show below calendar
     let newsSection = "";
@@ -509,29 +654,30 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
       if (news && news.length > 0) {
         newsSection = `\n---\n\n## Berita Terkini\n\n`;
         const limitedNews = news.slice(0, 3);
-        limitedNews.forEach((item, index) => {
-          // Use publishedAt directly as string since API already provides formatted WIB time
+        limitedNews.forEach((item) => {
           const dateStr = item.publishedAt || "";
-          newsSection += `**${index + 1}. ${item.title}** `;
+          const category = item.category || "Market";
+
+          newsSection += `• **${item.title || "Berita terbaru"}**\n\n`;
           if (item.excerpt) {
-            newsSection += `${item.excerpt.slice(0, 100)}... `;
+            newsSection += `${item.excerpt.slice(0, 200)}${item.excerpt.length > 200 ? "..." : ""}\n\n`;
           }
-          newsSection += `*${dateStr} WIB* | ${item.category || "Market"}`;
+          newsSection += `*${dateStr} WIB* | ${category}\n\n`;
           if (item.url) {
-            newsSection += ` [Baca selengkapnya](${item.url})`;
+            newsSection += `[Baca selengkapnya](${item.url})\n`;
           }
-          newsSection += `\n\n`;
+          newsSection += `\n`;
         });
       }
     } catch (newsErr) {
       console.error("News fetch for calendar failed:", newsErr);
     }
 
-    return `# Kalender Ekonomi (${targetDate})
+    return `# Kalender Ekonomi (${wantsWeek ? "Minggu Ini" : targetDate})
 
 ${calendarTable}
 ${newsSection}
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Tampilkan harga gold sekarang"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Jelaskan cara baca dampak berita ekonomi"
@@ -555,7 +701,7 @@ Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sement
 **Alternatif:**
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk jadwal berita ekonomi
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Harga gold sekarang berapa?"
 2. "Hitung margin untuk 2 lot gold"
 3. "Jelaskan tentang high impact news"
@@ -567,7 +713,10 @@ Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sement
 
 async function handlePriceQuote(userPrompt: string): Promise<string | null> {
   try {
-    const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
+    const response = await fetch(QUOTES_API_URL, {
+      method: "GET",
+      cache: "no-store",
+    });
     if (!response.ok) {
       console.error("Quote API not ok:", response.status);
       return `# Harga Real-Time
@@ -580,7 +729,7 @@ Server harga sedang dalam pemeliharaan atau mengalami gangguan sementara.
 - Cek langsung di platform trading Anda
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk update terbaru
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Kalender ekonomi hari ini"
 3. "Jelaskan trading rules SPA"
@@ -591,41 +740,144 @@ Server harga sedang dalam pemeliharaan atau mengalami gangguan sementara.
 
     const data = await response.json();
     const quotes = Array.isArray(data.data) ? data.data : [];
-    const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-";
-    
-    const instrument = detectInstrumentFromPrompt(userPrompt);
-    const quote = pickQuoteForInstrument(quotes, instrument);
-    
-    if (!quote) {
-      const allSymbols = quotes.map((q: any) => q.symbol).join(", ");
+    const updatedAt = data.updatedAt
+      ? new Date(data.updatedAt).toLocaleString("id-ID", {
+          timeZone: "Asia/Jakarta",
+        })
+      : "-";
+
+    const instrumentsFromPrompt = detectInstrumentsFromPromptMulti(userPrompt);
+    let instruments = instrumentsFromPrompt.length
+      ? instrumentsFromPrompt
+      : [detectInstrumentFromPrompt(userPrompt)];
+
+    if (instruments.length > 1) {
+      instruments = instruments.filter((key) => key !== "other");
+    }
+
+    const rows: Array<{
+      label: string;
+      symbol: string;
+      last: string;
+      change: string;
+      open: string;
+      high: string;
+      low: string;
+    }> = [];
+    const missing: string[] = [];
+
+    const formatNum = (value: any) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return String(value ?? "-");
+      return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    };
+
+    const formatChange = (valueChange: any, percentChange: any) => {
+      const chg = Number(valueChange);
+      const pct = Number(percentChange);
+      const chgLabel = Number.isFinite(chg)
+        ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}`
+        : String(valueChange ?? "-");
+      const pctLabel = Number.isFinite(pct)
+        ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`
+        : String(percentChange ?? "-");
+      return `${chgLabel} (${pctLabel})`;
+    };
+
+    for (const instrument of instruments) {
+      const quote = pickQuoteForInstrument(quotes, instrument);
+      if (!quote) {
+        const label = INSTRUMENT_LABEL[instrument] || {
+          name: instrument,
+          unit: "unit",
+        };
+        rows.push({
+          label: label.name,
+          symbol: "-",
+          last: "-",
+          change: "-",
+          open: "-",
+          high: "-",
+          low: "-",
+        });
+        missing.push(label.name);
+        continue;
+      }
+
+      const label = INSTRUMENT_LABEL[instrument] || {
+        name: quote.symbol,
+        unit: "unit",
+      };
+      rows.push({
+        label: label.name,
+        symbol: quote.symbol,
+        last: formatNum(quote.last),
+        change: formatChange(quote.valueChange, quote.percentChange),
+        open: formatNum(quote.open),
+        high: formatNum(quote.high),
+        low: formatNum(quote.low),
+      });
+    }
+
+    if (rows.length === 0) {
+      const uniqueSymbols = Array.from(
+        new Set(quotes.map((q: any) => q.symbol).filter(Boolean)),
+      );
+      const availableTable = [
+        "| Instrumen |",
+        "|:--|",
+        ...uniqueSymbols.map((symbol) => `| ${symbol} |`),
+      ].join("\n");
       return `Maaf, data harga untuk instrumen tersebut tidak tersedia saat ini.
 
-Instrumen yang tersedia: ${allSymbols}
+${availableTable}
 
 ---
 *NM Ai - Newsmaker.id*`;
     }
 
-    const label = INSTRUMENT_LABEL[instrument] || { name: quote.symbol, unit: "unit" };
-    const change = quote.valueChange >= 0 ? `+${quote.valueChange}` : `${quote.valueChange}`;
-    const pctChange = quote.percentChange >= 0 ? `+${quote.percentChange}%` : `${quote.percentChange}%`;
-    
-    return `# Harga ${label.name} (${quote.symbol})
+    if (rows.length === 1) {
+      const row = rows[0];
+      return `# Harga ${row.label} (${row.symbol})
 
 | Data | Nilai |
 |------|-------|
-| Last | **${quote.last}** |
-| High | ${quote.high || "-"} |
-| Low | ${quote.low || "-"} |
-| Open | ${quote.open || "-"} |
-| Prev Close | ${quote.prevClose || "-"} |
-| Change | ${change} (${pctChange}) |
+| Last | **${row.last}** |
+| Open | ${row.open} |
+| High | ${row.high} |
+| Low | ${row.low} |
+| Change | ${row.change} |
+
+*Update terakhir: ${updatedAt}*
+*- Data dari sistem Newsmaker, bersifat indikatif.*
+
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 2 lot ${row.label}"
+2. "Kalender ekonomi hari ini"
+3. "Berapa lot ideal untuk modal saya?"
+
+---
+*NM Ai - Newsmaker.id*`;
+    }
+
+    const tableLines = [
+      "| Instrumen | Symbol | Last | Open | High | Low | Change |",
+      "|:--|:--|--:|--:|--:|--:|--:|",
+      ...rows.map(
+        (row) =>
+          `| ${row.label} | ${row.symbol} | **${row.last}** | ${row.open} | ${row.high} | ${row.low} | ${row.change} |`,
+      ),
+    ].join("\n");
+
+    return `# Harga Real-Time (Multiple)
+
+${tableLines}
 
 *Update terakhir: ${updatedAt}*
 *Data dari sistem Newsmaker, bersifat indikatif.*
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
-1. "Hitung margin untuk 2 lot ${label.name}"
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung margin untuk 2 lot gold"
 2. "Kalender ekonomi hari ini"
 3. "Berapa lot ideal untuk modal saya?"
 
@@ -643,7 +895,7 @@ Silakan coba lagi dalam beberapa saat.
 - Cek langsung di platform trading Anda
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk update terbaru
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Kalender ekonomi hari ini"
 3. "Jelaskan trading rules SPA"
@@ -655,26 +907,37 @@ Silakan coba lagi dalam beberapa saat.
 
 async function fetchRealTimePrice(symbol: string): Promise<number | null> {
   try {
-    const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
+    const response = await fetch(QUOTES_API_URL, {
+      method: "GET",
+      cache: "no-store",
+    });
     if (!response.ok) return null;
-    
+
     const data = await response.json();
     const quotes = Array.isArray(data.data) ? data.data : [];
-    
+
     const symbolUpper = symbol.toUpperCase();
-    
+
     // Find quote matching the specific symbol based on actual API response format
     // API returns: XUL10 (Gold), BCO10_BBJ (Oil), HKK50_BBJ (HSI), JPK50_BBJ (Nikkei)
     // AU10F_BBJ (AUDUSD), EU10F_BBJ (EURUSD), GU10F_BBJ (GBPUSD), UC10F_BBJ (USDCHF), UJ10F_BBJ (USDJPY)
     const quote = quotes.find((q: any) => {
       const qSymbol = (q.symbol || "").toUpperCase();
-      
+
       // Commodities - match actual API symbols
       if (symbolUpper === "XAU" || symbolUpper === "GOLD") {
-        return qSymbol.includes("XUL") || qSymbol.includes("XAU") || qSymbol.includes("GOLD");
+        return (
+          qSymbol.includes("XUL") ||
+          qSymbol.includes("XAU") ||
+          qSymbol.includes("GOLD")
+        );
       }
       if (symbolUpper === "XAG" || symbolUpper === "SILVER") {
-        return qSymbol.includes("XAG") || qSymbol.includes("SILVER") || qSymbol.includes("LSI");
+        return (
+          qSymbol.includes("XAG") ||
+          qSymbol.includes("SILVER") ||
+          qSymbol.includes("LSI")
+        );
       }
       if (symbolUpper === "BCO" || symbolUpper === "OIL") {
         return qSymbol.includes("BCO");
@@ -683,7 +946,11 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
       if (symbolUpper === "HSI") {
         return qSymbol.includes("HKK50") || qSymbol.includes("HSI");
       }
-      if (symbolUpper === "NKD" || symbolUpper === "NIKKEI" || symbolUpper === "JP225") {
+      if (
+        symbolUpper === "NKD" ||
+        symbolUpper === "NIKKEI" ||
+        symbolUpper === "JP225"
+      ) {
         return qSymbol.includes("JPK50") || qSymbol.includes("JPN");
       }
       // Forex pairs - match actual API symbols (GU, EU, AU, UJ, UC format)
@@ -702,11 +969,11 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
       if (symbolUpper === "CHF") {
         return qSymbol.includes("UC10") || qSymbol.includes("USDCHF");
       }
-      
+
       // Default: check if symbol is contained
       return qSymbol.includes(symbolUpper);
     });
-    
+
     if (quote && quote.last) {
       return parseFloat(quote.last);
     }
@@ -717,24 +984,56 @@ async function fetchRealTimePrice(symbol: string): Promise<number | null> {
   }
 }
 
-async function handleMarginCalculation(userPrompt: string): Promise<string | null> {
+async function handleMarginCalculation(
+  userPrompt: string,
+): Promise<string | null> {
   const lowerPrompt = userPrompt.toLowerCase();
-  
+
   // IMPORTANT: Check Gold (XAU) FIRST before other instruments to avoid false matches
-  const isGold = lowerPrompt.includes("xauusd") || lowerPrompt.includes("xau") || lowerPrompt.includes("gold") || lowerPrompt.includes("emas");
-  const isXAG = lowerPrompt.includes("xag") || lowerPrompt.includes("silver") || lowerPrompt.includes("perak");
-  const isBCO = lowerPrompt.includes("bco") || lowerPrompt.includes("oil") || lowerPrompt.includes("minyak") || lowerPrompt.includes("brent");
-  const isHSI = lowerPrompt.includes("hangseng") || lowerPrompt.includes("hang seng") || lowerPrompt.includes("hsi") || lowerPrompt.includes("hongkong") || lowerPrompt.includes("hk50");
-  const isNikkei = lowerPrompt.includes("nikkei") || lowerPrompt.includes("jp225") || lowerPrompt.includes("jepang") || lowerPrompt.includes("japan");
-  const isGBPUSD = lowerPrompt.includes("gbpusd") || lowerPrompt.includes("pound");
-  const isEURUSD = lowerPrompt.includes("eurusd") || lowerPrompt.includes("euro");
+  const isGold =
+    lowerPrompt.includes("xauusd") ||
+    lowerPrompt.includes("xau") ||
+    lowerPrompt.includes("gold") ||
+    lowerPrompt.includes("emas");
+  const isXAG =
+    lowerPrompt.includes("xag") ||
+    lowerPrompt.includes("silver") ||
+    lowerPrompt.includes("perak");
+  const isBCO =
+    lowerPrompt.includes("bco") ||
+    lowerPrompt.includes("oil") ||
+    lowerPrompt.includes("minyak") ||
+    lowerPrompt.includes("brent");
+  const isHSI =
+    lowerPrompt.includes("hangseng") ||
+    lowerPrompt.includes("hang seng") ||
+    lowerPrompt.includes("hsi") ||
+    lowerPrompt.includes("hongkong") ||
+    lowerPrompt.includes("hk50");
+  const isNikkei =
+    lowerPrompt.includes("nikkei") ||
+    lowerPrompt.includes("jp225") ||
+    lowerPrompt.includes("jepang") ||
+    lowerPrompt.includes("japan");
+  const isGBPUSD =
+    lowerPrompt.includes("gbpusd") || lowerPrompt.includes("pound");
+  const isEURUSD =
+    lowerPrompt.includes("eurusd") || lowerPrompt.includes("euro");
   // AUDUSD: Must NOT match if XAU is present (avoid xau matching "au")
-  const isAUDUSD = !isGold && (lowerPrompt.includes("audusd") || lowerPrompt.includes("aussie") || (lowerPrompt.includes(" au ") || lowerPrompt.endsWith(" au") || lowerPrompt.startsWith("au ")));
-  const isUSDJPY = lowerPrompt.includes("usdjpy") || lowerPrompt.includes("yen");
-  const isUSDCHF = lowerPrompt.includes("usdchf") || lowerPrompt.includes("swiss");
+  const isAUDUSD =
+    !isGold &&
+    (lowerPrompt.includes("audusd") ||
+      lowerPrompt.includes("aussie") ||
+      lowerPrompt.includes(" au ") ||
+      lowerPrompt.endsWith(" au") ||
+      lowerPrompt.startsWith("au "));
+  const isUSDJPY =
+    lowerPrompt.includes("usdjpy") || lowerPrompt.includes("yen");
+  const isUSDCHF =
+    lowerPrompt.includes("usdchf") || lowerPrompt.includes("swiss");
   const isForex = isGBPUSD || isEURUSD || isAUDUSD || isUSDJPY || isUSDCHF;
   const isIndex = isHSI || isNikkei;
-  
+
   let instrumentName = "XAUUSD (Gold)";
   let tradeCode = "XUL10 / XULF";
   let contractSize = 100;
@@ -743,7 +1042,7 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   let symbol = "XAU";
   let contractUnit = "Troy Ounce";
   let pointLabel = "poin";
-  
+
   if (isXAG) {
     instrumentName = "XAGUSD (Silver)";
     tradeCode = "XAG10_BBJ / XAGF_BBJ";
@@ -824,50 +1123,60 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
     contractUnit = "USD";
     pointLabel = "pip";
   }
-  
-  const danaMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
-    userPrompt.match(/([\d,]+(?:\.\d+)?)\s*(?:k|ribu|juta|jt)?\s*(?:dollar|dolar|usd)/i) ||
+
+  const danaMatch =
+    userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
+    userPrompt.match(
+      /([\d,]+(?:\.\d+)?)\s*(?:k|ribu|juta|jt)?\s*(?:dollar|dolar|usd)/i,
+    ) ||
     userPrompt.match(/dana\s*([\d,]+)/i) ||
     userPrompt.match(/modal\s*([\d,]+)/i) ||
     userPrompt.match(/punya\s*([\d,]+)/i);
-  
+
   let dana = 0;
   if (danaMatch) {
     let rawDana = parseFloat(danaMatch[1].replace(/,/g, ""));
     if (lowerPrompt.includes("k") && rawDana < 1000) rawDana *= 1000;
     dana = rawDana;
   }
-  
+
   const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
-  const lot = lotMatch ? parseFloat(lotMatch[1]) : (dana > 0 ? Math.floor(dana / 1000) : 1);
-  
-  const isOvernight = lowerPrompt.includes("overnight") || lowerPrompt.includes("swing");
-  
+  const lot = lotMatch
+    ? parseFloat(lotMatch[1])
+    : dana > 0
+      ? Math.floor(dana / 1000)
+      : 1;
+
+  const isOvernight =
+    lowerPrompt.includes("overnight") || lowerPrompt.includes("swing");
+
   const marginPerLot = 1000;
   const totalMargin = marginPerLot * lot;
   const maintenanceMargin = totalMargin * 0.7;
   const autoLiquidation = totalMargin * 0.3;
   const facilityFee = 30 * lot;
-  
+
   let currentPrice = await fetchRealTimePrice(symbol);
   let priceSource = "real-time";
-  
+
   if (!currentPrice) {
     if (isXAG) currentPrice = 30;
     else if (isBCO) currentPrice = 75;
     else if (isHSI) currentPrice = 19800;
     else if (isNikkei) currentPrice = 39000;
-    else if (isGBPUSD) currentPrice = 1.2700;
-    else if (isEURUSD) currentPrice = 1.0400;
-    else if (isAUDUSD) currentPrice = 0.6200;
-    else if (isUSDJPY) currentPrice = 157.00;
-    else if (isUSDCHF) currentPrice = 0.9000;
+    else if (isGBPUSD) currentPrice = 1.27;
+    else if (isEURUSD) currentPrice = 1.04;
+    else if (isAUDUSD) currentPrice = 0.62;
+    else if (isUSDJPY) currentPrice = 157.0;
+    else if (isUSDCHF) currentPrice = 0.9;
     else currentPrice = 2650;
     priceSource = "estimasi";
   }
-  
-  const contractValue = isIndex ? (currentPrice * pointValue * lot) : (currentPrice * contractSize * lot);
-  
+
+  const contractValue = isIndex
+    ? currentPrice * pointValue * lot
+    : currentPrice * contractSize * lot;
+
   const effectiveMargin = dana > 0 ? dana - totalMargin : 0;
   const maxLots = dana > 0 ? Math.floor(dana / marginPerLot) : 0;
   const idealLotMin = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.1)) : 0;
@@ -875,13 +1184,17 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   const mediumLotMin = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.3)) : 0;
   const mediumLotMax = dana > 0 ? Math.max(1, Math.floor(maxLots * 0.4)) : 0;
   const recommendedLots = dana > 0 ? idealLotMax : lot;
-  
-  const idealBuffer = dana - (idealLotMax * marginPerLot);
+
+  const idealBuffer = dana - idealLotMax * marginPerLot;
   const idealKetahanan = Math.floor(idealBuffer / (idealLotMax * pointValue));
-  const mediumBuffer = dana - (mediumLotMax * marginPerLot);
-  const mediumKetahanan = Math.floor(mediumBuffer / (mediumLotMax * pointValue));
-  
-  const danaSection = dana > 0 ? `## Analisis Dana Anda: $${dana.toLocaleString()} (Rp ${(dana * 10000).toLocaleString()})
+  const mediumBuffer = dana - mediumLotMax * marginPerLot;
+  const mediumKetahanan = Math.floor(
+    mediumBuffer / (mediumLotMax * pointValue),
+  );
+
+  const danaSection =
+    dana > 0
+      ? `## Analisis Dana Anda: $${dana.toLocaleString()} (Rp ${(dana * 10000).toLocaleString()})
 
 | Parameter | Nilai |
 |-----------|-------|
@@ -898,11 +1211,14 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
 
 > **IDEAL** = risiko rendah, ketahanan tinggi, cocok untuk pemula atau kondisi market tidak pasti.
 
-` : "";
+`
+      : "";
 
-  const priceDecimals = isForex ? 4 : (isUSDJPY ? 2 : 2);
-  const priceDisplay = isForex ? currentPrice.toFixed(priceDecimals) : currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 });
-  
+  const priceDecimals = isForex ? 4 : isUSDJPY ? 2 : 2;
+  const priceDisplay = isForex
+    ? currentPrice.toFixed(priceDecimals)
+    : currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 });
+
   return `# Simulasi Trading ${instrumentName}
 
 ## Aturan Dasar SPA
@@ -941,7 +1257,7 @@ ${danaSection}## Simulasi untuk ${dana > 0 ? recommendedLots : lot} LOT
 Gross Profit = Lot × ${pointLabel.charAt(0).toUpperCase() + pointLabel.slice(1)} × $${pointValue}
 Net Profit = Gross Profit - (Lot × $30)
 
-Contoh: Buy ${dana > 0 ? recommendedLots : lot} Lot @ ${priceDisplay}, Sell @ ${isForex ? (currentPrice + 0.0003).toFixed(4) : (isIndex ? (currentPrice + 3).toFixed(0) : (currentPrice + 3).toFixed(2))} (+3 ${pointLabel})
+Contoh: Buy ${dana > 0 ? recommendedLots : lot} Lot @ ${priceDisplay}, Sell @ ${isForex ? (currentPrice + 0.0003).toFixed(4) : isIndex ? (currentPrice + 3).toFixed(0) : (currentPrice + 3).toFixed(2)} (+3 ${pointLabel})
 Gross = ${dana > 0 ? recommendedLots : lot} × 3 × $${pointValue} = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()}
 Net = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()} - $${(dana > 0 ? recommendedLots : lot) * 30} = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue - (dana > 0 ? recommendedLots : lot) * 30).toLocaleString()}
 \`\`\`
@@ -951,7 +1267,7 @@ Net = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()}
 - **Auto Liquidation**: Equity ≤ 30% Initial Margin ($${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.3).toLocaleString()})
 ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa ketahanan dana saya dengan ${dana > 0 ? recommendedLots : lot} lot?"
 2. "Kalender ekonomi hari ini ada apa saja?"
 3. "Hitung pivot point ${instrumentName.split(" ")[0]}"
@@ -963,40 +1279,45 @@ ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 
 // ============ KETAHANAN DANA CALCULATOR ============
 
-async function handleKetahananCalculation(userPrompt: string): Promise<string | null> {
+async function handleKetahananCalculation(
+  userPrompt: string,
+): Promise<string | null> {
   const lowerPrompt = userPrompt.toLowerCase();
-  
+
   // Parse lot from prompt
   const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
   const lot = lotMatch ? parseFloat(lotMatch[1]) : 1;
-  
+
   // Parse dana/modal if provided
-  const danaMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
-    userPrompt.match(/([\d,]+(?:\.\d+)?)\s*(?:k|ribu|juta|jt)?\s*(?:dollar|dolar|usd)/i) ||
+  const danaMatch =
+    userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)\s*k?/i) ||
+    userPrompt.match(
+      /([\d,]+(?:\.\d+)?)\s*(?:k|ribu|juta|jt)?\s*(?:dollar|dolar|usd)/i,
+    ) ||
     userPrompt.match(/dana\s*([\d,]+)/i) ||
     userPrompt.match(/modal\s*([\d,]+)/i);
-  
+
   let dana = 0;
   if (danaMatch) {
     let rawDana = parseFloat(danaMatch[1].replace(/,/g, ""));
     if (lowerPrompt.includes("k") && rawDana < 1000) rawDana *= 1000;
     dana = rawDana;
   }
-  
+
   // Default values for Gold (most common)
   const marginPerLot = 1000;
   const pointValue = 100;
   const feePerLot = 30;
-  
+
   const totalMargin = marginPerLot * lot;
-  
+
   // Calculate ketahanan
   if (dana > 0) {
     // User provided capital
-    const buffer = dana - totalMargin - (feePerLot * lot);
+    const buffer = dana - totalMargin - feePerLot * lot;
     const ketahanan = Math.floor(buffer / (lot * pointValue));
     const marginUsedPct = (totalMargin / dana) * 100;
-    
+
     if (buffer <= 0) {
       return `# Analisis Ketahanan Dana
 
@@ -1019,7 +1340,7 @@ async function handleKetahananCalculation(userPrompt: string): Promise<string | 
 
 Anda membutuhkan minimal **$${totalMargin.toLocaleString()}** untuk membuka ${lot} lot.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa lot ideal untuk modal $${dana.toLocaleString()}?"
 2. "Hitung margin untuk 0.5 lot gold"
 3. "Jelaskan tentang margin call"
@@ -1027,7 +1348,7 @@ Anda membutuhkan minimal **$${totalMargin.toLocaleString()}** untuk membuka ${lo
 ---
 *NM Ai - Newsmaker.id*`;
     }
-    
+
     return `# Analisis Ketahanan Dana
 
 ## Input Data
@@ -1058,11 +1379,15 @@ Anda membutuhkan minimal **$${totalMargin.toLocaleString()}** untuk membuka ${lo
 | Margin Call | Equity < 70% margin | $${(totalMargin * 0.7).toLocaleString()} |
 | Auto Liquidation | Equity ≤ 30% margin | $${(totalMargin * 0.3).toLocaleString()} |
 
-${ketahanan < 5 ? `> ⚠️ **PERINGATAN**: Ketahanan hanya ${ketahanan} poin sangat berisiko! Pertimbangkan untuk mengurangi lot.` : 
-ketahanan < 10 ? `> ⚡ **Hati-hati**: Ketahanan ${ketahanan} poin termasuk rendah. Gunakan stop loss ketat.` : 
-`> ✅ **Status**: Ketahanan ${ketahanan} poin cukup untuk trading dengan risk management yang baik.`}
+${
+  ketahanan < 5
+    ? `> ⚠️ **PERINGATAN**: Ketahanan hanya ${ketahanan} poin sangat berisiko! Pertimbangkan untuk mengurangi lot.`
+    : ketahanan < 10
+      ? `> ⚡ **Hati-hati**: Ketahanan ${ketahanan} poin termasuk rendah. Gunakan stop loss ketat.`
+      : `> ✅ **Status**: Ketahanan ${ketahanan} poin cukup untuk trading dengan risk management yang baik.`
+}
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa lot ideal untuk modal $${dana.toLocaleString()}?"
 2. "Hitung position size dengan risk 2%"
 3. "Kalender ekonomi hari ini"
@@ -1071,7 +1396,7 @@ ketahanan < 10 ? `> ⚡ **Hati-hati**: Ketahanan ${ketahanan} poin termasuk rend
 *NM Ai - Newsmaker.id*
 *Informasi bersifat edukatif, bukan saran investasi.*`;
   }
-  
+
   // User only provided lot, ask for modal
   return `# Analisis Ketahanan Dana
 
@@ -1084,7 +1409,7 @@ Ketahanan dana $10,000 dengan ${lot} lot
 
 **Atau coba pertanyaan ini:**
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Ketahanan dana $10,000 dengan ${lot} lot"
 2. "Berapa lot ideal untuk modal $5,000?"
 3. "Hitung margin untuk ${lot} lot gold"
@@ -1096,39 +1421,55 @@ Ketahanan dana $10,000 dengan ${lot} lot
 // ============ NEW CALCULATORS ============
 
 function isRiskRewardQuestion(lowerPrompt: string): boolean {
-  return (lowerPrompt.includes("risk") && lowerPrompt.includes("reward")) ||
+  return (
+    (lowerPrompt.includes("risk") && lowerPrompt.includes("reward")) ||
     lowerPrompt.includes("risiko reward") ||
     lowerPrompt.includes("rr ratio") ||
     lowerPrompt.includes("risk reward ratio") ||
-    (lowerPrompt.includes("entry") && lowerPrompt.includes("sl") && lowerPrompt.includes("tp"));
+    (lowerPrompt.includes("entry") &&
+      lowerPrompt.includes("sl") &&
+      lowerPrompt.includes("tp"))
+  );
 }
 
 function isBreakevenQuestion(lowerPrompt: string): boolean {
-  return lowerPrompt.includes("breakeven") ||
+  return (
+    lowerPrompt.includes("breakeven") ||
     lowerPrompt.includes("break even") ||
     lowerPrompt.includes("balik modal") ||
     lowerPrompt.includes("impas") ||
-    (lowerPrompt.includes("loss") && lowerPrompt.includes("recover"));
+    (lowerPrompt.includes("loss") && lowerPrompt.includes("recover"))
+  );
 }
 
 function isPositionSizeQuestion(lowerPrompt: string): boolean {
-  return (lowerPrompt.includes("position size") || lowerPrompt.includes("ukuran posisi")) ||
-    (lowerPrompt.includes("risk") && lowerPrompt.includes("%") && (lowerPrompt.includes("lot") || lowerPrompt.includes("berapa"))) ||
-    (lowerPrompt.includes("risiko") && lowerPrompt.includes("%") && lowerPrompt.includes("lot"));
+  return (
+    lowerPrompt.includes("position size") ||
+    lowerPrompt.includes("ukuran posisi") ||
+    (lowerPrompt.includes("risk") &&
+      lowerPrompt.includes("%") &&
+      (lowerPrompt.includes("lot") || lowerPrompt.includes("berapa"))) ||
+    (lowerPrompt.includes("risiko") &&
+      lowerPrompt.includes("%") &&
+      lowerPrompt.includes("lot"))
+  );
 }
 
 function handleRiskRewardCalculation(userPrompt: string): string | null {
   // Parse entry, stop loss, take profit from prompt
-  const entryMatch = userPrompt.match(/entry\s*[:=]?\s*([\d,.]+)/i) || 
+  const entryMatch =
+    userPrompt.match(/entry\s*[:=]?\s*([\d,.]+)/i) ||
     userPrompt.match(/beli\s*(?:di|@)?\s*([\d,.]+)/i) ||
     userPrompt.match(/([\d,.]+)\s*entry/i);
-  const slMatch = userPrompt.match(/sl\s*[:=]?\s*([\d,.]+)/i) ||
+  const slMatch =
+    userPrompt.match(/sl\s*[:=]?\s*([\d,.]+)/i) ||
     userPrompt.match(/stop\s*loss\s*[:=]?\s*([\d,.]+)/i) ||
     userPrompt.match(/stoploss\s*[:=]?\s*([\d,.]+)/i);
-  const tpMatch = userPrompt.match(/tp\s*[:=]?\s*([\d,.]+)/i) ||
+  const tpMatch =
+    userPrompt.match(/tp\s*[:=]?\s*([\d,.]+)/i) ||
     userPrompt.match(/take\s*profit\s*[:=]?\s*([\d,.]+)/i) ||
     userPrompt.match(/target\s*[:=]?\s*([\d,.]+)/i);
-  
+
   if (!entryMatch || !slMatch || !tpMatch) {
     return `# Risk/Reward Calculator
 
@@ -1148,7 +1489,7 @@ Atau:
 - "Hitung RR entry 2650, SL 2645, TP 2665"
 - "Risk reward entry 1.0850 SL 1.0820 TP 1.0920"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung RR entry 2650, SL 2645, TP 2665"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Hitung breakeven setelah loss $500"
@@ -1156,14 +1497,14 @@ Atau:
 ---
 *NM Ai - Newsmaker.id*`;
   }
-  
+
   const entry = parseFloat(entryMatch[1].replace(/,/g, ""));
   const sl = parseFloat(slMatch[1].replace(/,/g, ""));
   const tp = parseFloat(tpMatch[1].replace(/,/g, ""));
-  
+
   const risk = Math.abs(entry - sl);
   const reward = Math.abs(tp - entry);
-  
+
   // Guard against zero-distance SL/TP
   if (risk === 0 || reward === 0) {
     return `# Risk/Reward Calculator
@@ -1187,7 +1528,7 @@ Pastikan:
 **Contoh yang benar:**
 - "Hitung RR entry 2650, SL 2645, TP 2665"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung RR entry 2650, SL 2645, TP 2665"
 2. "Jelaskan risk reward ratio yang ideal"
 3. "Berapa lot ideal untuk modal $10,000?"
@@ -1195,25 +1536,26 @@ Pastikan:
 ---
 *NM Ai - Newsmaker.id*`;
   }
-  
+
   const rrRatio = reward / risk;
-  
+
   const isLong = sl < entry;
   const direction = isLong ? "LONG (Buy)" : "SHORT (Sell)";
-  
+
   let assessment = "";
   if (rrRatio >= 3) {
     assessment = "Excellent! RR 1:3+ adalah target ideal untuk swing trading.";
   } else if (rrRatio >= 2) {
     assessment = "Bagus! RR 1:2 adalah standar minimum yang baik.";
   } else if (rrRatio >= 1.5) {
-    assessment = "Cukup. Pertimbangkan untuk mencari setup dengan RR lebih tinggi.";
+    assessment =
+      "Cukup. Pertimbangkan untuk mencari setup dengan RR lebih tinggi.";
   } else {
     assessment = "Kurang ideal. RR di bawah 1:1.5 berisiko tinggi.";
   }
-  
+
   const winRateNeeded = (1 / (1 + rrRatio)) * 100;
-  
+
   return `# Risk/Reward Calculator
 
 ## Input Data
@@ -1237,7 +1579,7 @@ ${assessment}
 
 > **Catatan**: Win Rate Minimum adalah persentase trade yang harus profit agar tetap BE (break even) dalam jangka panjang.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Jelaskan apa itu risk management"
 3. "Berapa lot ideal untuk modal $5,000?"
@@ -1249,13 +1591,14 @@ ${assessment}
 
 function handleBreakevenCalculation(userPrompt: string): string | null {
   // Parse loss amount and lot size
-  const lossMatch = userPrompt.match(/loss\s*(?:\$|usd)?\s*([\d,.]+)/i) ||
+  const lossMatch =
+    userPrompt.match(/loss\s*(?:\$|usd)?\s*([\d,.]+)/i) ||
     userPrompt.match(/rugi\s*(?:\$|usd)?\s*([\d,.]+)/i) ||
     userPrompt.match(/\$\s*([\d,.]+)\s*loss/i) ||
     userPrompt.match(/([\d,.]+)\s*(?:dollar|dolar)/i);
-  
+
   const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
-  
+
   if (!lossMatch) {
     return `# Breakeven Calculator
 
@@ -1274,7 +1617,7 @@ Hitung breakeven setelah loss $500 dengan 2 lot gold
 - "Breakeven loss $300 dengan 1 lot"
 - "Balik modal rugi $1000 pakai 2 lot gold"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung breakeven loss $500 dengan 2 lot"
 2. "Hitung risk reward ratio"
 3. "Berapa margin untuk 3 lot gold?"
@@ -1282,18 +1625,18 @@ Hitung breakeven setelah loss $500 dengan 2 lot gold
 ---
 *NM Ai - Newsmaker.id*`;
   }
-  
+
   const loss = parseFloat(lossMatch[1].replace(/,/g, ""));
   const lot = lotMatch ? parseFloat(lotMatch[1]) : 1;
-  
+
   // Gold default: $100/poin/lot
   const pointValue = 100;
   const fee = 30; // $30/lot
-  
+
   // Calculate pips needed
-  const grossNeeded = loss + (lot * fee);
+  const grossNeeded = loss + lot * fee;
   const pipsNeeded = grossNeeded / (lot * pointValue);
-  
+
   return `# Breakeven Calculator
 
 ## Input Data
@@ -1324,7 +1667,7 @@ Hitung breakeven setelah loss $500 dengan 2 lot gold
 2. Tunggu setup yang valid sesuai trading plan
 3. Pertimbangkan untuk membagi target recovery ke beberapa trade
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung risk reward entry 2650 SL 2645 TP 2660"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Jelaskan tentang trading psychology"
@@ -1336,19 +1679,22 @@ Hitung breakeven setelah loss $500 dengan 2 lot gold
 
 function handlePositionSizeCalculation(userPrompt: string): string | null {
   // Parse capital and risk percentage
-  const capitalMatch = userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)/i) ||
+  const capitalMatch =
+    userPrompt.match(/\$\s*([\d,]+(?:\.\d+)?)/i) ||
     userPrompt.match(/([\d,]+)\s*(?:dollar|dolar|usd)/i) ||
     userPrompt.match(/modal\s*([\d,]+)/i) ||
     userPrompt.match(/dana\s*([\d,]+)/i);
-  
-  const riskPctMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*%/i) ||
+
+  const riskPctMatch =
+    userPrompt.match(/(\d+(?:\.\d+)?)\s*%/i) ||
     userPrompt.match(/risk\s*(\d+)/i) ||
     userPrompt.match(/risiko\s*(\d+)/i);
-  
-  const slMatch = userPrompt.match(/sl\s*[:=]?\s*(\d+)/i) ||
+
+  const slMatch =
+    userPrompt.match(/sl\s*[:=]?\s*(\d+)/i) ||
     userPrompt.match(/stop\s*loss\s*[:=]?\s*(\d+)/i) ||
     userPrompt.match(/(\d+)\s*(?:poin|pip|point)/i);
-  
+
   if (!capitalMatch || !riskPctMatch) {
     return `# Position Size Calculator (by Risk %)
 
@@ -1368,7 +1714,7 @@ Position size modal $10,000 risk 2% SL 5 poin
 - "Position size $5000 risk 2% SL 3 poin"
 - "Ukuran posisi modal $10,000 risiko 1%"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung position size $10,000 risk 2% SL 5 poin"
 2. "Berapa lot ideal untuk modal $5,000?"
 3. "Jelaskan tentang risk management"
@@ -1376,25 +1722,25 @@ Position size modal $10,000 risk 2% SL 5 poin
 ---
 *NM Ai - Newsmaker.id*`;
   }
-  
+
   const capital = parseFloat(capitalMatch[1].replace(/,/g, ""));
   const riskPct = parseFloat(riskPctMatch[1]);
   const slPips = slMatch ? parseFloat(slMatch[1]) : 5; // Default 5 poin SL
-  
+
   // Gold default: $100/poin/lot
   const pointValue = 100;
   const marginPerLot = 1000;
   const feePerLot = 30;
-  
+
   // Calculate risk amount
   const riskAmount = capital * (riskPct / 100);
-  
+
   // Calculate lot size based on risk
   // Correct formula: Risk = Lot × (SL pips × Point Value + Fee)
   // Lot = Risk / (SL pips × Point Value + Fee per lot)
-  const riskPerLot = (slPips * pointValue) + feePerLot;
+  const riskPerLot = slPips * pointValue + feePerLot;
   const idealLot = riskAmount / riskPerLot;
-  
+
   // If calculated lot is too small, return guidance
   if (idealLot < 0.1) {
     return `# Position Size Calculator
@@ -1417,13 +1763,13 @@ Position size modal $10,000 risk 2% SL 5 poin
 | Selisih | -$${(0.1 * riskPerLot - riskAmount).toFixed(2)} |
 
 ### Opsi yang Tersedia:
-1. **Naikkan modal** - Minimal $${Math.ceil(0.1 * riskPerLot / (riskPct / 100)).toLocaleString()} untuk ${riskPct}% risk
-2. **Naikkan risk %** - Pakai ${((0.1 * riskPerLot / capital) * 100).toFixed(1)}% untuk 0.1 lot
+1. **Naikkan modal** - Minimal $${Math.ceil((0.1 * riskPerLot) / (riskPct / 100)).toLocaleString()} untuk ${riskPct}% risk
+2. **Naikkan risk %** - Pakai ${(((0.1 * riskPerLot) / capital) * 100).toFixed(1)}% untuk 0.1 lot
 3. **Perkecil SL** - Kurangi jarak stop loss
 
 > **Rekomendasi**: Jangan paksakan trading jika modal tidak memadai. Trading dengan lot minimum yang melebihi risk tolerance sangat berbahaya.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa lot ideal untuk modal $10,000?"
 2. "Jelaskan tentang risk management"
 3. "Simulasi trading dengan modal $5,000"
@@ -1432,13 +1778,13 @@ Position size modal $10,000 risk 2% SL 5 poin
 *NM Ai - Newsmaker.id*
 *Informasi bersifat edukatif, bukan saran investasi.*`;
   }
-  
+
   const roundedLot = Math.floor(idealLot * 10) / 10; // Round down to 0.1 lot
-  
+
   const actualRisk = roundedLot * riskPerLot;
   const actualRiskPct = (actualRisk / capital) * 100;
   const marginRequired = roundedLot * marginPerLot;
-  
+
   return `# Position Size Calculator
 
 ## Input Data
@@ -1472,7 +1818,7 @@ Position size modal $10,000 risk 2% SL 5 poin
 
 > ✅ Dengan risk ${riskPct}% per trade, Anda bisa mengalami ${Math.floor(100 / riskPct)} losing trades berturut-turut sebelum modal habis. Ini memberi ruang untuk recovery.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk ${roundedLot} lot gold"
 2. "Hitung risk reward ratio"
 3. "Jelaskan tentang money management"

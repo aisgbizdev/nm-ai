@@ -16,6 +16,63 @@ const OLLAMA_TIMEOUT = parseInt(process.env.OLLAMA_TIMEOUT_MS || "7000");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const KNOWLEDGE_CORE_PATH = path.join(process.cwd(), "knowledge", "core");
+const KNOWLEDGE_API_LIST_URL = process.env.KNOWLEDGE_API_LIST_URL || "http://nmaibackend.test/api/v1/knowledge";
+const KNOWLEDGE_API_STORE_URL = process.env.KNOWLEDGE_API_STORE_URL || "http://nmaibackend.test/api/v1/knowledge";
+const KNOWLEDGE_API_TOKEN = process.env.KNOWLEDGE_API_TOKEN || "NM-AI-9F3C7A2D-84B1-4E6A-9C52-7D1BFAE6C0A9";
+
+function buildKnowledgeHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (KNOWLEDGE_API_TOKEN) {
+    headers.Authorization = `Bearer ${KNOWLEDGE_API_TOKEN}`;
+  }
+  return headers;
+}
+
+function normalizeKnowledgeItems(payload: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
+  if (payload && typeof payload === "object") {
+    const data = (payload as { data?: unknown; items?: unknown; knowledge?: unknown }).data;
+    const items = (payload as { data?: unknown; items?: unknown; knowledge?: unknown }).items;
+    const knowledge = (payload as { data?: unknown; items?: unknown; knowledge?: unknown }).knowledge;
+    if (Array.isArray(data)) return data as Array<Record<string, unknown>>;
+    if (Array.isArray(items)) return items as Array<Record<string, unknown>>;
+    if (Array.isArray(knowledge)) return knowledge as Array<Record<string, unknown>>;
+  }
+  return [];
+}
+
+async function searchAdditionalKnowledge(
+  query: string
+): Promise<{ answer: string } | undefined> {
+  try {
+    const response = await fetch(KNOWLEDGE_API_LIST_URL, {
+      headers: buildKnowledgeHeaders()
+    });
+    if (!response.ok) return undefined;
+    const payload = await response.json();
+    const items = normalizeKnowledgeItems(payload);
+    const queryLower = query.toLowerCase();
+    for (const item of items) {
+      const isPublished = item.is_published ?? item.isPublished;
+      if (isPublished === false) continue;
+      const title = String(item.title ?? "");
+      const answer = String(item.answer ?? item.content ?? item.text ?? "");
+      const titleLower = title.toLowerCase();
+      const answerLower = answer.toLowerCase();
+      if (
+        titleLower.includes(queryLower) ||
+        queryLower.includes(titleLower) ||
+        answerLower.includes(queryLower)
+      ) {
+        return { answer };
+      }
+    }
+    return undefined;
+  } catch (err) {
+    console.error("Failed to search additional knowledge:", err);
+    return undefined;
+  }
+}
 
 function generateFollowUpQuestions(query: string, response: string): string {
   const queryLower = query.toLowerCase();
@@ -1008,15 +1065,41 @@ async function saveToLearnedKnowledge(
   answer: string,
   source: "calculator" | "ollama" | "openai"
 ): Promise<void> {
+  if (source !== "ollama" && source !== "openai") return;
   if (answer.length < 20) return;
   
   try {
-    await storage.addLearnedKnowledge({
-      personaId,
-      question,
-      answer,
-      source
+    const payload = {
+      title: question,
+      answer: String(answer),
+      source: "AI Generated",
+    };
+
+    const response = await fetch(KNOWLEDGE_API_STORE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...buildKnowledgeHeaders(),
+      },
+      body: JSON.stringify(payload),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error(
+        "Failed to store learned knowledge:",
+        response.status,
+        errorText || "(empty response)"
+      );
+      return;
+    }
+
+    const responseText = await response.text().catch(() => "");
+    if (responseText) {
+      console.log("Learned knowledge stored:", responseText);
+    } else {
+      console.log("Learned knowledge stored with empty response.");
+    }
   } catch (err) {
     console.error("Failed to save learned knowledge:", err);
   }
@@ -1129,6 +1212,12 @@ export async function* streamQuery(
     return;
   }
   
+  const additionalMatch = await searchAdditionalKnowledge(query);
+  if (additionalMatch) {
+    yield { content: additionalMatch.answer, source: "knowledge", done: true };
+    return;
+  }
+
   const learnedMatch = await storage.searchLearnedKnowledge(personaId, query);
   if (learnedMatch) {
     yield { content: learnedMatch.answer, source: "learned", done: true };
@@ -1219,6 +1308,15 @@ export async function processQuery(
     };
   }
   
+  const additionalMatch = await searchAdditionalKnowledge(query);
+  if (additionalMatch) {
+    return {
+      content: additionalMatch.answer,
+      source: "knowledge",
+      cached: true
+    };
+  }
+
   const learnedMatch = await storage.searchLearnedKnowledge(personaId, query);
   if (learnedMatch) {
     return {

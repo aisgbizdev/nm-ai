@@ -15,13 +15,18 @@ interface NewsCache {
   timestamp: number;
 }
 
-const NEWS_API_URL = "https://endpoapi-production-3202.up.railway.app/api/news-id";
+const NEWS_API_URL =
+  "https://endpoapi-production-3202.up.railway.app/api/news-id";
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 let newsCache: NewsCache | null = null;
 
 export async function fetchNews(forceRefresh = false): Promise<NewsItem[]> {
-  if (!forceRefresh && newsCache && Date.now() - newsCache.timestamp < CACHE_TTL_MS) {
+  if (
+    !forceRefresh &&
+    newsCache &&
+    Date.now() - newsCache.timestamp < CACHE_TTL_MS
+  ) {
     return newsCache.data;
   }
 
@@ -29,7 +34,7 @@ export async function fetchNews(forceRefresh = false): Promise<NewsItem[]> {
     const response = await fetch(NEWS_API_URL, {
       method: "GET",
       headers: {
-        "Accept": "application/json",
+        Accept: "application/json",
       },
     });
 
@@ -39,9 +44,9 @@ export async function fetchNews(forceRefresh = false): Promise<NewsItem[]> {
     }
 
     const rawData = await response.json();
-    
+
     let newsItems: NewsItem[] = [];
-    
+
     if (Array.isArray(rawData)) {
       newsItems = rawData.slice(0, 10).map((item: any, index: number) => ({
         id: item.id?.toString() || `news-${index}`,
@@ -50,7 +55,11 @@ export async function fetchNews(forceRefresh = false): Promise<NewsItem[]> {
         content: item.content || item.body || "",
         url: item.url || item.link || `https://newsmaker.id`,
         category: item.category || item.tag || "Market",
-        publishedAt: item.publishedAt || item.date || item.created_at || new Date().toISOString(),
+        publishedAt:
+          item.publishedAt ||
+          item.date ||
+          item.created_at ||
+          new Date().toISOString(),
         source: item.source || "Newsmaker.id",
         imageUrl: item.imageUrl || item.image || item.thumbnail || "",
       }));
@@ -62,22 +71,32 @@ export async function fetchNews(forceRefresh = false): Promise<NewsItem[]> {
         content: item.content || item.body || "",
         url: item.url || item.link || `https://newsmaker.id`,
         category: item.category || item.tag || "Market",
-        publishedAt: item.publishedAt || item.date || item.created_at || new Date().toISOString(),
+        publishedAt:
+          item.publishedAt ||
+          item.date ||
+          item.created_at ||
+          new Date().toISOString(),
         source: item.source || "Newsmaker.id",
         imageUrl: item.imageUrl || item.image || item.thumbnail || "",
       }));
     } else if (rawData.articles && Array.isArray(rawData.articles)) {
-      newsItems = rawData.articles.slice(0, 10).map((item: any, index: number) => ({
-        id: item.id?.toString() || `news-${index}`,
-        title: item.title || item.headline || "Berita Terbaru",
-        excerpt: item.excerpt || item.summary || item.description || "",
-        content: item.content || item.body || "",
-        url: item.url || item.link || `https://newsmaker.id`,
-        category: item.category || item.tag || "Market",
-        publishedAt: item.publishedAt || item.date || item.created_at || new Date().toISOString(),
-        source: item.source || "Newsmaker.id",
-        imageUrl: item.imageUrl || item.image || item.thumbnail || "",
-      }));
+      newsItems = rawData.articles
+        .slice(0, 10)
+        .map((item: any, index: number) => ({
+          id: item.id?.toString() || `news-${index}`,
+          title: item.title || item.headline || "Berita Terbaru",
+          excerpt: item.excerpt || item.summary || item.description || "",
+          content: item.content || item.body || "",
+          url: item.url || item.link || `https://newsmaker.id`,
+          category: item.category || item.tag || "Market",
+          publishedAt:
+            item.publishedAt ||
+            item.date ||
+            item.created_at ||
+            new Date().toISOString(),
+          source: item.source || "Newsmaker.id",
+          imageUrl: item.imageUrl || item.image || item.thumbnail || "",
+        }));
     }
 
     newsCache = {
@@ -98,16 +117,16 @@ export function formatNewsForChat(news: NewsItem[], limit = 3): string {
   }
 
   const limitedNews = news.slice(0, limit);
-  
+
   let response = `**Berita Terkini dari Newsmaker.id**\n\n`;
-  
+
   limitedNews.forEach((item, index) => {
     // Use publishedAt directly as string since API already provides formatted WIB time
     const dateStr = item.publishedAt || "";
-    
-    response += `**${index + 1}. ${item.title}**\n`;
+
+    response += `**${index + 1}. ${item.title}**\n\n`;
     if (item.excerpt) {
-      response += `${item.excerpt.slice(0, 150)}${item.excerpt.length > 150 ? "..." : ""}\n`;
+      response += `${item.excerpt.slice(0, 200)}${item.excerpt.length > 200 ? "..." : ""}\n\n`;
     }
     response += `*${dateStr} WIB* | ${item.category || "Market"}\n`;
     if (item.url) {
@@ -115,37 +134,48 @@ export function formatNewsForChat(news: NewsItem[], limit = 3): string {
     }
     response += `\n`;
   });
-  
-  response += `💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*\n`;
+
+  response += `**Mau lanjut eksplor?** *(Ketik angkanya saja)*\n`;
   response += `1. "Harga gold sekarang berapa?"\n`;
   response += `2. "Kalender ekonomi hari ini"\n`;
   response += `3. "Bagaimana dampak berita ini ke trading?"\n\n`;
-  
+
   response += `---\n`;
   response += `*Sumber: Newsmaker.id - Berita trading & investasi terpercaya*\n\n`;
   response += `Untuk berita lengkap dan update real-time, kunjungi:\n`;
   response += `- Website: [Newsmaker.id](https://newsmaker.id)\n`;
   response += `- TikTok: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk)\n\n`;
   response += `*Disclaimer: Berita bersifat informatif, bukan rekomendasi investasi.*`;
-  
+
   return response;
 }
 
 export function isNewsRequest(message: string): boolean {
   const lowerMsg = message.toLowerCase();
-  
+
   // Exclude calendar requests from being detected as news
   const calendarKeywords = ["kalender", "calendar", "jadwal berita"];
-  if (calendarKeywords.some(k => lowerMsg.includes(k))) {
+  if (calendarKeywords.some((k) => lowerMsg.includes(k))) {
     return false;
   }
-  
+
   const newsKeywords = [
-    "berita", "news", "kabar", "update", "terbaru",
-    "breaking", "headline", "informasi pasar", "market news",
-    "apa yang terjadi", "what's happening", "latest",
-    "perkembangan", "situasi pasar", "kondisi pasar"
+    "berita",
+    "news",
+    "kabar",
+    "update",
+    "terbaru",
+    "breaking",
+    "headline",
+    "informasi pasar",
+    "market news",
+    "apa yang terjadi",
+    "what's happening",
+    "latest",
+    "perkembangan",
+    "situasi pasar",
+    "kondisi pasar",
   ];
-  
-  return newsKeywords.some(keyword => lowerMsg.includes(keyword));
+
+  return newsKeywords.some((keyword) => lowerMsg.includes(keyword));
 }

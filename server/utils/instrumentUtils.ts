@@ -17,16 +17,16 @@ export type InstrumentKey =
   | "other";
 
 export const INSTRUMENT_HINTS: Record<InstrumentKey, string[]> = {
-  gold: ["LGD", "LGD DAILY", "XAUUSD", "XAU", "GOLD", "EMAS", "LGD"],
-  silver: ["LSI", "LSI DAILY", "XAGUSD", "XAG", "SILVER", "PERAK"],
-  oil: ["BCO", "BCO DAILY", "OIL", "BRENT"],
-  hsi: ["HSI", "HSI DAILY", "HANG SENG"],
-  sni: ["SNI", "SNI DAILY", "NIKKEI", "N225", "JAPAN INDEX"],
-  usdchf: ["USD/CHF", "USDCHF", "CHF"],
-  usdjpy: ["USD/JPY", "USDJPY", "YEN", "JPY"],
-  gbpusd: ["GBP/USD", "GBPUSD", "CABLE", "POUND"],
-  audusd: ["AUD/USD", "AUDUSD", "AUSSIE"],
-  eurusd: ["EUR/USD", "EURUSD", "EURO"],
+  gold: ["XUL10", "XUL", "XAUUSD", "XAU", "GOLD", "EMAS", "LGD", "LGD DAILY"],
+  silver: ["XAGUSD", "XAG", "SILVER", "PERAK", "LSI", "LSI DAILY"],
+  oil: ["BCO10_BBJ", "BCO", "OIL", "BRENT", "BCO DAILY"],
+  hsi: ["HKK50_BBJ", "HSI", "HANG SENG", "HSI DAILY"],
+  sni: ["JPK50_BBJ", "SNI", "NIKKEI", "N225", "JAPAN INDEX", "SNI DAILY"],
+  usdchf: ["UC10F_BBJ", "USD/CHF", "USDCHF", "CHF"],
+  usdjpy: ["UJ10F_BBJ", "USD/JPY", "USDJPY", "YEN", "JPY"],
+  gbpusd: ["GU10F_BBJ", "GBP/USD", "GBPUSD", "CABLE", "POUND"],
+  audusd: ["AU10F_BBJ", "AUD/USD", "AUDUSD", "AUSSIE"],
+  eurusd: ["EU10F_BBJ", "EUR/USD", "EURUSD", "EURO"],
   usdidr: ["USD/IDR", "USDIDR", "INDO"],
   other: [],
 };
@@ -83,7 +83,13 @@ export const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
     return "oil";
   }
 
-  if (p.includes("hsi") || p.includes("hang seng") || p.includes("hangseng")) {
+  if (
+    p.includes("hsi") ||
+    p.includes("hang seng") ||
+    p.includes("hangseng") ||
+    p.includes("hongkong") ||
+    p.includes("hong kong")
+  ) {
     return "hsi";
   }
 
@@ -217,7 +223,11 @@ export const pickQuoteForInstrument = (
     }
   }
 
-  return rows.length ? rows[0] : null;
+  if (instrument === "other") {
+    return rows.length ? rows[0] : null;
+  }
+
+  return null;
 };
 
 // Optional helper: parse tanggal historis per row (kalau mau dipakai di luar)

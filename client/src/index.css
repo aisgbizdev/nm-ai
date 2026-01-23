@@ -12,7 +12,7 @@
   /* Card / Surface Colors */
   --card: 222 47% 9%;
   --card-foreground: 210 40% 98%;
-  
+
   --popover: 222 47% 9%;
   --popover-foreground: 210 40% 98%;
 
@@ -54,11 +54,17 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased font-sans selection:bg-primary/30 selection:text-primary-foreground;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-display tracking-tight;
   }
 }
@@ -68,9 +74,11 @@
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   @apply bg-muted rounded-full hover:bg-muted-foreground/50 transition-colors;
 }
@@ -80,9 +88,11 @@
   .text-glow {
     text-shadow: 0 0 10px hsla(var(--primary) / 0.5);
   }
+
   .text-glow-cyan {
     text-shadow: 0 0 10px hsla(var(--secondary) / 0.5);
   }
+
   .border-glow {
     box-shadow: 0 0 10px -2px hsla(var(--primary) / 0.3);
   }
@@ -92,27 +102,67 @@
 .prose {
   @apply text-foreground/90 max-w-none;
 }
+
 .prose pre {
   @apply bg-muted/50 border border-white/5 rounded-lg p-4 overflow-x-auto my-4;
 }
+
 .prose code {
   @apply font-mono text-sm bg-muted/50 px-1.5 py-0.5 rounded text-secondary;
 }
+
 .prose pre code {
   @apply bg-transparent p-0 text-foreground block;
 }
+
 .prose p {
   @apply leading-relaxed mb-4 last:mb-0;
 }
+
 .prose ul {
   @apply list-disc list-outside ml-4 mb-4 space-y-1;
 }
+
 .prose ol {
   @apply list-decimal list-outside ml-4 mb-4 space-y-1;
 }
+
 .prose strong {
-  @apply font-bold text-primary;
+  @apply font-bold text-white;
 }
+
 .prose a {
   @apply text-secondary hover:underline underline-offset-4;
+}
+
+.prose blockquote {
+  @apply text-white px-4 py-3 border-l-4 border-l-blue-500 bg-blue-50/10 rounded-md leading-snug;
+}
+
+.prose blockquote p {
+  @apply m-0;
+}
+
+.prose table {
+  @apply w-full text-sm rounded-md overflow-hidden table-fixed border border-border border-collapse bg-blue-50/5;
+  display: table;
+}
+
+.prose thead th {
+  @apply bg-blue-500/50 text-foreground font-semibold;
+}
+
+.prose th,
+.prose td {
+  @apply border border-border px-3 py-2 align-top;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.prose tbody tr:nth-child(even) {
+  @apply bg-muted/50;
+}
+
+.prose tbody tr:hover {
+  @apply bg-muted/80;
 }

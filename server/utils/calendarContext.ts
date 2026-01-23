@@ -37,11 +37,11 @@ function formatActual(previousRaw: string, actualRaw: string): string {
   }
 
   if (actNum > prevNum) {
-    return `${label} (+)`;
+    return `<span style="color:#16a34a;">${label} (+)</span>`;
   }
 
   if (actNum < prevNum) {
-    return `${label} (-)`;
+    return `<span style="color:#dc2626;">${label} (-)</span>`;
   }
 
   return label;
@@ -50,32 +50,35 @@ function formatActual(previousRaw: string, actualRaw: string): string {
 function formatImpact(impact: string): string {
   const sanitized = sanitizeCell(impact);
   const starCount = (sanitized.match(/★/g) || []).length;
-  
+
   if (starCount >= 3) return "High";
   if (starCount === 2) return "Med";
   if (starCount === 1) return "Low";
-  
+
   if (sanitized.toLowerCase().includes("high")) return "High";
-  if (sanitized.toLowerCase().includes("medium") || sanitized.toLowerCase().includes("med")) return "Med";
+  if (
+    sanitized.toLowerCase().includes("medium") ||
+    sanitized.toLowerCase().includes("med")
+  )
+    return "Med";
   if (sanitized.toLowerCase().includes("low")) return "Low";
-  
+
   return sanitized;
 }
 
 export function buildCalendarTable(
   rows: CalendarEventRow[],
-  options: BuildCalendarTableOptions = {}
+  options: BuildCalendarTableOptions = {},
 ): string {
-  const {
-    emptyMessage = "Tidak ada event terdaftar pada tanggal ini.",
-  } = options;
+  const { emptyMessage = "Tidak ada event terdaftar pada tanggal ini." } =
+    options;
 
   if (!rows || rows.length === 0) {
     return emptyMessage;
   }
 
   const headerLines = [
-    "| Waktu | Mata Uang | Impact | Event | Previous | Forecast | Actual |",
+    "| Waktu | Negara | Impact | Event | Previous | Forecast | Actual |",
     "|:------|:----------|:------:|:------|:---------|:---------|:-------|",
   ];
 
@@ -86,9 +89,10 @@ export function buildCalendarTable(
     const eventName = sanitizeCell(ev.event).substring(0, 40);
     const previous = sanitizeCell(ev.previous);
     const forecast = sanitizeCell(ev.forecast);
-    const actual = ev.actual && ev.actual.trim() !== ""
-      ? formatActual(ev.previous, ev.actual)
-      : "-";
+    const actual =
+      ev.actual && ev.actual.trim() !== ""
+        ? formatActual(ev.previous, ev.actual)
+        : "-";
 
     return `| ${time} | ${currency} | ${impact} | ${eventName} | ${previous} | ${forecast} | ${actual} |`;
   });

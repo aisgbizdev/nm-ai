@@ -475,7 +475,11 @@ Silakan tanya atau upload gambar untuk analisis!`;
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      if (selectedImage) {
+        handleChartAnalysis();
+      } else {
+        handleSend();
+      }
     }
   };
 
