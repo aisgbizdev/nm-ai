@@ -75,8 +75,8 @@ export function buildCalendarTable(
   }
 
   const headerLines = [
-    "| Waktu | Mata Uang | Impact | Event | Previous | Forecast | Actual |",
-    "|:------|:----------|:------:|:------|:---------|:---------|:-------|",
+    "| Waktu | Negara | Impact | Event | Previous | Forecast | Actual |",
+    "|:------|:-------|:------:|:------|:---------|:---------|:-------|",
   ];
 
   const bodyLines = rows.map((ev) => {
