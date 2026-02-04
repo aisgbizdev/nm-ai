@@ -532,16 +532,32 @@ function buildMarketContext(
   let context = `\n## SITUASI PASAR TERKINI\n`;
   context += `**PENTING:** Referensikan data di bawah ini dalam jawaban untuk analisis yang kontekstual.\n\n`;
   
-  // Add news
+  // Add news - show more items and prioritize commodity-related news
   if (hasNews) {
-    context += `### BERITA TERKINI (SEBUTKAN JUDUL SPESIFIK!)\n`;
-    newsItems.slice(0, 4).forEach((item, i) => {
-      context += `${i + 1}. "${item.title}"\n`;
+    context += `### BERITA TERKINI (SEBUTKAN JUDUL YANG PALING RELEVAN!)\n`;
+    
+    // Separate commodity-related news from general news
+    const commodityKeywords = ['gold', 'emas', 'minyak', 'oil', 'perak', 'silver', 'komoditas', 'xau'];
+    const commodityNews = newsItems.filter(item => 
+      commodityKeywords.some(kw => item.title.toLowerCase().includes(kw))
+    );
+    const otherNews = newsItems.filter(item => 
+      !commodityKeywords.some(kw => item.title.toLowerCase().includes(kw))
+    );
+    
+    // Show commodity news first (max 2), then general news (max 4)
+    const prioritizedNews = [...commodityNews.slice(0, 2), ...otherNews.slice(0, 4)].slice(0, 6);
+    
+    prioritizedNews.forEach((item, i) => {
+      const isCommodity = commodityKeywords.some(kw => item.title.toLowerCase().includes(kw));
+      context += `${i + 1}. "${item.title}"${isCommodity ? ' ⭐' : ''}\n`;
       if (item.excerpt) {
         context += `   → ${item.excerpt.slice(0, 150)}...\n`;
       }
       context += `   *(${item.publishedAt || "hari ini"})*\n\n`;
     });
+    
+    context += `**PRIORITAS**: Gunakan berita dengan ⭐ jika bicara tentang komoditas (gold, oil, silver)\n\n`;
   }
   
   // Add calendar events
