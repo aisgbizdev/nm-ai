@@ -1223,10 +1223,23 @@ export async function* streamQuery(
     return;
   }
   
-  const learnedMatch = await storage.searchLearnedKnowledge(personaId, query);
-  if (learnedMatch) {
-    yield { content: learnedMatch.answer, source: "learned", done: true };
-    return;
+  // Skip learned knowledge cache for price-sensitive queries (need real-time data)
+  const lowerQuery = query.toLowerCase();
+  const isPriceSensitive = lowerQuery.includes("outlook") || 
+    lowerQuery.includes("harga") || 
+    lowerQuery.includes("support") || 
+    lowerQuery.includes("resistance") ||
+    lowerQuery.includes("analisa") ||
+    lowerQuery.includes("analisis") ||
+    lowerQuery.includes("prediksi") ||
+    lowerQuery.includes("forecast");
+  
+  if (!isPriceSensitive) {
+    const learnedMatch = await storage.searchLearnedKnowledge(personaId, query);
+    if (learnedMatch) {
+      yield { content: learnedMatch.answer, source: "learned", done: true };
+      return;
+    }
   }
   
   const coreKnowledge = await loadCoreKnowledge();
@@ -1317,13 +1330,26 @@ export async function processQuery(
     };
   }
   
-  const learnedMatch = await storage.searchLearnedKnowledge(personaId, query);
-  if (learnedMatch) {
-    return {
-      content: learnedMatch.answer,
-      source: "learned",
-      cached: true
-    };
+  // Skip learned knowledge cache for price-sensitive queries (need real-time data)
+  const lowerQuery = query.toLowerCase();
+  const isPriceSensitive = lowerQuery.includes("outlook") || 
+    lowerQuery.includes("harga") || 
+    lowerQuery.includes("support") || 
+    lowerQuery.includes("resistance") ||
+    lowerQuery.includes("analisa") ||
+    lowerQuery.includes("analisis") ||
+    lowerQuery.includes("prediksi") ||
+    lowerQuery.includes("forecast");
+  
+  if (!isPriceSensitive) {
+    const learnedMatch = await storage.searchLearnedKnowledge(personaId, query);
+    if (learnedMatch) {
+      return {
+        content: learnedMatch.answer,
+        source: "learned",
+        cached: true
+      };
+    }
   }
   
   const coreKnowledge = await loadCoreKnowledge();
