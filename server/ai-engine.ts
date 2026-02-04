@@ -77,6 +77,15 @@ let cachedPrices: Record<string, number> = {};
 let pricesCacheTime = 0;
 const PRICES_CACHE_TTL = 60000; // 60 seconds
 
+// OHLC price data structure
+interface OHLCData {
+  last: number;
+  high?: number;
+  low?: number;
+  open?: number;
+  prevClose?: number;
+}
+
 // Fallback prices (realistic ranges for 2026)
 const FALLBACK_PRICES: Record<string, number> = {
   XAUUSD: 4500,
@@ -90,6 +99,10 @@ const FALLBACK_PRICES: Record<string, number> = {
   USDJPY: 155,
   USDCHF: 0.90,
 };
+
+// Cache for full OHLC data
+let cachedOHLC: Record<string, OHLCData> = {};
+let ohlcCacheTime = 0;
 
 async function fetchLivePricesCached(): Promise<Record<string, number>> {
   const now = Date.now();
@@ -109,22 +122,63 @@ async function fetchLivePricesCached(): Promise<Record<string, number>> {
     
     const prices: Record<string, number> = {};
     
+    const ohlcData: Record<string, OHLCData> = {};
+    
     for (const q of quotes) {
       const symbol = (q.symbol || "").toUpperCase();
       const price = parseFloat(q.last);
       if (isNaN(price)) continue;
       
+      // Build OHLC data
+      const ohlc: OHLCData = {
+        last: price,
+        high: q.high ? parseFloat(q.high) : undefined,
+        low: q.low ? parseFloat(q.low) : undefined,
+        open: q.open ? parseFloat(q.open) : undefined,
+        prevClose: q.prevClose ? parseFloat(q.prevClose) : undefined,
+      };
+      
       // Map API symbols to standard names
-      if (symbol.includes("XUL") || symbol.includes("XAU")) prices.XAUUSD = price;
-      else if (symbol.includes("XAG") || symbol.includes("LSI")) prices.XAGUSD = price;
-      else if (symbol.includes("BCO")) prices.BCO = price;
-      else if (symbol.includes("HKK50") || symbol.includes("HSI")) prices.HSI = price;
-      else if (symbol.includes("JPK50") || symbol.includes("JPN")) prices.JP225 = price;
-      else if (symbol.includes("EU10") || symbol.includes("EUR")) prices.EURUSD = price;
-      else if (symbol.includes("GU10") || symbol.includes("GBP")) prices.GBPUSD = price;
-      else if (symbol.includes("AU10")) prices.AUDUSD = price;
-      else if (symbol.includes("UJ10")) prices.USDJPY = price;
-      else if (symbol.includes("UC10")) prices.USDCHF = price;
+      if (symbol.includes("XUL") || symbol.includes("XAU")) {
+        prices.XAUUSD = price;
+        ohlcData.XAUUSD = ohlc;
+      }
+      else if (symbol.includes("XAG") || symbol.includes("LSI")) {
+        prices.XAGUSD = price;
+        ohlcData.XAGUSD = ohlc;
+      }
+      else if (symbol.includes("BCO")) {
+        prices.BCO = price;
+        ohlcData.BCO = ohlc;
+      }
+      else if (symbol.includes("HKK50") || symbol.includes("HSI")) {
+        prices.HSI = price;
+        ohlcData.HSI = ohlc;
+      }
+      else if (symbol.includes("JPK50") || symbol.includes("JPN")) {
+        prices.JP225 = price;
+        ohlcData.JP225 = ohlc;
+      }
+      else if (symbol.includes("EU10") || symbol.includes("EUR")) {
+        prices.EURUSD = price;
+        ohlcData.EURUSD = ohlc;
+      }
+      else if (symbol.includes("GU10") || symbol.includes("GBP")) {
+        prices.GBPUSD = price;
+        ohlcData.GBPUSD = ohlc;
+      }
+      else if (symbol.includes("AU10")) {
+        prices.AUDUSD = price;
+        ohlcData.AUDUSD = ohlc;
+      }
+      else if (symbol.includes("UJ10")) {
+        prices.USDJPY = price;
+        ohlcData.USDJPY = ohlc;
+      }
+      else if (symbol.includes("UC10")) {
+        prices.USDCHF = price;
+        ohlcData.USDCHF = ohlc;
+      }
     }
     
     // Fill missing with fallback
@@ -133,7 +187,9 @@ async function fetchLivePricesCached(): Promise<Record<string, number>> {
     }
     
     cachedPrices = prices;
+    cachedOHLC = ohlcData;
     pricesCacheTime = now;
+    ohlcCacheTime = now;
     return prices;
   } catch (err) {
     console.error("Failed to fetch live prices:", err);
@@ -142,6 +198,38 @@ async function fetchLivePricesCached(): Promise<Record<string, number>> {
 }
 
 function buildLivePriceContext(prices: Record<string, number>): string {
+  // Build OHLC section for main instruments
+  const goldOHLC = cachedOHLC.XAUUSD;
+  const oilOHLC = cachedOHLC.BCO;
+  
+  let ohlcSection = "";
+  
+  if (goldOHLC) {
+    ohlcSection += `\n## DATA OHLC GOLD (GUNAKAN UNTUK LEVEL KUNCI!)
+| Data | Nilai |
+|------|-------|
+| Last | $${goldOHLC.last.toFixed(2)} |
+| High | $${goldOHLC.high?.toFixed(2) || 'N/A'} |
+| Low | $${goldOHLC.low?.toFixed(2) || 'N/A'} |
+| Open | $${goldOHLC.open?.toFixed(2) || 'N/A'} |
+| Prev Close | $${goldOHLC.prevClose?.toFixed(2) || 'N/A'} |
+
+**GUNAKAN DATA INI untuk analisis Gold:**
+- Resistance intraday: ${goldOHLC.high?.toFixed(2) || 'N/A'} (High hari ini)
+- Support intraday: ${goldOHLC.low?.toFixed(2) || 'N/A'} (Low hari ini)
+`;
+  }
+  
+  if (oilOHLC) {
+    ohlcSection += `\n## DATA OHLC OIL
+| Data | Nilai |
+|------|-------|
+| Last | $${oilOHLC.last.toFixed(2)} |
+| High | $${oilOHLC.high?.toFixed(2) || 'N/A'} |
+| Low | $${oilOHLC.low?.toFixed(2) || 'N/A'} |
+`;
+  }
+
   return `## HARGA REAL-TIME (GUNAKAN UNTUK CONTOH!)
 PENTING: Selalu gunakan harga ini untuk contoh dan analisis, JANGAN gunakan harga lama!
 
@@ -158,8 +246,28 @@ PENTING: Selalu gunakan harga ini untuk contoh dan analisis, JANGAN gunakan harg
 | USD/JPY | ${prices.USDJPY?.toFixed(2) || FALLBACK_PRICES.USDJPY} |
 
 *Harga bersifat indikatif dari sistem Newsmaker.id*
+${ohlcSection}
+## INSTRUKSI ANALISIS HARGA - WAJIB DIPATUHI:
 
-INSTRUKSI: Jika memberikan contoh support/resistance, entry point, atau analisis harga, SELALU gunakan harga di atas sebagai referensi! Misalnya untuk Gold, gunakan area $${Math.floor((prices.XAUUSD || FALLBACK_PRICES.XAUUSD) / 100) * 100} - $${Math.ceil((prices.XAUUSD || FALLBACK_PRICES.XAUUSD) / 100) * 100 + 100} sebagai range.
+**DILARANG KERAS** menggunakan level bulat generik seperti $5000, $5200, $5300!
+
+**WAJIB** gunakan data OHLC di atas untuk level kunci:
+- **Resistance Intraday**: WAJIB gunakan High hari ini (lihat data OHLC)
+- **Support Intraday**: WAJIB gunakan Low hari ini (lihat data OHLC)
+- **Pivot Area**: Gunakan Open dan Prev Close sebagai referensi
+- **Entry/Stop Loss**: Hitung dari High/Low +/- buffer kecil (5-10 poin untuk Gold)
+
+**CONTOH BENAR** (jika Gold High=5091.78, Low=4910.46, Last=5029.86):
+- Resistance minor: 5091.78 (High hari ini - dari data OHLC!)
+- Support minor: 4910.46 (Low hari ini - dari data OHLC!)
+- Entry Buy: 5035-5045 (di atas current price dengan konfirmasi)
+- Stop Loss: 4905 (di bawah Low hari ini)
+
+**CONTOH SALAH** (JANGAN seperti ini - AKAN DIANGGAP GAGAL):
+- Resistance: $5200 (terlalu bulat, tidak berdasarkan data OHLC)
+- Support: $5000 (terlalu bulat, tidak berdasarkan data OHLC)
+
+**CATATAN**: Jika data High/Low tidak tersedia, gunakan harga saat ini sebagai acuan dan berikan range realistis (+/- 1-2% dari current price). JANGAN PERNAH menggunakan level bulat tanpa basis data.
 `;
 }
 
