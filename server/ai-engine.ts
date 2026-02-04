@@ -29,21 +29,29 @@ async function fetchCalendarForContext(): Promise<CalendarEvent[]> {
     const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
     const todayIso = nowJakarta.toISOString().split("T")[0];
     
-    const response = await fetch(`${CALENDAR_API_URL}?date=${todayIso}`, { method: "GET" });
+    // API returns whole week, we fetch and filter to today
+    const response = await fetch(CALENDAR_API_URL, { method: "GET" });
     if (!response.ok) {
+      console.log("Calendar API not available for context");
       return cachedCalendarEvents;
     }
     
     const data = await response.json();
-    const events = Array.isArray(data.data) ? data.data : [];
+    const allEvents = Array.isArray(data.data) ? data.data : [];
     
-    cachedCalendarEvents = events.slice(0, 10).map((ev: any) => ({
-      time: ev.time || "-",
+    // Filter to today's events only
+    const todayEvents = allEvents.filter((ev: any) => 
+      ev.date === todayIso || (ev.time && ev.time.startsWith(todayIso))
+    );
+    
+    cachedCalendarEvents = todayEvents.slice(0, 10).map((ev: any) => ({
+      time: ev.time?.split(" ")[1] || "-", // Extract just the time part
       currency: ev.currency || "-",
       impact: ev.impact || "-",
       event: ev.event || "-",
     }));
     calendarCacheTime = now;
+    console.log(`Calendar context: ${cachedCalendarEvents.length} events for today`);
     return cachedCalendarEvents;
   } catch (err) {
     console.error("Failed to fetch calendar for context:", err);
@@ -405,11 +413,19 @@ function buildMarketContext(
   newsItems: Array<{title: string; excerpt?: string; publishedAt?: string; category?: string}>,
   calendarEvents: CalendarEvent[]
 ): string {
-  let context = `\n## SITUASI PASAR TERKINI (WAJIB GUNAKAN!)\n`;
-  context += `**PENTING:** Kamu HARUS mereferensikan data di bawah ini dalam jawaban. JANGAN generate analisis dari kepala sendiri.\n\n`;
+  const hasNews = newsItems && newsItems.length > 0;
+  const hasCalendar = calendarEvents && calendarEvents.length > 0;
+  
+  // If no data available, return minimal context
+  if (!hasNews && !hasCalendar) {
+    return `\n## CATATAN: Data berita/kalender sedang tidak tersedia. Gunakan harga REAL dari tabel di atas untuk analisis.\n`;
+  }
+  
+  let context = `\n## SITUASI PASAR TERKINI\n`;
+  context += `**PENTING:** Referensikan data di bawah ini dalam jawaban untuk analisis yang kontekstual.\n\n`;
   
   // Add news
-  if (newsItems && newsItems.length > 0) {
+  if (hasNews) {
     context += `### BERITA TERKINI (SEBUTKAN JUDUL SPESIFIK!)\n`;
     newsItems.slice(0, 4).forEach((item, i) => {
       context += `${i + 1}. "${item.title}"\n`;
@@ -421,13 +437,13 @@ function buildMarketContext(
   }
   
   // Add calendar events
-  if (calendarEvents && calendarEvents.length > 0) {
+  if (hasCalendar) {
     const highImpact = calendarEvents.filter(e => 
       e.impact?.includes("★★★") || e.impact?.toLowerCase().includes("high")
     );
     
     if (highImpact.length > 0) {
-      context += `### EVENT EKONOMI HARI INI (HIGH IMPACT - WAJIB DISEBUT!)\n`;
+      context += `### EVENT EKONOMI HARI INI (HIGH IMPACT)\n`;
       highImpact.slice(0, 3).forEach((ev, i) => {
         context += `${i + 1}. **${ev.event}** (${ev.currency}) - Jam ${ev.time} WIB\n`;
       });
@@ -435,12 +451,15 @@ function buildMarketContext(
     }
   }
   
-  context += `### INSTRUKSI WAJIB UNTUK RESPONS ANALISIS:\n`;
-  context += `1. MULAI dengan situasi terkini: "Berdasarkan [judul berita], ..." atau "Dengan adanya [event] hari ini, ..."\n`;
-  context += `2. Gunakan harga REAL dari tabel di atas untuk support/resistance\n`;
-  context += `3. Jika ada High Impact event, WAJIB sebutkan: "Perhatikan [event] jam [waktu] WIB yang bisa memicu volatilitas"\n`;
-  context += `4. JANGAN gunakan template generik seperti "Jika Fed hawkish..." tanpa konteks berita nyata\n`;
-  context += `5. Tone CONFIDENT: "Gold berpotensi test $X" bukan "mungkin bisa naik atau turun"\n\n`;
+  context += `### INSTRUKSI UNTUK RESPONS ANALISIS:\n`;
+  if (hasNews) {
+    context += `- MULAI dengan situasi terkini: "Berdasarkan [judul berita], ..." \n`;
+  }
+  context += `- Gunakan harga REAL dari tabel di atas untuk support/resistance\n`;
+  if (hasCalendar) {
+    context += `- Jika ada High Impact event, sebutkan: "Perhatikan [event] jam [waktu] WIB"\n`;
+  }
+  context += `- Tone CONFIDENT: "Gold berpotensi test $X" bukan "mungkin bisa naik atau turun"\n\n`;
   
   return context;
 }
