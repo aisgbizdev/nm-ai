@@ -16,6 +16,98 @@ const OLLAMA_TIMEOUT = parseInt(process.env.OLLAMA_TIMEOUT_MS || "7000");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const KNOWLEDGE_CORE_PATH = path.join(process.cwd(), "knowledge", "core");
+const QUOTES_API_URL = process.env.QUOTES_API_URL || "https://endpoapi-production-3202.up.railway.app/api/live-quotes";
+
+// Cached live prices with 60 second TTL
+let cachedPrices: Record<string, number> = {};
+let pricesCacheTime = 0;
+const PRICES_CACHE_TTL = 60000; // 60 seconds
+
+// Fallback prices (realistic ranges for 2026)
+const FALLBACK_PRICES: Record<string, number> = {
+  XAUUSD: 4500,
+  XAGUSD: 55,
+  BCO: 85,
+  HSI: 18000,
+  JP225: 39000,
+  EURUSD: 1.08,
+  GBPUSD: 1.25,
+  AUDUSD: 0.65,
+  USDJPY: 155,
+  USDCHF: 0.90,
+};
+
+async function fetchLivePricesCached(): Promise<Record<string, number>> {
+  const now = Date.now();
+  if (Object.keys(cachedPrices).length > 0 && now - pricesCacheTime < PRICES_CACHE_TTL) {
+    return cachedPrices;
+  }
+  
+  try {
+    const response = await fetch(QUOTES_API_URL, { method: "GET" });
+    if (!response.ok) {
+      console.log("Quote API not available, using fallback prices");
+      return FALLBACK_PRICES;
+    }
+    
+    const data = await response.json();
+    const quotes = Array.isArray(data.data) ? data.data : [];
+    
+    const prices: Record<string, number> = {};
+    
+    for (const q of quotes) {
+      const symbol = (q.symbol || "").toUpperCase();
+      const price = parseFloat(q.last);
+      if (isNaN(price)) continue;
+      
+      // Map API symbols to standard names
+      if (symbol.includes("XUL") || symbol.includes("XAU")) prices.XAUUSD = price;
+      else if (symbol.includes("XAG") || symbol.includes("LSI")) prices.XAGUSD = price;
+      else if (symbol.includes("BCO")) prices.BCO = price;
+      else if (symbol.includes("HKK50") || symbol.includes("HSI")) prices.HSI = price;
+      else if (symbol.includes("JPK50") || symbol.includes("JPN")) prices.JP225 = price;
+      else if (symbol.includes("EU10") || symbol.includes("EUR")) prices.EURUSD = price;
+      else if (symbol.includes("GU10") || symbol.includes("GBP")) prices.GBPUSD = price;
+      else if (symbol.includes("AU10")) prices.AUDUSD = price;
+      else if (symbol.includes("UJ10")) prices.USDJPY = price;
+      else if (symbol.includes("UC10")) prices.USDCHF = price;
+    }
+    
+    // Fill missing with fallback
+    for (const [key, val] of Object.entries(FALLBACK_PRICES)) {
+      if (!prices[key]) prices[key] = val;
+    }
+    
+    cachedPrices = prices;
+    pricesCacheTime = now;
+    return prices;
+  } catch (err) {
+    console.error("Failed to fetch live prices:", err);
+    return FALLBACK_PRICES;
+  }
+}
+
+function buildLivePriceContext(prices: Record<string, number>): string {
+  return `## HARGA REAL-TIME (GUNAKAN UNTUK CONTOH!)
+PENTING: Selalu gunakan harga ini untuk contoh dan analisis, JANGAN gunakan harga lama!
+
+| Instrumen | Harga Saat Ini |
+|-----------|---------------|
+| Gold (XAUUSD) | $${prices.XAUUSD?.toFixed(2) || FALLBACK_PRICES.XAUUSD} |
+| Silver (XAGUSD) | $${prices.XAGUSD?.toFixed(2) || FALLBACK_PRICES.XAGUSD} |
+| Brent Oil (BCO) | $${prices.BCO?.toFixed(2) || FALLBACK_PRICES.BCO} |
+| Hang Seng (HSI) | ${prices.HSI?.toFixed(0) || FALLBACK_PRICES.HSI} |
+| Nikkei (JP225) | ${prices.JP225?.toFixed(0) || FALLBACK_PRICES.JP225} |
+| EUR/USD | ${prices.EURUSD?.toFixed(4) || FALLBACK_PRICES.EURUSD} |
+| GBP/USD | ${prices.GBPUSD?.toFixed(4) || FALLBACK_PRICES.GBPUSD} |
+| AUD/USD | ${prices.AUDUSD?.toFixed(4) || FALLBACK_PRICES.AUDUSD} |
+| USD/JPY | ${prices.USDJPY?.toFixed(2) || FALLBACK_PRICES.USDJPY} |
+
+*Harga bersifat indikatif dari sistem Newsmaker.id*
+
+INSTRUKSI: Jika memberikan contoh support/resistance, entry point, atau analisis harga, SELALU gunakan harga di atas sebagai referensi! Misalnya untuk Gold, gunakan area $${Math.floor((prices.XAUUSD || FALLBACK_PRICES.XAUUSD) / 100) * 100} - $${Math.ceil((prices.XAUUSD || FALLBACK_PRICES.XAUUSD) / 100) * 100 + 100} sebagai range.
+`;
+}
 
 function generateFollowUpQuestions(query: string, response: string): string {
   const queryLower = query.toLowerCase();
@@ -262,11 +354,13 @@ export async function loadCoreKnowledge(): Promise<string> {
   }
 }
 
-export function buildSystemPrompt(coreKnowledge: string, contextSnippet?: string): string {
+export function buildSystemPrompt(coreKnowledge: string, contextSnippet?: string, livePriceContext?: string): string {
   let prompt = `# IDENTITAS NM Ai (Gwen Stacy)
 
 Kamu adalah NM Ai, asisten editorial & edukatif dari Newsmaker.id.
 Tagline: "Cepat. Akurat. Bersahabat." / "Fast. Accurate. Friendly."
+
+${livePriceContext || ""}
 
 ## MULTI-LANGUAGE AUTO-DETECT (PENTING!)
 - Deteksi bahasa dari pertanyaan user secara otomatis
@@ -1138,7 +1232,11 @@ export async function* streamQuery(
   const coreKnowledge = await loadCoreKnowledge();
   const knowledgeMatch = await searchKnowledgeBase(query, coreKnowledge);
   
-  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined);
+  // Fetch live prices for real-time context
+  const livePrices = await fetchLivePricesCached();
+  const livePriceContext = buildLivePriceContext(livePrices);
+  
+  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext);
   
   let fullResponse = "";
   let source: "ollama" | "openai" = "openai";
@@ -1230,7 +1328,12 @@ export async function processQuery(
   
   const coreKnowledge = await loadCoreKnowledge();
   const knowledgeMatch = await searchKnowledgeBase(query, coreKnowledge);
-  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined);
+  
+  // Fetch live prices for real-time context
+  const livePrices = await fetchLivePricesCached();
+  const livePriceContext = buildLivePriceContext(livePrices);
+  
+  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext);
   
   const ollamaResult = await callOllamaWithTimeout(messages, systemPrompt);
   
