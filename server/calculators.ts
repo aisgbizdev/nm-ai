@@ -155,6 +155,20 @@ function isMarginQuestion(lowerPrompt: string): boolean {
     return false;
   }
   
+  // Exclude entry price recommendation questions
+  // "di harga berapa bagusnya buy", "harga entry yang bagus", etc.
+  if ((lowerPrompt.includes("harga") && (lowerPrompt.includes("bagus") || lowerPrompt.includes("ideal") || lowerPrompt.includes("tepat"))) ||
+      (lowerPrompt.includes("buy") && lowerPrompt.includes("harga")) ||
+      (lowerPrompt.includes("sell") && lowerPrompt.includes("harga")) ||
+      lowerPrompt.includes("kapan buy") ||
+      lowerPrompt.includes("kapan sell") ||
+      lowerPrompt.includes("entry point") ||
+      lowerPrompt.includes("level entry") ||
+      lowerPrompt.includes("mau buy") ||
+      lowerPrompt.includes("mau sell")) {
+    return false;
+  }
+  
   const hasMarginKeyword = lowerPrompt.includes("margin") || 
     lowerPrompt.includes("simulasi") ||
     (lowerPrompt.includes("hitung") && (lowerPrompt.includes("lot") || lowerPrompt.includes("margin"))) ||
