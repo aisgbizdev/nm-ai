@@ -1113,8 +1113,12 @@ Jangan hanya bilang "jika bullish lakukan A, jika bearish lakukan B".
 HARUS berikan analisa arah market dan rekomendasi konkret:
 
 1. Lihat harga saat ini vs level-level teknikal:
-   - Jika harga di atas support kuat dan trending up → BULLISH → rekomendasikan likuidasi SELL
-   - Jika harga di bawah resistance dan trending down → BEARISH → rekomendasikan likuidasi BUY
+   - Jika market BULLISH (trending up) → HOLD BUY, rekomendasikan **LIKUIDASI SELL** (karena SELL rugi saat harga naik)
+   - Jika market BEARISH (trending down) → HOLD SELL, rekomendasikan **LIKUIDASI BUY** (karena BUY rugi saat harga turun)
+   
+   **INGAT LOGIKA INI - JANGAN TERBALIK!**
+   - BULLISH = harga naik = BUY profit, SELL rugi → CLOSE SELL, HOLD BUY
+   - BEARISH = harga turun = SELL profit, BUY rugi → CLOSE BUY, HOLD SELL
 
 2. Pertimbangkan juga:
    - Berita ekonomi terkini (jika ada)
@@ -1122,9 +1126,14 @@ HARUS berikan analisa arah market dan rekomendasi konkret:
    - Momentum dan trend jangka pendek
 
 3. Format rekomendasi:
-   "Berdasarkan analisa: Harga Gold saat ini $5048 berada di atas support $5000 dengan trend masih bullish.
-   **REKOMENDASI**: Likuidasi sisi SELL karena market masih berpotensi naik.
-   Jika tidak mau close SELL, top up minimal $X untuk menahan floating."
+   "Berdasarkan analisa: Harga Gold saat ini $5048 berada di atas support $5000 dengan trend masih BULLISH.
+   **REKOMENDASI**: LIKUIDASI SELL dan HOLD BUY. Karena market bullish, posisi BUY akan terus profit sedangkan SELL akan terus rugi.
+   Jika tidak mau close SELL, top up minimal $X untuk menahan floating loss."
+   
+   ATAU jika bearish:
+   "Berdasarkan analisa: Harga Gold saat ini $4900 break support $5000, trend BEARISH.
+   **REKOMENDASI**: LIKUIDASI BUY dan HOLD SELL. Karena market bearish, posisi SELL akan profit sedangkan BUY akan rugi.
+   Jika tidak mau close BUY, top up minimal $X untuk menahan floating loss."
 
 ### Manajemen Risiko:
 - Equity Ratio ideal: > 500% (sangat aman)
