@@ -354,13 +354,41 @@ export async function loadCoreKnowledge(): Promise<string> {
   }
 }
 
-export function buildSystemPrompt(coreKnowledge: string, contextSnippet?: string, livePriceContext?: string): string {
+// Build news context for market-related queries
+function buildNewsContext(newsItems: Array<{title: string; excerpt?: string; publishedAt?: string; category?: string}>): string {
+  if (!newsItems || newsItems.length === 0) return "";
+  
+  let context = `\n## BERITA & SITUASI PASAR TERKINI (GUNAKAN INI UNTUK KONTEKS!)\n`;
+  context += `Berikut adalah berita dan event terkini yang HARUS kamu referensikan dalam jawaban:\n\n`;
+  
+  newsItems.slice(0, 5).forEach((item, i) => {
+    context += `${i + 1}. **${item.title}**\n`;
+    if (item.excerpt) {
+      context += `   ${item.excerpt.slice(0, 200)}${item.excerpt.length > 200 ? "..." : ""}\n`;
+    }
+    if (item.publishedAt) {
+      context += `   *(${item.publishedAt})*\n`;
+    }
+    context += `\n`;
+  });
+  
+  context += `\n**INSTRUKSI:** Saat menjawab pertanyaan tentang outlook/analisis/prediksi, WAJIB:\n`;
+  context += `- Sebutkan minimal 1-2 berita/event terkini yang relevan di atas\n`;
+  context += `- Jelaskan dampaknya ke instrumen yang ditanya\n`;
+  context += `- Jangan gunakan template generik, gunakan konteks berita nyata\n`;
+  context += `- Contoh: "Berdasarkan berita terkini tentang [judul berita], emas berpotensi..."\n\n`;
+  
+  return context;
+}
+
+export function buildSystemPrompt(coreKnowledge: string, contextSnippet?: string, livePriceContext?: string, newsContext?: string): string {
   let prompt = `# IDENTITAS NM Ai (Gwen Stacy)
 
 Kamu adalah NM Ai, asisten editorial & edukatif dari Newsmaker.id.
 Tagline: "Cepat. Akurat. Bersahabat." / "Fast. Accurate. Friendly."
 
 ${livePriceContext || ""}
+${newsContext || ""}
 
 ## MULTI-LANGUAGE AUTO-DETECT (PENTING!)
 - Deteksi bahasa dari pertanyaan user secara otomatis
@@ -1249,7 +1277,26 @@ export async function* streamQuery(
   const livePrices = await fetchLivePricesCached();
   const livePriceContext = buildLivePriceContext(livePrices);
   
-  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext);
+  // Fetch news for market-related queries to make responses more contextual
+  let newsContext = "";
+  const needsNewsContext = isPriceSensitive || 
+    lowerQuery.includes("emas") || 
+    lowerQuery.includes("gold") ||
+    lowerQuery.includes("market") ||
+    lowerQuery.includes("pasar") ||
+    lowerQuery.includes("minggu ini") ||
+    lowerQuery.includes("hari ini");
+  
+  if (needsNewsContext) {
+    try {
+      const newsItems = await fetchNews();
+      newsContext = buildNewsContext(newsItems);
+    } catch (e) {
+      console.error("Failed to fetch news for context:", e);
+    }
+  }
+  
+  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext, newsContext);
   
   let fullResponse = "";
   let source: "ollama" | "openai" = "openai";
@@ -1359,7 +1406,26 @@ export async function processQuery(
   const livePrices = await fetchLivePricesCached();
   const livePriceContext = buildLivePriceContext(livePrices);
   
-  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext);
+  // Fetch news for market-related queries to make responses more contextual
+  let newsContext = "";
+  const needsNewsContext = isPriceSensitive || 
+    lowerQuery.includes("emas") || 
+    lowerQuery.includes("gold") ||
+    lowerQuery.includes("market") ||
+    lowerQuery.includes("pasar") ||
+    lowerQuery.includes("minggu ini") ||
+    lowerQuery.includes("hari ini");
+  
+  if (needsNewsContext) {
+    try {
+      const newsItems = await fetchNews();
+      newsContext = buildNewsContext(newsItems);
+    } catch (e) {
+      console.error("Failed to fetch news for context:", e);
+    }
+  }
+  
+  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext, newsContext);
   
   const ollamaResult = await callOllamaWithTimeout(messages, systemPrompt);
   
