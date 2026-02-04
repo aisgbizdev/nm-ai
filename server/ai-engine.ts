@@ -833,13 +833,41 @@ const CHART_ANALYSIS_PROMPT = `Kamu adalah NM Ai (Gwen Stacy), analis teknikal s
 [HANYA yang terlihat jelas. Jika tidak ada pola yang jelas → "Tidak ada pola signifikan yang teridentifikasi"]
 
 ### INDIKATOR
-[Jika ada indikator di chart → BACA NILAI PRESISI dari skala indikator]
+[WAJIB baca nilai PRESISI dari skala. Jika tidak terlihat jelas → "nilai tidak terbaca"]
 
-**CARA BACA INDIKATOR YANG BENAR:**
-- Stochastic/RSI: BACA angka dari skala (0-100). Overbought = di atas 80, Oversold = di bawah 20, Netral = 20-80
-- Jika nilai Stochastic 39 dan 62 → itu NETRAL, BUKAN overbought!
-- MACD: Lihat histogram dan signal line crossing
-- Jangan TEBAK - BACA nilai dari skala di sisi kiri/kanan indikator
+**ATURAN BACA INDIKATOR - WAJIB DIPATUHI:**
+
+**Stochastic (skala 0-100):**
+- Overbought = HANYA jika nilai > 80
+- Oversold = HANYA jika nilai < 20  
+- Netral = nilai 20-80 (JANGAN sebut overbought/oversold!)
+
+**RSI (skala 0-100):**
+- Overbought = HANYA jika nilai > 70
+- Oversold = HANYA jika nilai < 30
+- Netral = nilai 30-70
+
+**MACD:**
+- Bullish = histogram hijau/positif DAN MACD line di atas signal
+- Bearish = histogram merah/negatif DAN MACD line di bawah signal
+- Divergence = HANYA jika harga dan MACD bergerak berlawanan (JELAS terlihat)
+
+**Bollinger Bands:**
+- Overbought = harga menyentuh/menembus upper band
+- Oversold = harga menyentuh/menembus lower band
+- Squeeze = bands menyempit (volatilitas rendah)
+
+**Moving Average:**
+- Bullish = harga di ATAS MA
+- Bearish = harga di BAWAH MA
+- Golden Cross = MA pendek memotong MA panjang dari bawah
+- Death Cross = MA pendek memotong MA panjang dari atas
+
+**ATURAN UMUM:**
+- BACA nilai dari skala di sisi indikator
+- Jika nilai tidak jelas terbaca → tulis "nilai tidak terbaca dengan jelas"
+- JANGAN TEBAK atau FABRIKASI nilai
+- Jika ragu → lebih baik tulis "netral" daripada salah sebut overbought/oversold
 
 ---
 
