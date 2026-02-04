@@ -457,6 +457,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
   };
 
   const handleBackToHome = () => {
+    localStorage.removeItem(ACTIVE_SESSION_KEY);
     setLocation("/");
   };
 
