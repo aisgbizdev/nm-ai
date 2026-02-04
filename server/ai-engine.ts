@@ -5,6 +5,52 @@ import * as path from "path";
 import { handleCalculation } from "./calculators";
 import { fetchNews, formatNewsForChat, isNewsRequest as checkNewsIntent } from "./newsFetcher";
 
+const CALENDAR_API_URL = process.env.CALENDAR_API_URL || "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
+
+// Fetch today's economic calendar events for context
+interface CalendarEvent {
+  time: string;
+  currency: string;
+  impact: string;
+  event: string;
+}
+
+let cachedCalendarEvents: CalendarEvent[] = [];
+let calendarCacheTime = 0;
+const CALENDAR_CACHE_TTL = 300000; // 5 minutes
+
+async function fetchCalendarForContext(): Promise<CalendarEvent[]> {
+  const now = Date.now();
+  if (cachedCalendarEvents.length > 0 && now - calendarCacheTime < CALENDAR_CACHE_TTL) {
+    return cachedCalendarEvents;
+  }
+  
+  try {
+    const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const todayIso = nowJakarta.toISOString().split("T")[0];
+    
+    const response = await fetch(`${CALENDAR_API_URL}?date=${todayIso}`, { method: "GET" });
+    if (!response.ok) {
+      return cachedCalendarEvents;
+    }
+    
+    const data = await response.json();
+    const events = Array.isArray(data.data) ? data.data : [];
+    
+    cachedCalendarEvents = events.slice(0, 10).map((ev: any) => ({
+      time: ev.time || "-",
+      currency: ev.currency || "-",
+      impact: ev.impact || "-",
+      event: ev.event || "-",
+    }));
+    calendarCacheTime = now;
+    return cachedCalendarEvents;
+  } catch (err) {
+    console.error("Failed to fetch calendar for context:", err);
+    return cachedCalendarEvents;
+  }
+}
+
 const openaiClient = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -354,41 +400,59 @@ export async function loadCoreKnowledge(): Promise<string> {
   }
 }
 
-// Build news context for market-related queries
-function buildNewsContext(newsItems: Array<{title: string; excerpt?: string; publishedAt?: string; category?: string}>): string {
-  if (!newsItems || newsItems.length === 0) return "";
+// Build market context with news + calendar for analysis
+function buildMarketContext(
+  newsItems: Array<{title: string; excerpt?: string; publishedAt?: string; category?: string}>,
+  calendarEvents: CalendarEvent[]
+): string {
+  let context = `\n## SITUASI PASAR TERKINI (WAJIB GUNAKAN!)\n`;
+  context += `**PENTING:** Kamu HARUS mereferensikan data di bawah ini dalam jawaban. JANGAN generate analisis dari kepala sendiri.\n\n`;
   
-  let context = `\n## BERITA & SITUASI PASAR TERKINI (GUNAKAN INI UNTUK KONTEKS!)\n`;
-  context += `Berikut adalah berita dan event terkini yang HARUS kamu referensikan dalam jawaban:\n\n`;
+  // Add news
+  if (newsItems && newsItems.length > 0) {
+    context += `### BERITA TERKINI (SEBUTKAN JUDUL SPESIFIK!)\n`;
+    newsItems.slice(0, 4).forEach((item, i) => {
+      context += `${i + 1}. "${item.title}"\n`;
+      if (item.excerpt) {
+        context += `   → ${item.excerpt.slice(0, 150)}...\n`;
+      }
+      context += `   *(${item.publishedAt || "hari ini"})*\n\n`;
+    });
+  }
   
-  newsItems.slice(0, 5).forEach((item, i) => {
-    context += `${i + 1}. **${item.title}**\n`;
-    if (item.excerpt) {
-      context += `   ${item.excerpt.slice(0, 200)}${item.excerpt.length > 200 ? "..." : ""}\n`;
+  // Add calendar events
+  if (calendarEvents && calendarEvents.length > 0) {
+    const highImpact = calendarEvents.filter(e => 
+      e.impact?.includes("★★★") || e.impact?.toLowerCase().includes("high")
+    );
+    
+    if (highImpact.length > 0) {
+      context += `### EVENT EKONOMI HARI INI (HIGH IMPACT - WAJIB DISEBUT!)\n`;
+      highImpact.slice(0, 3).forEach((ev, i) => {
+        context += `${i + 1}. **${ev.event}** (${ev.currency}) - Jam ${ev.time} WIB\n`;
+      });
+      context += `\n`;
     }
-    if (item.publishedAt) {
-      context += `   *(${item.publishedAt})*\n`;
-    }
-    context += `\n`;
-  });
+  }
   
-  context += `\n**INSTRUKSI:** Saat menjawab pertanyaan tentang outlook/analisis/prediksi, WAJIB:\n`;
-  context += `- Sebutkan minimal 1-2 berita/event terkini yang relevan di atas\n`;
-  context += `- Jelaskan dampaknya ke instrumen yang ditanya\n`;
-  context += `- Jangan gunakan template generik, gunakan konteks berita nyata\n`;
-  context += `- Contoh: "Berdasarkan berita terkini tentang [judul berita], emas berpotensi..."\n\n`;
+  context += `### INSTRUKSI WAJIB UNTUK RESPONS ANALISIS:\n`;
+  context += `1. MULAI dengan situasi terkini: "Berdasarkan [judul berita], ..." atau "Dengan adanya [event] hari ini, ..."\n`;
+  context += `2. Gunakan harga REAL dari tabel di atas untuk support/resistance\n`;
+  context += `3. Jika ada High Impact event, WAJIB sebutkan: "Perhatikan [event] jam [waktu] WIB yang bisa memicu volatilitas"\n`;
+  context += `4. JANGAN gunakan template generik seperti "Jika Fed hawkish..." tanpa konteks berita nyata\n`;
+  context += `5. Tone CONFIDENT: "Gold berpotensi test $X" bukan "mungkin bisa naik atau turun"\n\n`;
   
   return context;
 }
 
-export function buildSystemPrompt(coreKnowledge: string, contextSnippet?: string, livePriceContext?: string, newsContext?: string): string {
+export function buildSystemPrompt(coreKnowledge: string, contextSnippet?: string, livePriceContext?: string, marketContext?: string): string {
   let prompt = `# IDENTITAS NM Ai (Gwen Stacy)
 
-Kamu adalah NM Ai, asisten editorial & edukatif dari Newsmaker.id.
+Kamu adalah NM Ai, asisten editorial & edukatif dari Newsmaker.id dengan AKSES DATA REAL-TIME.
 Tagline: "Cepat. Akurat. Bersahabat." / "Fast. Accurate. Friendly."
 
 ${livePriceContext || ""}
-${newsContext || ""}
+${marketContext || ""}
 
 ## MULTI-LANGUAGE AUTO-DETECT (PENTING!)
 - Deteksi bahasa dari pertanyaan user secara otomatis
@@ -397,12 +461,13 @@ ${newsContext || ""}
 - Jika user bertanya dalam bahasa lain → jawab dalam English sebagai fallback
 - Tetap konsisten dengan bahasa yang dipilih di seluruh jawaban
 
-## GAYA BICARA
-- Tenang tapi berwibawa / Calm but authoritative
-- Cerdas tapi bersahabat / Smart but friendly
-- Dalam tapi mudah dimengerti / Deep but easy to understand
-- Reflektif, bukan jualan sinyal / Reflective, not selling signals
-- Selalu mengingatkan bahwa informasi bersifat edukatif / Always remind that info is educational
+## GAYA BICARA (CONFIDENT & DATA-DRIVEN)
+- CONFIDENT: Gunakan "Gold berpotensi test $X" bukan "mungkin bisa naik atau turun"
+- DATA-DRIVEN: Selalu mulai dengan data/fakta terkini, bukan teori umum
+- Berwibawa tapi bersahabat / Authoritative but friendly
+- Langsung ke poin: "Berdasarkan [berita/data], kondisi saat ini..."
+- Hindari template generik: "Jika Fed hawkish..." → ganti dengan situasi spesifik
+- Tetap ingatkan bahwa informasi bersifat edukatif di akhir
 
 ## ATURAN PANJANG JAWABAN (SANGAT PENTING!)
 DEFAULT: Jawab RINGKAS (5-8 baris atau 3-5 poin) kecuali:
@@ -1277,26 +1342,32 @@ export async function* streamQuery(
   const livePrices = await fetchLivePricesCached();
   const livePriceContext = buildLivePriceContext(livePrices);
   
-  // Fetch news for market-related queries to make responses more contextual
-  let newsContext = "";
-  const needsNewsContext = isPriceSensitive || 
+  // Fetch news + calendar for market-related queries to make responses contextual
+  let marketContext = "";
+  const needsMarketContext = isPriceSensitive || 
     lowerQuery.includes("emas") || 
     lowerQuery.includes("gold") ||
     lowerQuery.includes("market") ||
     lowerQuery.includes("pasar") ||
     lowerQuery.includes("minggu ini") ||
-    lowerQuery.includes("hari ini");
+    lowerQuery.includes("hari ini") ||
+    lowerQuery.includes("silver") ||
+    lowerQuery.includes("oil") ||
+    lowerQuery.includes("minyak");
   
-  if (needsNewsContext) {
+  if (needsMarketContext) {
     try {
-      const newsItems = await fetchNews();
-      newsContext = buildNewsContext(newsItems);
+      const [newsItems, calendarEvents] = await Promise.all([
+        fetchNews(),
+        fetchCalendarForContext()
+      ]);
+      marketContext = buildMarketContext(newsItems, calendarEvents);
     } catch (e) {
-      console.error("Failed to fetch news for context:", e);
+      console.error("Failed to fetch market context:", e);
     }
   }
   
-  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext, newsContext);
+  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext, marketContext);
   
   let fullResponse = "";
   let source: "ollama" | "openai" = "openai";
@@ -1406,26 +1477,32 @@ export async function processQuery(
   const livePrices = await fetchLivePricesCached();
   const livePriceContext = buildLivePriceContext(livePrices);
   
-  // Fetch news for market-related queries to make responses more contextual
-  let newsContext = "";
-  const needsNewsContext = isPriceSensitive || 
+  // Fetch news + calendar for market-related queries to make responses contextual
+  let marketContext = "";
+  const needsMarketContext = isPriceSensitive || 
     lowerQuery.includes("emas") || 
     lowerQuery.includes("gold") ||
     lowerQuery.includes("market") ||
     lowerQuery.includes("pasar") ||
     lowerQuery.includes("minggu ini") ||
-    lowerQuery.includes("hari ini");
+    lowerQuery.includes("hari ini") ||
+    lowerQuery.includes("silver") ||
+    lowerQuery.includes("oil") ||
+    lowerQuery.includes("minyak");
   
-  if (needsNewsContext) {
+  if (needsMarketContext) {
     try {
-      const newsItems = await fetchNews();
-      newsContext = buildNewsContext(newsItems);
+      const [newsItems, calendarEvents] = await Promise.all([
+        fetchNews(),
+        fetchCalendarForContext()
+      ]);
+      marketContext = buildMarketContext(newsItems, calendarEvents);
     } catch (e) {
-      console.error("Failed to fetch news for context:", e);
+      console.error("Failed to fetch market context:", e);
     }
   }
   
-  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext, newsContext);
+  const systemPrompt = buildSystemPrompt(coreKnowledge, knowledgeMatch || undefined, livePriceContext, marketContext);
   
   const ollamaResult = await callOllamaWithTimeout(messages, systemPrompt);
   
