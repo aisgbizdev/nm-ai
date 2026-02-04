@@ -1108,6 +1108,24 @@ Dari tabel Open Positions, lihat kolom "Buy Price" dan "Sell Price":
 - Rekomendasikan: **"Likuidasi sisi BUY"** atau **"Likuidasi sisi SELL"** berdasarkan analisa market
 - Setelah unlock, berikan strategi AVERAGING dengan level harga spesifik
 
+**PENTING - BERIKAN REKOMENDASI SPESIFIK BERDASARKAN ANALISA MARKET:**
+Jangan hanya bilang "jika bullish lakukan A, jika bearish lakukan B".
+HARUS berikan analisa arah market dan rekomendasi konkret:
+
+1. Lihat harga saat ini vs level-level teknikal:
+   - Jika harga di atas support kuat dan trending up → BULLISH → rekomendasikan likuidasi SELL
+   - Jika harga di bawah resistance dan trending down → BEARISH → rekomendasikan likuidasi BUY
+
+2. Pertimbangkan juga:
+   - Berita ekonomi terkini (jika ada)
+   - Level support/resistance dari harga entry posisi
+   - Momentum dan trend jangka pendek
+
+3. Format rekomendasi:
+   "Berdasarkan analisa: Harga Gold saat ini $5048 berada di atas support $5000 dengan trend masih bullish.
+   **REKOMENDASI**: Likuidasi sisi SELL karena market masih berpotensi naik.
+   Jika tidak mau close SELL, top up minimal $X untuk menahan floating."
+
 ### Manajemen Risiko:
 - Equity Ratio ideal: > 500% (sangat aman)
 - Equity Ratio warning: < 200% (perlu waspada)
