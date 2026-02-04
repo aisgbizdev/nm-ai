@@ -1059,10 +1059,27 @@ PENTING: SPA menggunakan FIXED MARGIN, bukan leverage calculation!
 3. Tulis daftar: "SELL: 30 + 18 + 10 + 2 = 60 lot"
 4. VERIFIKASI dengan menjumlah ulang sebelum lanjut!
 
-**Cara Identifikasi BUY vs SELL:**
-- Jika kolom "Buy Price" terisi → itu posisi BUY (long)
-- Jika kolom "Sell Price" terisi → itu posisi SELL (short)
-- Lihat juga floating: jika harga naik dan profit → BUY; jika harga naik dan loss → SELL
+**Cara Identifikasi BUY vs SELL (SANGAT PENTING - JANGAN SALAH!):**
+
+Dari tabel Open Positions, lihat kolom "Buy Price" dan "Sell Price":
+- Jika kolom **"Buy Price" ADA ANGKA** (bukan kosong) → posisi **BUY**
+- Jika kolom **"Sell Price" ADA ANGKA** (bukan kosong) → posisi **SELL**
+
+**Verifikasi dengan Floating P/L:**
+- Jika harga NAIK dan floating PROFIT → itu BUY ✓
+- Jika harga NAIK dan floating LOSS → itu SELL ✓
+- Jika harga TURUN dan floating PROFIT → itu SELL ✓
+- Jika harga TURUN dan floating LOSS → itu BUY ✓
+
+**CONTOH KONKRET:**
+| Entry | Current | Floating | Arah |
+|-------|---------|----------|------|
+| Buy @ 4362 | 5048 | +$68,568 | BUY (harga naik, profit) |
+| Sell @ 4321 | 5049 | -$72,804 | SELL (harga naik, loss) |
+| Buy @ 5115 | 5048 | -$6,758 | BUY (harga turun, loss) |
+| Sell @ 5011 | 5049 | -$3,748 | SELL (harga naik, loss) |
+
+**JANGAN** menghitung semua sebagai BUY! Baca kolom dengan teliti!
 
 **LANGKAH 2 - HITUNG HEDGING:**
 - Hedged pairs = MIN(Total BUY, Total SELL)
