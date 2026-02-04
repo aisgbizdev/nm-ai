@@ -1052,25 +1052,42 @@ PENTING: SPA menggunakan FIXED MARGIN, bukan leverage calculation!
 ## DASAR PENGETAHUAN YANG HARUS DIREFERENSIKAN:
 
 ### ⚠️ DETEKSI HEDGING/LOCKING (SANGAT PENTING!)
-Jika ada posisi BUY dan SELL pada instrumen yang SAMA, itu adalah HEDGING:
 
-**Cara Identifikasi:**
-- Lihat kolom "Sell Price" dan "Buy Price" di Open Positions
-- Jika satu baris ada Sell Price (artinya SELL), baris lain ada Buy Price (artinya BUY)
-- Posisi BUY + SELL pada instrumen sama = HEDGED/LOCKED
+**LANGKAH 1 - HITUNG DENGAN TELITI (JANGAN SAMPAI SALAH!):**
+1. Baca SETIAP baris di tabel Open Positions SATU PER SATU
+2. Tulis daftar: "BUY: 10 + 20 + 10 + 20 + 2 + 2 = 64 lot"
+3. Tulis daftar: "SELL: 30 + 18 + 10 + 2 = 60 lot"
+4. VERIFIKASI dengan menjumlah ulang sebelum lanjut!
 
-**Cara Hitung Margin untuk Hedging:**
-- Posisi hedged (pasangan buy+sell): **$300 per pair** (BUKAN $1,000 + $1,000!)
-- Posisi NET/murni (sisa setelah dikurangi hedge): **$1,000 per lot**
+**Cara Identifikasi BUY vs SELL:**
+- Jika kolom "Buy Price" terisi → itu posisi BUY (long)
+- Jika kolom "Sell Price" terisi → itu posisi SELL (short)
+- Lihat juga floating: jika harga naik dan profit → BUY; jika harga naik dan loss → SELL
 
-**Contoh:**
-- Total BUY: 64 lot, Total SELL: 60 lot
-- Hedged pairs: 60 lot (yang match)
-- NET open: 64 - 60 = 4 lot BUY murni
-- Margin = (60 × $300) + (4 × $1,000) = $18,000 + $4,000 = $22,000
+**LANGKAH 2 - HITUNG HEDGING:**
+- Hedged pairs = MIN(Total BUY, Total SELL)
+- Net Open = |Total BUY - Total SELL|
+- Arah Net = BUY jika Total BUY > Total SELL, SELL jika sebaliknya
+
+**LANGKAH 3 - HITUNG MARGIN:**
+- Margin hedged = Hedged pairs × $300
+- Margin net open = Net Open × $1,000
+- Total Margin = Margin hedged + Margin net open
+
+**CONTOH VERIFIKASI (WAJIB IKUTI FORMAT INI!):**
+
+> Perhitungan Lot:
+> - BUY: 10 + 20 + 10 + 20 + 2 + 2 = 64 lot ✓
+> - SELL: 30 + 18 + 10 + 2 = 60 lot ✓
+> - TOTAL: 64 + 60 = 124 lot ✓
+>
+> Hedging:
+> - Hedged pairs: min(64, 60) = 60 lot
+> - Net open: 64 - 60 = 4 lot BUY
+> - Margin: (60 × $300) + (4 × $1,000) = $18,000 + $4,000 = $22,000
 
 **Rekomendasi untuk Hedging:**
-- JANGAN rekomendasikan "cut loss" pada posisi hedge - itu tidak masuk akal
+- JANGAN rekomendasikan "cut loss" pada posisi hedge
 - Rekomendasikan: **"Likuidasi sisi BUY"** atau **"Likuidasi sisi SELL"** berdasarkan analisa market
 - Setelah unlock, berikan strategi AVERAGING dengan level harga spesifik
 
@@ -1133,16 +1150,22 @@ Berdasarkan Margin Level / Equity Ratio:
 | Margin Level | [percentage]% |
 | **Status** | [Sangat Sehat/Sehat/Waspada/Bahaya/Margin Call] |
 
+### Perhitungan Lot (VERIFIKASI!)
+
+> BUY positions: [list setiap lot BUY, contoh: 10 + 20 + 10 + 20 + 2 + 2] = [total] lot
+> SELL positions: [list setiap lot SELL, contoh: 30 + 18 + 10 + 2] = [total] lot
+> GRAND TOTAL: [buy total] + [sell total] = [grand total] lot
+
 ### Deteksi Hedging/Locking
 | Instrumen | Total BUY | Total SELL | Hedged Pairs | NET Open | Arah NET |
 |-----------|-----------|------------|--------------|----------|----------|
-| [instrumen] | [lot] | [lot] | [min dari buy/sell] | [selisih] | [BUY/SELL] |
+| [instrumen] | [lot] | [lot] | min([buy],[sell]) | |[buy]-[sell]| | [BUY/SELL] |
 
 **Status Posisi**: [HEDGED / OPEN MURNI]
 **Margin Calculation**:
-- Hedged: [X] lot × $300 = $[amount]
-- Net Open: [Y] lot × $1,000 = $[amount]
-- **Total Margin Seharusnya**: $[sum]
+- Hedged: [hedged pairs] lot × $300 = $[amount]
+- Net Open: [net open] lot × $1,000 = $[amount]
+- **Total Margin Seharusnya**: $[hedged margin + net margin]
 
 ### Open Positions Analysis
 | Instrumen | Lot | Arah | Entry | Current | Floating | Status |
