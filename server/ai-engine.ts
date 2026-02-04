@@ -833,7 +833,13 @@ const CHART_ANALYSIS_PROMPT = `Kamu adalah NM Ai (Gwen Stacy), analis teknikal s
 [HANYA yang terlihat jelas. Jika tidak ada pola yang jelas → "Tidak ada pola signifikan yang teridentifikasi"]
 
 ### INDIKATOR
-[Jika ada indikator di chart → analisis. Jika tidak ada → "Tidak ada indikator yang terlihat di chart"]
+[Jika ada indikator di chart → BACA NILAI PRESISI dari skala indikator]
+
+**CARA BACA INDIKATOR YANG BENAR:**
+- Stochastic/RSI: BACA angka dari skala (0-100). Overbought = di atas 80, Oversold = di bawah 20, Netral = 20-80
+- Jika nilai Stochastic 39 dan 62 → itu NETRAL, BUKAN overbought!
+- MACD: Lihat histogram dan signal line crossing
+- Jangan TEBAK - BACA nilai dari skala di sisi kiri/kanan indikator
 
 ---
 
