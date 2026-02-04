@@ -1133,56 +1133,69 @@ Berdasarkan Equity saat ini:
 
 ---
 
-## 🎯 REKOMENDASI TRADING PLAN
+## 🎯 SKENARIO AKSI & KALKULASI
 
-### 📗 Plan MINIMALIS (Konservatif)
-**Filosofi**: Jaga modal, hindari risiko
+**PENTING**: Berikan beberapa opsi aksi dengan perhitungan SPESIFIK berdasarkan data statement!
 
-**Aksi yang Disarankan**:
-- [Aksi spesifik berdasarkan kondisi akun]
+### 📊 Skenario Berdasarkan Target Lot
 
-**Top Up Suggestion**: 
-- [Jumlah dalam USD] untuk mencapai Margin Level [target]%
-- Setara sekitar Rp [jumlah] (kurs 1 USD = Rp 10.000)
+| Skenario | Target Lot | Lot Harus Diclose | Top Up Dibutuhkan | ATAU Cut di Harga |
+|----------|------------|-------------------|-------------------|-------------------|
+| Hold Semua | [current lot] lot | 0 lot | $[hitung: target equity - current equity] | N/A |
+| Reduce 50% | [half lot] lot | [half lot] lot | $[kalkulasi] | [harga cut loss] |
+| Reduce ke 5 lot | 5 lot | [current - 5] lot | $[kalkulasi] | [harga cut loss] |
+| Cut Semua | 0 lot | [current lot] lot | $0 | [harga saat ini] |
 
-**Potensi Profit**: [range profit realistic per bulan]
-**Risiko Terburuk**: [worst case scenario]
+### 💰 Opsi 1: HOLD SEMUA POSISI ([current lot] lot)
+**Syarat agar aman (Margin Level > 150%)**:
+- Top up minimal: $[kalkulasi = (Margin Required × 1.5) - Equity]
+- Setara Rp [jumlah dalam rupiah] (kurs $1 = Rp 16.000)
+- Ketahanan poin setelah top up: [Free Margin ÷ (Lot × Point Value)] poin
+- **Harga Auto Liquidation**: $[hitung level harga dimana equity = 30% margin]
+
+### ✂️ Opsi 2: REDUCE KE [half lot] LOT
+**Langkah**:
+1. Close [jumlah] lot dari posisi terburuk (floating loss terbesar)
+2. Realisasi loss: -$[jumlah loss yang diclose]
+3. Equity setelah reduce: $[kalkulasi]
+4. Margin Level baru: [kalkulasi]%
+5. **Apakah perlu top up?** [Ya/Tidak] - Jika ya, berapa: $[jumlah]
+
+### 🎯 Opsi 3: REDUCE KE 5 LOT (Paling Aman)
+**Langkah**:
+1. Close [jumlah] lot dari semua posisi loss
+2. Realisasi loss: -$[jumlah loss yang diclose]
+3. Equity setelah reduce: $[kalkulasi]
+4. Margin Level baru: [kalkulasi]%
+5. **Top up tambahan (opsional)**: $[jumlah] untuk margin level 200%
+
+### 📍 LEVEL HARGA KRITIS
+| Event | Harga XAUUSD | Keterangan |
+|-------|--------------|------------|
+| **Auto Liquidation** | $[hitung] | Equity = 30% × Margin |
+| **Margin Call** | $[hitung] | Equity = 70% × Margin |
+| **Break Even** | $[hitung] | Floating P/L = 0 |
 
 ---
 
-### 📙 Plan SEDANG (Moderat)
-**Filosofi**: Balance growth dan protection
+## 💡 REKOMENDASI PRIORITAS
 
-**Aksi yang Disarankan**:
-- [Aksi spesifik berdasarkan kondisi akun]
+**Berdasarkan kondisi akun saat ini ([status: Margin Call/Warning/dll]):**
 
-**Top Up Suggestion**: 
-- [Jumlah dalam USD] untuk mencapai Margin Level [target]%
-- Setara sekitar Rp [jumlah] (kurs 1 USD = Rp 10.000)
-
-**Potensi Profit**: [range profit realistic per bulan]
-**Risiko Terburuk**: [worst case scenario]
-
----
-
-### 📕 Plan MAKSIMAL (Agresif)
-**Filosofi**: Maksimalkan opportunity
-
-**Aksi yang Disarankan**:
-- [Aksi spesifik berdasarkan kondisi akun]
-
-**Top Up Suggestion**: 
-- [Jumlah dalam USD] untuk mencapai Margin Level [target]%
-- Setara sekitar Rp [jumlah] (kurs 1 USD = Rp 10.000)
-
-**Potensi Profit**: [range profit realistic per bulan]
-**Risiko Terburuk**: [worst case scenario]
+1. **AKSI SEGERA** (dalam 24 jam):
+   - [Aksi spesifik dengan angka: cut X lot / top up $Y]
+   
+2. **AKSI MENENGAH** (minggu ini):
+   - [Langkah selanjutnya]
+   
+3. **STRATEGI JANGKA PANJANG**:
+   - [Saran money management ke depan]
 
 ---
 
 ## 💡 CATATAN PENTING
 
-[Insight tambahan berdasarkan analisis: pola trading, saran perbaikan, dll]
+[Insight tambahan: kenapa floating loss besar, posisi mana yang harus diprioritaskan untuk cut/hold, dll]
 
 ---
 
@@ -1195,18 +1208,34 @@ Berdasarkan Equity saat ini:
 
 *NM Ai - Newsmaker.id*
 
-## ATURAN:
+## ATURAN KALKULASI:
+
+### Formula Wajib:
+1. **Top up untuk hold semua**: Top Up = (Margin Required × Target ML%) - Equity
+   - Target ML 150% = aman minimum
+   - Target ML 200% = lebih aman
+   
+2. **Harga Auto Liquidation (untuk BUY position)**:
+   - Equity sekarang - (Margin Required × 30%) = buffer tersisa
+   - Buffer ÷ (Total Lot × Point Value) = poin sampai AL
+   - Harga AL = Harga Sekarang - Poin sampai AL
+   
+3. **Reduce lot calculation**:
+   - Jika reduce dari 18 lot ke 10 lot = close 8 lot
+   - Loss yang direalisasi = Floating Loss dari 8 lot yang diclose
+   - Equity baru = Equity sekarang - Loss direalisasi
+   - Margin baru = 10 lot × $1,000 = $10,000
+   - ML baru = (Equity baru ÷ Margin baru) × 100%
+
+### Aturan Output:
 1. BACA ANGKA DENGAN TELITI dari gambar statement
-2. Jika ada posisi terbuka, hitung risikonya
-3. Top up suggestion berdasarkan formula (gunakan multiplier, BUKAN persentase):
-   - Plan Minimalis: Top Up = (Margin Required x 3) - Equity (target 300%)
-   - Plan Sedang: Top Up = (Margin Required x 4) - Equity (target 400%)
-   - Plan Maksimal: Top Up = (Margin Required x 5) - Equity (target 500%)
-   - Jika hasil negatif, berarti tidak perlu top up (sudah cukup)
-4. SELALU gunakan Bahasa Indonesia
-5. SELALU sertakan disclaimer
-6. Berikan analisis yang objektif dan realistis
-7. Jika tidak ada Margin Required (posisi kosong), tidak perlu top up - fokus pada peluang trading baru`;
+2. HITUNG SEMUA SKENARIO dengan angka riil dari statement
+3. Berikan MINIMAL 3 opsi aksi dengan kalkulasi lengkap
+4. Sertakan LEVEL HARGA KRITIS (Auto Liquidation, Margin Call, Break Even)
+5. SELALU gunakan Bahasa Indonesia
+6. SELALU sertakan disclaimer
+7. Prioritaskan opsi berdasarkan kondisi margin level saat ini
+8. Jika tidak ada posisi terbuka, fokus pada opportunity analysis`;
 
 export async function* streamStatementAnalysis(
   imageBase64: string,
