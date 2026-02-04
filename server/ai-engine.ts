@@ -1051,6 +1051,29 @@ PENTING: SPA menggunakan FIXED MARGIN, bukan leverage calculation!
 
 ## DASAR PENGETAHUAN YANG HARUS DIREFERENSIKAN:
 
+### ⚠️ DETEKSI HEDGING/LOCKING (SANGAT PENTING!)
+Jika ada posisi BUY dan SELL pada instrumen yang SAMA, itu adalah HEDGING:
+
+**Cara Identifikasi:**
+- Lihat kolom "Sell Price" dan "Buy Price" di Open Positions
+- Jika satu baris ada Sell Price (artinya SELL), baris lain ada Buy Price (artinya BUY)
+- Posisi BUY + SELL pada instrumen sama = HEDGED/LOCKED
+
+**Cara Hitung Margin untuk Hedging:**
+- Posisi hedged (pasangan buy+sell): **$300 per pair** (BUKAN $1,000 + $1,000!)
+- Posisi NET/murni (sisa setelah dikurangi hedge): **$1,000 per lot**
+
+**Contoh:**
+- Total BUY: 64 lot, Total SELL: 60 lot
+- Hedged pairs: 60 lot (yang match)
+- NET open: 64 - 60 = 4 lot BUY murni
+- Margin = (60 × $300) + (4 × $1,000) = $18,000 + $4,000 = $22,000
+
+**Rekomendasi untuk Hedging:**
+- JANGAN rekomendasikan "cut loss" pada posisi hedge - itu tidak masuk akal
+- Rekomendasikan: **"Likuidasi sisi BUY"** atau **"Likuidasi sisi SELL"** berdasarkan analisa market
+- Setelah unlock, berikan strategi AVERAGING dengan level harga spesifik
+
 ### Manajemen Risiko:
 - Equity Ratio ideal: > 500% (sangat aman)
 - Equity Ratio warning: < 200% (perlu waspada)
@@ -1062,6 +1085,7 @@ PENTING: SPA menggunakan FIXED MARGIN, bukan leverage calculation!
 - Jangan gunakan lebih dari 50% modal untuk margin (sisanya untuk buffer floating)
 - Diversifikasi: jangan all-in di satu instrumen
 - Position sizing: hitung berapa poin bisa ditahan sebelum margin call
+- **Ketahanan ideal**: $5,000 - $10,000 buffer per lot untuk averaging
 
 ### Prinsip Trading Sehat:
 - Trading adalah marathon, bukan sprint
@@ -1109,13 +1133,24 @@ Berdasarkan Margin Level / Equity Ratio:
 | Margin Level | [percentage]% |
 | **Status** | [Sangat Sehat/Sehat/Waspada/Bahaya/Margin Call] |
 
+### Deteksi Hedging/Locking
+| Instrumen | Total BUY | Total SELL | Hedged Pairs | NET Open | Arah NET |
+|-----------|-----------|------------|--------------|----------|----------|
+| [instrumen] | [lot] | [lot] | [min dari buy/sell] | [selisih] | [BUY/SELL] |
+
+**Status Posisi**: [HEDGED / OPEN MURNI]
+**Margin Calculation**:
+- Hedged: [X] lot × $300 = $[amount]
+- Net Open: [Y] lot × $1,000 = $[amount]
+- **Total Margin Seharusnya**: $[sum]
+
 ### Open Positions Analysis
-| Instrumen | Lot | Entry | Current | Floating | Status | Rekomendasi |
-|-----------|-----|-------|---------|----------|--------|-------------|
-| [item] | [qty] | [buy/sell price] | [current] | [floating] | [PROFIT/LOSS] | [Hold/Cut Loss/Take Profit] |
+| Instrumen | Lot | Arah | Entry | Current | Floating | Status |
+|-----------|-----|------|-------|---------|----------|--------|
+| [item] | [qty] | [BUY/SELL] | [price] | [current] | [floating] | [PROFIT/LOSS] |
 
 **Analisis Per Posisi**:
-- [Instrumen]: [Floating P/L] - [Analisis: apakah sudah waktunya take profit, atau perlu cut loss, atau masih bisa hold]
+- [Instrumen]: [Floating P/L] - [Analisis spesifik]
 
 ### Position Sizing Analysis
 Berdasarkan Equity saat ini:
@@ -1137,41 +1172,57 @@ Berdasarkan Equity saat ini:
 
 **PENTING**: Berikan beberapa opsi aksi dengan perhitungan SPESIFIK berdasarkan data statement!
 
-### 📊 Skenario Berdasarkan Target Lot
+---
 
-| Skenario | Target Lot | Lot Harus Diclose | Top Up Dibutuhkan | ATAU Cut di Harga |
-|----------|------------|-------------------|-------------------|-------------------|
-| Hold Semua | [current lot] lot | 0 lot | $[hitung: target equity - current equity] | N/A |
-| Reduce 50% | [half lot] lot | [half lot] lot | $[kalkulasi] | [harga cut loss] |
-| Reduce ke 5 lot | 5 lot | [current - 5] lot | $[kalkulasi] | [harga cut loss] |
-| Cut Semua | 0 lot | [current lot] lot | $0 | [harga saat ini] |
+### 🔒 JIKA POSISI HEDGED (Ada BUY + SELL)
 
-### 💰 Opsi 1: HOLD SEMUA POSISI ([current lot] lot)
-**Syarat agar aman (Margin Level > 150%)**:
-- Top up minimal: $[kalkulasi = (Margin Required × 1.5) - Equity]
-- Setara Rp [jumlah dalam rupiah] (kurs $1 = Rp 16.000)
-- Ketahanan poin setelah top up: [Free Margin ÷ (Lot × Point Value)] poin
-- **Harga Auto Liquidation**: $[hitung level harga dimana equity = 30% margin]
+**Opsi A: LIKUIDASI SISI BUY** (jika market bearish)
+- Close semua posisi BUY: [total buy lot] lot
+- Floating yang direalisasi dari BUY: $[jumlah]
+- Equity setelah close BUY: $[kalkulasi]
+- Posisi tersisa: [sell lot] lot SELL
+- Margin baru: [sell lot] × $1,000 = $[amount]
+- **Strategi averaging SELL** (jika market turun):
+  - Entry SELL tambahan di harga: $[level resistance]
+  - Top up dibutuhkan untuk ketahanan $5,000/lot: $[kalkulasi]
 
-### ✂️ Opsi 2: REDUCE KE [half lot] LOT
-**Langkah**:
-1. Close [jumlah] lot dari posisi terburuk (floating loss terbesar)
-2. Realisasi loss: -$[jumlah loss yang diclose]
-3. Equity setelah reduce: $[kalkulasi]
-4. Margin Level baru: [kalkulasi]%
-5. **Apakah perlu top up?** [Ya/Tidak] - Jika ya, berapa: $[jumlah]
+**Opsi B: LIKUIDASI SISI SELL** (jika market bullish)
+- Close semua posisi SELL: [total sell lot] lot
+- Floating yang direalisasi dari SELL: $[jumlah]
+- Equity setelah close SELL: $[kalkulasi]
+- Posisi tersisa: [buy lot] lot BUY
+- Margin baru: [buy lot] × $1,000 = $[amount]
+- **Strategi averaging BUY** (jika market naik):
+  - Entry BUY tambahan di harga: $[level support]
+  - Top up dibutuhkan untuk ketahanan $5,000/lot: $[kalkulasi]
 
-### 🎯 Opsi 3: REDUCE KE 5 LOT (Paling Aman)
-**Langkah**:
-1. Close [jumlah] lot dari semua posisi loss
-2. Realisasi loss: -$[jumlah loss yang diclose]
-3. Equity setelah reduce: $[kalkulasi]
-4. Margin Level baru: [kalkulasi]%
-5. **Top up tambahan (opsional)**: $[jumlah] untuk margin level 200%
+**Opsi C: PARTIAL UNLOCK**
+- Close [X] lot BUY + [X] lot SELL (pasangan terburuk)
+- Tetap hedge sisanya untuk proteksi
+- Tunggu konfirmasi arah market
+
+---
+
+### 📊 JIKA POSISI OPEN MURNI (Tidak Hedged)
+
+| Skenario | Target Lot | Lot Diclose | Top Up Dibutuhkan | Cut di Harga |
+|----------|------------|-------------|-------------------|--------------|
+| Hold Semua | [lot] | 0 | $[hitung] | N/A |
+| Reduce 50% | [lot/2] | [lot/2] | $[kalkulasi] | $[harga] |
+| Reduce ke 5 | 5 lot | [lot-5] | $[kalkulasi] | $[harga] |
+
+### 💰 Strategi Averaging (Setelah Unlock/Reduce)
+**Untuk ketahanan ideal $5,000-$10,000 per lot:**
+| Target Lot | Margin Required | Buffer Ideal | Top Up Total | Entry Averaging |
+|------------|-----------------|--------------|--------------|-----------------|
+| 10 lot | $10,000 | $50,000-$100,000 | $[kalkulasi] | $[level harga] |
+| 5 lot | $5,000 | $25,000-$50,000 | $[kalkulasi] | $[level harga] |
+
+---
 
 ### 📍 LEVEL HARGA KRITIS
-| Event | Harga XAUUSD | Keterangan |
-|-------|--------------|------------|
+| Event | Harga | Keterangan |
+|-------|-------|------------|
 | **Auto Liquidation** | $[hitung] | Equity = 30% × Margin |
 | **Margin Call** | $[hitung] | Equity = 70% × Margin |
 | **Break Even** | $[hitung] | Floating P/L = 0 |
