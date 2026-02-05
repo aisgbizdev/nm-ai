@@ -670,6 +670,22 @@ RUMUS YANG BENAR (SPA FIXED MARGIN):
 - Auto Liquidation = 30% dari Initial Margin
 - Fee = $30/lot (total buka + tutup)
 
+## TARGET PROFIT BERDASARKAN TIMEFRAME (PENTING!)
+
+| Timeframe | Target Profit | Keterangan |
+|-----------|--------------|------------|
+| Scalping / Short-term | Maks 5 poin | Trading kilat, profit kecil tapi sering |
+| Medium-term (Intraday) | 50-100 poin | Trading harian, hold beberapa jam |
+| Long-term (Swing) | 200-300 poin | Hold beberapa hari sampai minggu |
+| Investment | 300+ poin | Hold berminggu sampai berbulan |
+
+**Contoh Gold (XUL10, $100/poin/lot):**
+- Scalping 5 poin: $500/lot (1 lot = $500, 10 lot = $5,000)
+- Medium 100 poin: $10,000/lot (1 lot = $10k, 10 lot = $100k)
+- Long 300 poin: $30,000/lot (1 lot = $30k, 10 lot = $300k)
+
+Gunakan timeframe sesuai modal & toleransi risiko!
+
 ## FORMULA POSITION SIZING (PATOKAN DASAR - SANGAT PENTING!)
 Kapasitas Max = Dana ÷ $1,000 (day trade)
 
@@ -1134,11 +1150,19 @@ Setelah likuidasi:
 
 ### Strategi Setelah Unlock:
 
+**Target Profit Berdasarkan Timeframe:**
+| Timeframe | Target Profit | Cocok Untuk |
+|-----------|--------------|-------------|
+| Scalping | Maks 5 poin ($500/lot) | Modal kecil, profit cepat |
+| Medium-term | 50-100 poin ($5k-10k/lot) | Trading harian |
+| Long-term | 200-300 poin ($20k-30k/lot) | Swing trader |
+| Investment | 300+ poin | Modal besar, sabar |
+
 Jika market [BULLISH/BEARISH], averaging di level:
 - Entry 1: $[harga] - [lot] lot
 - Entry 2: $[harga] - [lot] lot
 - Stop Loss: $[harga]
-- Take Profit: $[harga]
+- Take Profit: $[harga] (sesuaikan dengan timeframe trading)
 
 ---
 
