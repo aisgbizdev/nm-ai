@@ -86,8 +86,8 @@ export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState("");
   const [sessionNotFound, setSessionNotFound] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chartStreamingContent, setChartStreamingContent] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -476,7 +476,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (selectedImage) {
+      if (selectedImages.length > 0) {
         handleChartAnalysis();
       } else {
         handleSend();
@@ -493,18 +493,22 @@ Silakan tanya atau upload gambar untuk analisis!`;
       alert("Ukuran file maksimal 5MB");
       return;
     }
-    setSelectedImage(file);
+    if (selectedImages.length >= 5) {
+      alert("Maksimal 5 gambar sekaligus");
+      return;
+    }
+    setSelectedImages(prev => [...prev, file]);
     const reader = new FileReader();
     reader.onloadend = () => {
-      setImagePreview(reader.result as string);
+      setImagePreviews(prev => [...prev, reader.result as string]);
     };
     reader.readAsDataURL(file);
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processImageFile(file);
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => processImageFile(file));
     }
   };
 
@@ -520,14 +524,18 @@ Silakan tanya atau upload gambar untuk analisis!`;
         if (file) {
           processImageFile(file);
         }
-        break;
       }
     }
   };
 
-  const clearImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
+  const clearImage = (index?: number) => {
+    if (index !== undefined) {
+      setSelectedImages(prev => prev.filter((_, i) => i !== index));
+      setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setSelectedImages([]);
+      setImagePreviews([]);
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -537,12 +545,14 @@ Silakan tanya atau upload gambar untuk analisis!`;
   };
 
   const handleChartAnalysis = async () => {
-    if (!selectedImage || !sessionId || isAnalyzing || isStreaming) return;
+    if (selectedImages.length === 0 || !sessionId || isAnalyzing || isStreaming) return;
 
     setIsAnalyzing(true);
     setChartStreamingContent("");
     const formData = new FormData();
-    formData.append("image", selectedImage);
+    selectedImages.forEach((img, idx) => {
+      formData.append("images", img);
+    });
     formData.append("message", inputMessage || "Analisa gambar ini");
     formData.append("sessionId", sessionId.toString());
 
@@ -831,20 +841,27 @@ Silakan tanya atau upload gambar untuk analisis!`;
 
       <div className="shrink-0 border-t border-border/30 bg-background px-2 sm:px-4 pt-3 sm:pt-4 pb-3 sm:pb-4">
         <div className="max-w-4xl mx-auto">
-          {imagePreview && (
-            <div className="mb-2 relative inline-block">
-              <img 
-                src={imagePreview} 
-                alt="Chart preview" 
-                className="h-20 sm:h-24 rounded-lg border border-border/50 object-cover"
-              />
-              <button
-                onClick={clearImage}
-                className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1 hover:bg-destructive/80 transition-colors"
-                data-testid="button-remove-image"
-              >
-                <X className="h-3 w-3" />
-              </button>
+          {imagePreviews.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {imagePreviews.map((preview, index) => (
+                <div key={index} className="relative inline-block">
+                  <img 
+                    src={preview} 
+                    alt={`Preview ${index + 1}`} 
+                    className="h-20 sm:h-24 rounded-lg border border-border/50 object-cover"
+                  />
+                  <button
+                    onClick={() => clearImage(index)}
+                    className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1 hover:bg-destructive/80 transition-colors"
+                    data-testid={`button-remove-image-${index}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <span className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                    {index + 1}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
           <div className="flex items-end gap-1.5 sm:gap-2 bg-card/80 backdrop-blur border border-border/50 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 shadow-lg focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
@@ -907,7 +924,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
               }}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={selectedImage ? "Tambah instruksi..." : "Tanya apapun..."}
+              placeholder={selectedImages.length > 0 ? "Tambah instruksi..." : "Tanya apapun..."}
               className="min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 py-2.5 sm:py-3 px-2 sm:px-3 text-sm sm:text-base"
               rows={1}
               data-testid="input-message"
@@ -924,12 +941,12 @@ Silakan tanya atau upload gambar untuk analisis!`;
               </Button>
             ) : (
               <Button 
-                onClick={() => selectedImage ? handleChartAnalysis() : handleSend()} 
-                disabled={(!inputMessage.trim() && !selectedImage) || isAnalyzing}
+                onClick={() => selectedImages.length > 0 ? handleChartAnalysis() : handleSend()} 
+                disabled={(!inputMessage.trim() && selectedImages.length === 0) || isAnalyzing}
                 size="icon"
                 className={cn(
                   "h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg sm:rounded-xl transition-all mb-0.5 sm:mb-1",
-                  (inputMessage.trim() || selectedImage) ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted text-muted-foreground"
+                  (inputMessage.trim() || selectedImages.length > 0) ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted text-muted-foreground"
                 )}
                 data-testid="button-send"
               >
@@ -942,7 +959,7 @@ Silakan tanya atau upload gambar untuk analisis!`;
             )}
           </div>
           <p className="text-center text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">
-            {selectedImage ? "Upload chart untuk analisis teknikal" : "NM Ai dapat membuat kesalahan. Periksa info penting."}
+            {selectedImages.length > 0 ? `${selectedImages.length} gambar siap dianalisis` : "NM Ai dapat membuat kesalahan. Periksa info penting."}
           </p>
         </div>
       </div>

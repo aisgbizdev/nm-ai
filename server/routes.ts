@@ -299,13 +299,13 @@ export async function registerRoutes(
     }
   });
 
-  // --- IMAGE ANALYSIS (Chart or Statement) ---
-  app.post("/api/analyze-chart", upload.single("image"), async (req, res) => {
+  // --- IMAGE ANALYSIS (Chart or Statement) - Support Multiple Images ---
+  app.post("/api/analyze-chart", upload.array("images", 5), async (req, res) => {
     try {
-      const file = req.file;
+      const files = req.files as Express.Multer.File[];
       const { message, sessionId } = req.body;
       
-      if (!file) {
+      if (!files || files.length === 0) {
         return res.status(400).json({ message: "No image uploaded" });
       }
 
@@ -314,12 +314,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid session ID" });
       }
 
-      const imageBase64 = file.buffer.toString("base64");
-      const mimeType = file.mimetype || "image/png";
-      const userMessage = message || "";
+      const imagesData = files.map(file => ({
+        base64: file.buffer.toString("base64"),
+        mimeType: file.mimetype || "image/png"
+      }));
 
-      const imageType = await detectImageType(imageBase64, mimeType);
-      console.log(`Detected image type: ${imageType}`);
+      const firstImage = imagesData[0];
+      const imageType = await detectImageType(firstImage.base64, firstImage.mimeType);
+      console.log(`Detected image type: ${imageType}, Total images: ${files.length}`);
 
       const requestLabel = imageType === "statement" 
         ? "[Statement Analysis Request]" 
@@ -327,13 +329,22 @@ export async function registerRoutes(
       
       const defaultMessage = imageType === "statement"
         ? "Analisa statement trading ini dan berikan rekomendasi trading plan"
-        : "Analisa chart ini";
+        : files.length > 1 
+          ? `Analisa ${files.length} gambar ini secara berurutan`
+          : "Analisa chart ini";
 
+      const userMessage = message || "";
+      
+      const imageDataArray = imagesData.map((img, idx) => `data:${img.mimeType};base64,${img.base64}`);
+      
       await storage.createMessage({
         sessionId: parsedSessionId,
         role: "user",
         content: `${requestLabel} ${userMessage || defaultMessage}`,
-        meta: { imageData: `data:${mimeType};base64,${imageBase64}` }
+        meta: { 
+          imageData: imageDataArray[0],
+          additionalImages: imageDataArray.slice(1)
+        }
       });
 
       res.setHeader("Content-Type", "text/event-stream");
@@ -343,8 +354,8 @@ export async function registerRoutes(
       let fullResponse = "";
 
       const analysisStream = imageType === "statement"
-        ? streamStatementAnalysis(imageBase64, userMessage || defaultMessage, mimeType)
-        : streamChartAnalysis(imageBase64, userMessage || defaultMessage, mimeType);
+        ? streamStatementAnalysis(firstImage.base64, userMessage || defaultMessage, firstImage.mimeType, imagesData.slice(1))
+        : streamChartAnalysis(firstImage.base64, userMessage || defaultMessage, firstImage.mimeType, imagesData.slice(1));
 
       for await (const chunk of analysisStream) {
         fullResponse += chunk;
@@ -359,7 +370,7 @@ export async function registerRoutes(
         });
       }
 
-      res.write(`data: ${JSON.stringify({ done: true, source: "vision", imageType })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true, source: "vision", imageType, imageCount: files.length })}\n\n`);
       res.end();
 
     } catch (error) {

@@ -1348,29 +1348,49 @@ Untuk posisi SELL: [HOLD/CUT sebagian/CUT semua - jelaskan alasan]
 export async function* streamStatementAnalysis(
   imageBase64: string,
   userMessage: string,
-  mimeType: string = "image/png"
+  mimeType: string = "image/png",
+  additionalImages: Array<{base64: string, mimeType: string}> = []
 ): AsyncGenerator<string, void, unknown> {
   try {
+    const imageContents: any[] = [
+      {
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${imageBase64}`,
+          detail: "high"
+        }
+      }
+    ];
+    
+    additionalImages.forEach((img, idx) => {
+      imageContents.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${img.mimeType};base64,${img.base64}`,
+          detail: "high"
+        }
+      });
+    });
+    
+    const totalImages = 1 + additionalImages.length;
+    const multiImageInstruction = totalImages > 1 
+      ? `\n\nAda ${totalImages} gambar yang diupload. Analisa SEMUA gambar secara berurutan:\n- Gambar 1: Identifikasi apakah chart atau statement\n- Gambar berikutnya: Lanjutkan analisa berdasarkan konteks gambar pertama\n\nJika gambar 1 adalah CHART dan gambar 2 adalah STATEMENT, berikan rekomendasi berdasarkan KEDUA analisa tersebut.`
+      : "";
+
     const stream = await openaiClient.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { 
           role: "system", 
-          content: STATEMENT_ANALYSIS_PROMPT
+          content: STATEMENT_ANALYSIS_PROMPT + multiImageInstruction
         },
         {
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${imageBase64}`,
-                detail: "high"
-              }
-            },
+            ...imageContents,
             {
               type: "text",
-              text: userMessage || "Analisa statement trading ini dan berikan rekomendasi trading plan dengan 3 level: minimalis, sedang, dan maksimal."
+              text: userMessage || "Analisa statement trading ini dan berikan rekomendasi trading plan dengan opsi aksi lengkap."
             }
           ]
         }
@@ -1440,7 +1460,8 @@ Jawab HANYA dengan satu kata: chart, statement, atau unknown.`
 export async function* streamChartAnalysis(
   imageBase64: string,
   userMessage: string,
-  mimeType: string = "image/png"
+  mimeType: string = "image/png",
+  additionalImages: Array<{base64: string, mimeType: string}> = []
 ): AsyncGenerator<string, void, unknown> {
   try {
     const lang = detectLanguage(userMessage);
@@ -1448,23 +1469,42 @@ export async function* streamChartAnalysis(
       ? "Jawab dalam Bahasa Indonesia." 
       : "Answer in English.";
     
+    const imageContents: any[] = [
+      {
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${imageBase64}`,
+          detail: "high"
+        }
+      }
+    ];
+    
+    additionalImages.forEach((img, idx) => {
+      imageContents.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${img.mimeType};base64,${img.base64}`,
+          detail: "high"
+        }
+      });
+    });
+    
+    const totalImages = 1 + additionalImages.length;
+    const multiImageInstruction = totalImages > 1 
+      ? `\n\nAda ${totalImages} gambar yang diupload. Analisa SEMUA gambar secara berurutan:\n- Gambar 1: Chart utama untuk analisa teknikal\n- Gambar berikutnya: Bisa chart timeframe lain ATAU statement trading\n\nJika ada STATEMENT setelah CHART, gabungkan analisa chart dengan posisi yang ada di statement untuk memberikan rekomendasi yang lebih akurat.`
+      : "";
+
     const stream = await openaiClient.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { 
           role: "system", 
-          content: CHART_ANALYSIS_PROMPT + "\n\n" + langInstruction
+          content: CHART_ANALYSIS_PROMPT + "\n\n" + langInstruction + multiImageInstruction
         },
         {
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${imageBase64}`,
-                detail: "high"
-              }
-            },
+            ...imageContents,
             {
               type: "text",
               text: userMessage || "Tolong analisa chart ini dan berikan rekomendasi trading lengkap dengan entry, stop loss, dan take profit."
