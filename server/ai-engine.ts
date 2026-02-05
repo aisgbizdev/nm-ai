@@ -1272,44 +1272,72 @@ Jika HEDGED:
 
 ---
 
-## 🎯 REKOMENDASI (Berdasarkan Analisa Market)
+## 🎯 OPSI AKSI BERDASARKAN POSISI & MARKET
 
-**INGAT LOGIKA INI:**
-- BULLISH → HOLD BUY, LIKUIDASI SELL
-- BEARISH → HOLD SELL, LIKUIDASI BUY
+**PENTING**: Berikan SEMUA opsi dengan kalkulasi SPESIFIK berdasarkan posisi yang ada!
 
-### Jika Posisi HEDGED:
+### OPSI A: CUT LOSS SEBAGIAN
+Jika ingin reduce exposure tapi tetap hold sebagian:
+- Close [X] lot dari total [Y] lot
+- Floating yang direalisasi: -$[jumlah]
+- Equity setelah cut: $[hitung]
+- Posisi tersisa: [Z] lot [arah]
+- Margin baru: [Z] × $3,000 = $[amount]
+- **Ketahanan poin**: Effective Margin ÷ ([Z] × $100) = [poin]
+- **Level cut loss berikutnya**: $[harga] jika market lanjut melawan
 
-Berdasarkan analisa market [BULLISH/BEARISH], rekomendasi:
+### OPSI B: CUT LOSS SEMUA
+Jika ingin clear semua posisi yang floating loss:
+- Close semua [X] lot [arah]
+- Total loss direalisasi: -$[jumlah]
+- Balance setelah cut: $[hitung]
+- **Siap entry fresh** dengan posisi bersih
 
-**LIKUIDASI SISI [BUY/SELL]** karena [alasan berdasarkan analisa market]
+### OPSI C: AVERAGING (Tambah Posisi)
+Jika yakin market akan reversal sesuai arah posisi:
+- Entry tambahan: $[level harga] - [X] lot
+- Total lot setelah avg: [Y] lot
+- Floating berkurang jika harga kembali ke: $[break even level]
+- **Top up dibutuhkan untuk ketahanan aman**:
+  - Ketahanan 50 poin: $[hitung]
+  - Ketahanan 100 poin: $[hitung]
+- **Cut loss level**: $[harga] jika averaging gagal
 
-Setelah likuidasi:
-- Posisi tersisa: [lot] lot [arah]
-- Margin baru: [lot] × $3,000 = $[amount] (overnight)
+### OPSI D: CLEAR SEMUA & ENTRY FRESH
+Jika ingin reset dan ikut arah market baru:
+- Close semua posisi (BUY + SELL)
+- Total P/L direalisasi: $[hitung]
+- Balance bersih: $[hitung]
+- **Entry baru sesuai arah market [BULLISH/BEARISH]**:
+  - Entry: $[level harga]
+  - Lot yang aman: [hitung berdasarkan balance baru]
+  - SL: $[level]
+  - TP: $[level - sesuai timeframe]
 
-**Berapa dana yang bisa di-top up?**
-- Jika top up $10,000 → bisa buka 1 lot dengan ketahanan aman
-- Jika top up $50,000 → bisa buka 5 lot dengan ketahanan aman
-- Jika top up $100,000 → bisa buka 10 lot dengan ketahanan aman
+### OPSI E: HOLD + TOP UP
+Jika ingin tahan semua posisi tanpa cut:
+- Total lot saat ini: [X] lot
+- Floating saat ini: -$[jumlah]
+- **Top up untuk ketahanan**:
 
-**Formula**: Dana Top Up ÷ $10,000 = Jumlah lot yang aman dibuka
+| Ketahanan | Top Up | Level Aman Sampai |
+|-----------|--------|-------------------|
+| 50 poin | $[hitung] | $[harga] |
+| 100 poin | $[hitung] | $[harga] |
+| 200 poin | $[hitung] | $[harga] |
 
-### Strategi Setelah Unlock:
+**Formula**: Top Up = (Target Poin × Lot × $100) - Effective Margin
 
-**Target Profit Berdasarkan Timeframe:**
-| Timeframe | Target Profit | Cocok Untuk |
-|-----------|--------------|-------------|
-| Scalping | Maks 5 poin ($500/lot) | Modal kecil, profit cepat |
-| Medium-term | 50-100 poin ($5k-10k/lot) | Trading harian |
-| Long-term | 200-300 poin ($20k-30k/lot) | Swing trader |
-| Investment | 300+ poin | Modal besar, sabar |
+---
 
-Jika market [BULLISH/BEARISH], averaging di level:
-- Entry 1: $[harga] - [lot] lot
-- Entry 2: $[harga] - [lot] lot
-- Stop Loss: $[harga]
-- Take Profit: $[harga] (sesuaikan dengan timeframe trading)
+## 💡 REKOMENDASI BERDASARKAN ARAH MARKET
+
+**Jika market [BULLISH/BEARISH] berdasarkan analisa:**
+
+Untuk posisi BUY: [HOLD/CUT sebagian/CUT semua - jelaskan alasan]
+Untuk posisi SELL: [HOLD/CUT sebagian/CUT semua - jelaskan alasan]
+
+**Opsi terbaik**: [A/B/C/D/E] karena [alasan spesifik berdasarkan market + posisi]
 
 ---
 
