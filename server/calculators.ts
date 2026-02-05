@@ -457,33 +457,26 @@ async function handlePivot(userPrompt: string, lowerPrompt: string): Promise<str
     }
   }
   
-  // Return instruction when no OHLC data available
+  // Auto-fetch gold OHLC as default when pivot is requested without specific data
+  const ohlcData = await fetchOHLCForPivot("gold");
+  if (ohlcData) {
+    const label = INSTRUMENT_LABEL["gold"];
+    return generatePivotOutput(ohlcData.O, ohlcData.H, ohlcData.L, ohlcData.C, `${label.name} (${ohlcData.symbol}) - Harga Running`);
+  }
+  
+  // Fallback if API fails
   return `# Pivot Point Calculator
 
-Untuk menghitung pivot point, Anda bisa:
+[PERHATIAN] Data harga sedang tidak tersedia saat ini.
 
-**Otomatis dengan harga saat ini:**
+**Coba lagi nanti, atau input manual:**
 \`\`\`
-Hitung pivot point gold sekarang
-Hitung pivot point oil saat ini
+Hitung pivot OHLC [Open], [High], [Low], [Close]
 \`\`\`
-
-**Manual dengan data OHLC:**
-\`\`\`
-Hitung pivot point OHLC 2650, 2680, 2640, 2670
-\`\`\`
-
-**Instrumen tersedia:** Gold, Oil, GBP, EUR, AUD, JPY, CHF, HSI, Nikkei
-
-**Metode yang tersedia:**
-- Classic Pivot
-- Woodie Pivot
-- Camarilla Pivot
 
 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
-1. "Hitung pivot gold sekarang"
-2. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
-3. "Tampilkan harga gold sekarang"
+1. "Tampilkan harga gold sekarang"
+2. "Kalender ekonomi hari ini"
 
 ---
 *NM Ai - Newsmaker.id*`;
