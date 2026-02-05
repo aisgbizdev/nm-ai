@@ -488,16 +488,110 @@ function generatePivotOutput(O: number, H: number, L: number, C: number, source:
   const camarilla = calcCamarilla({ H, L, C });
 
   const fmt = (n: number) => n.toFixed(2);
+  
+  // Current price is Close (last price)
+  const currentPrice = C;
+  const pivot = classic.P;
+  
+  // Determine bias based on price position vs pivot (with neutral zone ±0.5%)
+  const neutralThreshold = pivot * 0.005; // 0.5% of pivot
+  const isNeutral = Math.abs(currentPrice - pivot) <= neutralThreshold;
+  const isBullish = !isNeutral && currentPrice > pivot;
+  const isBearish = !isNeutral && currentPrice < pivot;
+  
+  let bias: string, biasIcon: string, recommendation: string;
+  if (isNeutral) {
+    bias = "NETRAL";
+    biasIcon = "[WAIT]";
+    recommendation = "WAIT - Tunggu konfirmasi breakout";
+  } else if (isBullish) {
+    bias = "BULLISH";
+    biasIcon = "[NAIK]";
+    recommendation = "BUY";
+  } else {
+    bias = "BEARISH";
+    biasIcon = "[TURUN]";
+    recommendation = "SELL";
+  }
+  
+  // === PULLBACK STRATEGY ===
+  const pullbackEntry = isBullish ? classic.S1 : (isBearish ? classic.R1 : pivot);
+  const pullbackSL = isBullish ? classic.S2 : (isBearish ? classic.R2 : classic.S1);
+  const pullbackTP1 = isBullish ? classic.R1 : (isBearish ? classic.S1 : classic.R1);
+  const pullbackTP2 = isBullish ? classic.R2 : (isBearish ? classic.S2 : classic.R2);
+  const pullbackTP3 = isBullish ? classic.R3 : (isBearish ? classic.S3 : classic.R3);
+  
+  const pullbackSLDist = Math.abs(pullbackEntry - pullbackSL);
+  const pullbackTP1Dist = Math.abs(pullbackTP1 - pullbackEntry);
+  const pullbackTP2Dist = Math.abs(pullbackTP2 - pullbackEntry);
+  const pullbackTP3Dist = Math.abs(pullbackTP3 - pullbackEntry);
+  
+  // === BREAKOUT STRATEGY ===
+  const breakoutEntry = isBullish ? classic.R1 : (isBearish ? classic.S1 : classic.R1);
+  const breakoutSL = isBullish ? classic.P : (isBearish ? classic.P : classic.S1);
+  const breakoutTP1 = isBullish ? classic.R2 : (isBearish ? classic.S2 : classic.R2);
+  const breakoutTP2 = isBullish ? classic.R3 : (isBearish ? classic.S3 : classic.R3);
+  const breakoutTP3 = isBullish ? classic.R4 : (isBearish ? classic.S4 : classic.R4);
+  
+  const breakoutSLDist = Math.abs(breakoutEntry - breakoutSL);
+  const breakoutTP1Dist = Math.abs(breakoutTP1 - breakoutEntry);
+  const breakoutTP2Dist = Math.abs(breakoutTP2 - breakoutEntry);
+  const breakoutTP3Dist = Math.abs(breakoutTP3 - breakoutEntry);
+  
+  // Risk/Reward ratios
+  const calcRR = (tp: number, sl: number) => sl > 0 ? (tp / sl).toFixed(1) : "-";
 
-  return `## Pivot Point Calculation
+  // Determine if this is running price or manual input
+  const isRunning = source.toLowerCase().includes("running") || source.toLowerCase().includes("real-time");
+  const priceLabel = isRunning ? "Harga Running" : "Last Close";
+  const actionNote = isRunning ? "" : "\n> [INFO] Analisa berdasarkan data historis. Cek harga running untuk konfirmasi.";
+
+  return `## Analisa Pivot Point (Metode Classic)
 **Source:** ${source}
+**${priceLabel}:** ${fmt(currentPrice)} | **Pivot:** ${fmt(pivot)}${actionNote}
 
-| Data | Nilai |
-|------|-------|
-| Open | ${fmt(O)} |
-| High | ${fmt(H)} |
-| Low | ${fmt(L)} |
-| Close | ${fmt(C)} |
+### ${biasIcon} BIAS: ${bias}
+> Harga ${isNeutral ? "berada di zona netral (±0.5% dari Pivot)" : (isBullish ? `**${fmt(currentPrice)}** di atas Pivot **${fmt(pivot)}**` : `**${fmt(currentPrice)}** di bawah Pivot **${fmt(pivot)}**`)}
+
+---
+
+### Rekomendasi: ${recommendation}
+
+${isNeutral ? `
+**Kondisi Netral:** Harga terlalu dekat dengan Pivot. Tunggu konfirmasi:
+- **Breakout ke atas R1 (${fmt(classic.R1)})** → Signal BUY
+- **Breakout ke bawah S1 (${fmt(classic.S1)})** → Signal SELL
+` : `
+#### Strategi 1: PULLBACK (Entry saat koreksi)
+
+| Parameter | Nilai |
+|-----------|-------|
+| Entry | ${isBullish ? "S1" : "R1"} = **${fmt(pullbackEntry)}** |
+| Stop Loss | ${isBullish ? "S2" : "R2"} = **${fmt(pullbackSL)}** (${fmt(pullbackSLDist)} poin) |
+
+| Gaya Trading | Target | Level | Potensi | R:R |
+|--------------|--------|-------|---------|-----|
+| Scalper | ${isBullish ? "R1" : "S1"} | ${fmt(pullbackTP1)} | +${fmt(pullbackTP1Dist)} poin | 1:${calcRR(pullbackTP1Dist, pullbackSLDist)} |
+| Medium | ${isBullish ? "R2" : "S2"} | ${fmt(pullbackTP2)} | +${fmt(pullbackTP2Dist)} poin | 1:${calcRR(pullbackTP2Dist, pullbackSLDist)} |
+| Long Term | ${isBullish ? "R3" : "S3"} | ${fmt(pullbackTP3)} | +${fmt(pullbackTP3Dist)} poin | 1:${calcRR(pullbackTP3Dist, pullbackSLDist)} |
+
+---
+
+#### Strategi 2: BREAKOUT (Entry saat tembus level)
+
+| Parameter | Nilai |
+|-----------|-------|
+| Entry | ${isBullish ? "R1" : "S1"} = **${fmt(breakoutEntry)}** (tunggu tembus) |
+| Stop Loss | Pivot = **${fmt(breakoutSL)}** (${fmt(breakoutSLDist)} poin) |
+
+| Gaya Trading | Target | Level | Potensi | R:R |
+|--------------|--------|-------|---------|-----|
+| Scalper | ${isBullish ? "R2" : "S2"} | ${fmt(breakoutTP1)} | +${fmt(breakoutTP1Dist)} poin | 1:${calcRR(breakoutTP1Dist, breakoutSLDist)} |
+| Medium | ${isBullish ? "R3" : "S3"} | ${fmt(breakoutTP2)} | +${fmt(breakoutTP2Dist)} poin | 1:${calcRR(breakoutTP2Dist, breakoutSLDist)} |
+| Long Term | ${isBullish ? "R4" : "S4"} | ${fmt(breakoutTP3)} | +${fmt(breakoutTP3Dist)} poin | 1:${calcRR(breakoutTP3Dist, breakoutSLDist)} |
+`}
+
+---
 
 ### Pivot Levels
 
@@ -513,6 +607,8 @@ function generatePivotOutput(O: number, H: number, L: number, C: number, source:
 | S3 | ${fmt(classic.S3)} | ${fmt(woodie.S3)} | ${fmt(camarilla.S3)} |
 | S4 | ${fmt(classic.S4)} | ${fmt(woodie.S4)} | ${fmt(camarilla.S4)} |
 
+---
+
 ### Aturan Margin (1 Lot)
 
 | Jenis | Margin | Keterangan |
@@ -524,12 +620,13 @@ function generatePivotOutput(O: number, H: number, L: number, C: number, source:
 > 1 poin = $100/lot | Fee transaksi = $30/lot (buka + tutup)
 
 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
-1. "Hitung fibonacci dengan high low ini"
-2. "Berapa lot ideal untuk modal $10,000?"
-3. "Berapa margin untuk 2 lot gold?"
+1. "Berapa lot ideal untuk modal $10,000?"
+2. "Hitung fibonacci gold"
+3. "Kalender ekonomi hari ini"
 
 ---
-*NM Ai - Newsmaker.id*`;
+*NM Ai - Newsmaker.id*
+*Analisa bersifat edukatif, keputusan trading tanggung jawab masing-masing.*`;
 }
 
 // Mapping of currencies to related instruments
