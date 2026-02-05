@@ -1326,13 +1326,24 @@ Jika ingin tahan semua posisi tanpa cut:
 - Floating saat ini: -$[jumlah]
 - **Top up untuk ketahanan**:
 
-| Ketahanan | Top Up | Level Aman Sampai |
-|-----------|--------|-------------------|
-| 50 poin | $[hitung] | $[harga] |
-| 100 poin | $[hitung] | $[harga] |
-| 200 poin | $[hitung] | $[harga] |
+**ATURAN WAJIB KETAHANAN DANA:**
+- Ketahanan IDEAL = $10,000 per lot yang aktif (bukan hedged)
+- Untuk posisi hedged, margin = $300/pair, tapi TETAP butuh buffer floating
 
-**Formula**: Top Up = (Target Poin × Lot × $100) - Effective Margin
+**FORMULA TOP UP (WAJIB DIGUNAKAN!):**
+Top Up = (Total Lot × $10,000) - Equity Saat Ini
+
+**Contoh Kalkulasi:**
+- Jika 3 lot dan equity $338.40:
+  - Ketahanan ideal = 3 × $10,000 = $30,000
+  - Top up minimal = $30,000 - $338.40 = $29,661.60
+
+| Level | Top Up | Ketahanan | Keterangan |
+|-------|--------|-----------|------------|
+| Minimal | (Lot × $5,000) - Equity | 50 poin/lot | Sangat berisiko |
+| Medium | (Lot × $7,500) - Equity | 75 poin/lot | Masih riskan |
+| Aman | (Lot × $10,000) - Equity | 100 poin/lot | **DIREKOMENDASIKAN** |
+| Sangat Aman | (Lot × $15,000) - Equity | 150 poin/lot | Buffer ekstra |
 
 ---
 
