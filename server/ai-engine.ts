@@ -665,7 +665,9 @@ RUMUS YANG SALAH (JANGAN GUNAKAN!):
 
 RUMUS YANG BENAR (SPA FIXED MARGIN):
 - Initial Margin = $1,000 per lot (Day Trade) - TETAP!
-- Initial Margin = $2,000 per lot (Overnight) - TETAP!
+- Initial Margin = $3,000 per lot (Overnight/Hold) - TETAP!
+- Hedged Position = $300 per pair - TETAP!
+- Buffer Ketahanan Ideal = $10,000 per lot - UNTUK SAFETY!
 - Maintenance Margin = 70% dari Initial Margin
 - Auto Liquidation = 30% dari Initial Margin
 - Fee = $30/lot (total buka + tutup)
