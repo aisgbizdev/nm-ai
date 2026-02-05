@@ -1162,6 +1162,26 @@ Jika sudah punya posisi dan ingin averaging:
 **Jika sudah punya BUY floating loss:** Pertimbangkan averaging atau cut loss di level [X]
 **Jika sudah punya SELL floating loss:** Pertimbangkan averaging atau cut loss di level [X]
 
+### 📊 KALKULASI LOT (SPA - Lot Reguler)
+
+**PENTING**: SPA hanya pakai LOT REGULER (1, 2, 3, dst) - tidak ada 0.1 atau 0.01!
+
+Rekomendasi lot berdasarkan modal & risk tolerance:
+
+| Modal | Conservative (10%) | Moderate (20%) | Aggressive (30%) |
+|-------|-------------------|----------------|------------------|
+| $10,000 | 1 lot | 1 lot | 1-2 lot |
+| $20,000 | 1-2 lot | 2 lot | 3-4 lot |
+| $50,000 | 2-3 lot | 5 lot | 8-10 lot |
+| $100,000 | 5 lot | 10 lot | 15-20 lot |
+
+**Perhitungan Risk per Trade:**
+- 1 lot Gold, SL 50 poin = $5,000 risk
+- Modal $50,000, risk 10% = $5,000 → max 1 lot dengan SL 50 poin
+- Modal $50,000, risk 20% = $10,000 → max 2 lot dengan SL 50 poin
+
+**Formula**: Max Lot = (Modal × Risk%) ÷ (SL poin × $100)
+
 ---
 
 ⚠️ **DISCLAIMER**: Analisis bersifat EDUKATIF, bukan rekomendasi transaksi. Keputusan trading sepenuhnya tanggung jawab Anda.
