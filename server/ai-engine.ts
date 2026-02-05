@@ -670,19 +670,37 @@ RUMUS YANG BENAR (SPA FIXED MARGIN):
 - Auto Liquidation = 30% dari Initial Margin
 - Fee = $30/lot (total buka + tutup)
 
-## TARGET PROFIT BERDASARKAN TIMEFRAME (PENTING!)
+## TARGET PROFIT BERDASARKAN TIMEFRAME (PROGRESSIVE/TIERING)
 
-| Timeframe | Target Profit | Keterangan |
-|-----------|--------------|------------|
-| Scalping / Short-term | Maks 5 poin | Trading kilat, profit kecil tapi sering |
-| Medium-term (Intraday) | 50-100 poin | Trading harian, hold beberapa jam |
-| Long-term (Swing) | 200-300 poin | Hold beberapa hari sampai minggu |
-| Investment | 300+ poin | Hold berminggu sampai berbulan |
+**MINUTES (Scalping & Short-term):**
+| TF | Target | Profit Gold/lot |
+|----|--------|-----------------|
+| 1 min | 1-2 poin | $100-200 |
+| 2 min | 2-3 poin | $200-300 |
+| 3 min | 3-4 poin | $300-400 |
+| 5 min | 4-5 poin | $400-500 |
+| 10 min | 8-10 poin | $800-1,000 |
+| 15 min | 10-15 poin | $1,000-1,500 |
+| 30 min | 20-30 poin | $2,000-3,000 |
+| 45 min | 30-45 poin | $3,000-4,500 |
 
-**Contoh Gold (XUL10, $100/poin/lot):**
-- Scalping 5 poin: $500/lot (1 lot = $500, 10 lot = $5,000)
-- Medium 100 poin: $10,000/lot (1 lot = $10k, 10 lot = $100k)
-- Long 300 poin: $30,000/lot (1 lot = $30k, 10 lot = $300k)
+**HOURS (Medium-term):**
+| TF | Target | Profit Gold/lot |
+|----|--------|-----------------|
+| 1 hour | 40-60 poin | $4,000-6,000 |
+| 2 hours | 60-80 poin | $6,000-8,000 |
+| 3 hours | 70-90 poin | $7,000-9,000 |
+| 4 hours | 80-100 poin | $8,000-10,000 |
+
+**DAYS & BEYOND (Long-term & Investment):**
+| TF | Target | Profit Gold/lot |
+|----|--------|-----------------|
+| 1 day | 200-300 poin | $20,000-30,000 |
+| 1 week | 500-800 poin | $50,000-80,000 |
+| 1 month | 1000-1500 poin | $100,000-150,000 |
+| 3 months | 2000-3000 poin | $200,000-300,000 |
+| 6 months | 4000-5000 poin | $400,000-500,000 |
+| 12 months | 8000+ poin | $800,000+ |
 
 Gunakan timeframe sesuai modal & toleransi risiko!
 
@@ -951,22 +969,41 @@ const CHART_ANALYSIS_PROMPT = `Kamu adalah NM Ai (Gwen Stacy), analis teknikal s
 - Support = level di mana harga memantul NAIK (terlihat di chart)
 - Resistance = level di mana harga memantul TURUN (terlihat di chart)
 
-## TIMEFRAME & TARGET PROFIT (WAJIB SESUAIKAN!)
+## TIMEFRAME & TARGET PROFIT (PROGRESSIVE/TIERING)
 
-Baca timeframe dari chart, lalu sesuaikan target profit:
+Baca timeframe dari chart, lalu sesuaikan target profit PROPORSIONAL:
 
-| Chart TF | Kategori | Target Profit | Keterangan |
-|----------|----------|---------------|------------|
-| M1, M5 | Scalping | Maks 5 poin | Entry-exit kilat |
-| M15, M30 | Short-term | 10-30 poin | Hold menit-jam |
-| H1, H4 | Medium-term | 50-100 poin | Hold beberapa jam |
-| D1 | Long-term | 200-300 poin | Hold harian-mingguan |
-| W1, MN | Investment | 300+ poin | Hold mingguan-bulanan |
+**MINUTES (Scalping & Short-term):**
+| TF | Target Profit | Keterangan |
+|----|---------------|------------|
+| 1 min (M1) | 1-2 poin | Ultra scalping |
+| 2 min (M2) | 2-3 poin | Scalping |
+| 3 min (M3) | 3-4 poin | Scalping |
+| 5 min (M5) | 4-5 poin | Scalping |
+| 10 min (M10) | 8-10 poin | Short-term |
+| 15 min (M15) | 10-15 poin | Short-term |
+| 30 min (M30) | 20-30 poin | Short-term |
+| 45 min (M45) | 30-45 poin | Short-term |
+
+**HOURS (Medium-term):**
+| TF | Target Profit | Keterangan |
+|----|---------------|------------|
+| 1 hour (H1) | 40-60 poin | Intraday |
+| 2 hours (H2) | 60-80 poin | Intraday |
+| 3 hours (H3) | 70-90 poin | Intraday |
+| 4 hours (H4) | 80-100 poin | Intraday-swing |
+
+**DAYS & BEYOND (Long-term & Investment):**
+| TF | Target Profit | Keterangan |
+|----|---------------|------------|
+| 1 day (D1) | 200-300 poin | Swing trading |
+| 1 week (W1) | 500-800 poin | Position trading |
+| 1 month (MN) | 1000-1500 poin | Investment |
+| 3 months | 2000-3000 poin | Long investment |
+| 6 months | 4000-5000 poin | Long investment |
+| 12 months | 8000+ poin | Long investment |
 
 **PENTING**: Take Profit HARUS sesuai timeframe chart!
-- Chart M5 → TP maks 5 poin, bukan 100 poin
-- Chart H4 → TP 50-100 poin, bukan 5 poin
-- Chart D1 → TP 200-300 poin
 
 ## FORMAT OUTPUT:
 
@@ -1037,10 +1074,9 @@ Baca timeframe dari chart, lalu sesuaikan target profit:
 - Entry: [level PRESISI - contoh: 5023.45]
 - Stop Loss: [level PRESISI di bawah/atas swing terdekat - contoh: 4978.20]
 - Take Profit: [level PRESISI - SESUAIKAN DENGAN TIMEFRAME!]
-  - Jika M1/M5: maks 5 poin dari entry
-  - Jika M15/M30: 10-30 poin dari entry
-  - Jika H1/H4: 50-100 poin dari entry
-  - Jika D1: 200-300 poin dari entry
+  - 1-5 min: 1-5 poin | 10-15 min: 8-15 poin | 30-45 min: 20-45 poin
+  - 1-2 hour: 40-80 poin | 3-4 hour: 70-100 poin
+  - Daily: 200-300 poin | Weekly: 500-800 poin | Monthly+: 1000+ poin
 - Risk-Reward: [hitung dari level di atas]
 
 ---
