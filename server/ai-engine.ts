@@ -1096,22 +1096,75 @@ Indikator memberikan sinyal BERBEDA di setiap timeframe:
 
 ---
 
-### PELUANG TRADING
-**Bias**: [BUY/SELL/NETRAL]
-**Alasan**: [berdasarkan apa yang TERLIHAT di chart]
+### 🎯 DUA OPSI TRADING (Pilih Sesuai Risk Appetite!)
 
-**Setup (jika ada):**
-- Entry: [level PRESISI - contoh: 5023.45]
-- Stop Loss: [level PRESISI di bawah/atas swing terdekat - contoh: 4978.20]
-- Take Profit: [level PRESISI - SESUAIKAN DENGAN TIMEFRAME!]
-  - 1-5 min: 1-5 poin | 10-15 min: 8-15 poin | 30-45 min: 20-45 poin
-  - 1-2 hour: 40-80 poin | 3-4 hour: 70-100 poin
-  - Daily: 200-300 poin | Weekly: 500-800 poin | Monthly+: 1000+ poin
-- Risk-Reward: [hitung dari level di atas]
+**OPSI A: SKENARIO BUY (Bullish)**
+| Parameter | Level | Keterangan |
+|-----------|-------|------------|
+| Entry BUY | $[harga presisi] | [alasan: support/oversold/reversal pattern] |
+| Stop Loss | $[harga presisi] | [di bawah support/swing low terdekat] |
+| Take Profit 1 | $[harga presisi] | [resistance terdekat - sesuai TF] |
+| Take Profit 2 | $[harga presisi] | [resistance berikutnya] |
+| Risk | [X] poin ($[Y]/lot) | Jika harga turun ke SL |
+| Reward | [X] poin ($[Y]/lot) | Jika harga naik ke TP |
+| R:R Ratio | [rasio] | |
+
+**Benefit Opsi A:**
+- [Keuntungan jika skenario bullish terjadi]
+- [Potensi profit dalam $]
+
+**Risiko Opsi A:**
+- [Risiko jika skenario gagal]
+- [Potensi loss dalam $]
 
 ---
 
-⚠️ **DISCLAIMER**: Analisis bersifat EDUKATIF, bukan rekomendasi transaksi.
+**OPSI B: SKENARIO SELL (Bearish)**
+| Parameter | Level | Keterangan |
+|-----------|-------|------------|
+| Entry SELL | $[harga presisi] | [alasan: resistance/overbought/breakdown] |
+| Stop Loss | $[harga presisi] | [di atas resistance/swing high terdekat] |
+| Take Profit 1 | $[harga presisi] | [support terdekat - sesuai TF] |
+| Take Profit 2 | $[harga presisi] | [support berikutnya] |
+| Risk | [X] poin ($[Y]/lot) | Jika harga naik ke SL |
+| Reward | [X] poin ($[Y]/lot) | Jika harga turun ke TP |
+| R:R Ratio | [rasio] | |
+
+**Benefit Opsi B:**
+- [Keuntungan jika skenario bearish terjadi]
+- [Potensi profit dalam $]
+
+**Risiko Opsi B:**
+- [Risiko jika skenario gagal]
+- [Potensi loss dalam $]
+
+---
+
+### 💡 STRATEGI AVERAGING (Jika Posisi Floating Loss)
+
+Jika sudah punya posisi dan ingin averaging:
+
+**Averaging BUY** (jika yakin market akan naik):
+- Entry avg 1: $[level support 1] - tambah [X] lot
+- Entry avg 2: $[level support 2] - tambah [X] lot
+- Cut Loss: $[level break support] - close semua jika break
+
+**Averaging SELL** (jika yakin market akan turun):
+- Entry avg 1: $[level resistance 1] - tambah [X] lot
+- Entry avg 2: $[level resistance 2] - tambah [X] lot
+- Cut Loss: $[level break resistance] - close semua jika break
+
+---
+
+### ⚡ REKOMENDASI BERDASARKAN KONDISI
+
+**Jika belum punya posisi:** Pilih Opsi A atau B sesuai analisa Anda
+**Jika sudah punya BUY floating loss:** Pertimbangkan averaging atau cut loss di level [X]
+**Jika sudah punya SELL floating loss:** Pertimbangkan averaging atau cut loss di level [X]
+
+---
+
+⚠️ **DISCLAIMER**: Analisis bersifat EDUKATIF, bukan rekomendasi transaksi. Keputusan trading sepenuhnya tanggung jawab Anda.
 
 *NM Ai - Newsmaker.id*`;
 
