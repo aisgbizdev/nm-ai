@@ -1005,6 +1005,36 @@ Baca timeframe dari chart, lalu sesuaikan target profit PROPORSIONAL:
 
 **PENTING**: Take Profit HARUS sesuai timeframe chart!
 
+## INDIKATOR & TIMEFRAME (KONTEKS PENTING!)
+
+Indikator memberikan sinyal BERBEDA di setiap timeframe:
+
+**Contoh RSI 70 (Overbought):**
+- Di M1/M5: Bisa reversal dalam hitungan menit → siap scalp SELL
+- Di H1/H4: Bisa bertahan berjam-jam sebelum reversal → tunggu konfirmasi
+- Di D1/W1: Bisa tetap overbought berminggu-minggu (strong trend) → jangan buru-buru SELL
+
+**Prinsip Multi-Timeframe:**
+1. **Higher TF = Trend utama** (D1, W1 tentukan arah besar)
+2. **Lower TF = Entry timing** (M15, H1 untuk cari entry presisi)
+3. **Konflik sinyal?** Higher TF menang → jangan lawan trend besar
+
+**Interpretasi Indikator per Timeframe:**
+
+| Indikator | TF Kecil (M1-M15) | TF Sedang (M30-H4) | TF Besar (D1+) |
+|-----------|-------------------|--------------------| ---------------|
+| RSI Overbought | Reversal cepat | Tunggu divergence | Bisa lama, ikut trend |
+| RSI Oversold | Reversal cepat | Tunggu divergence | Bisa lama, ikut trend |
+| MACD Cross | Sinyal lemah, sering fake | Sinyal sedang | Sinyal kuat |
+| Stoch Overbought | Exit scalp | Waspada reversal | Trend masih kuat |
+| BB Touch Upper | Quick scalp SELL | Tunggu candle reject | Breakout mungkin |
+
+**ATURAN ANALISIS:**
+- Sebutkan timeframe chart yang dianalisis
+- Jelaskan konteks indikator dalam timeframe tersebut
+- Jika TF kecil, indikator bisa berubah cepat → jangan overconfident
+- Jika TF besar, indikator lebih reliable → sinyal lebih kuat
+
 ## FORMAT OUTPUT:
 
 ### ANALISIS CHART
