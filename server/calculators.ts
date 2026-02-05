@@ -46,7 +46,7 @@ export async function handleCalculation(userPrompt: string): Promise<CalculatorR
   const fibResult = handleFibonacci(userPrompt, lowerPrompt);
   if (fibResult) return { handled: true, reply: fibResult };
 
-  const pivotResult = handlePivot(userPrompt, lowerPrompt);
+  const pivotResult = await handlePivot(userPrompt, lowerPrompt);
   if (pivotResult) return { handled: true, reply: pivotResult };
 
   if (isCalendarQuestion(lowerPrompt)) {
@@ -384,26 +384,96 @@ Hitung fibonacci high 2680 low 2640
   return result;
 }
 
-function handlePivot(userPrompt: string, lowerPrompt: string): string | null {
+// Fetch OHLC data from quotes API for pivot calculation
+async function fetchOHLCForPivot(instrument: InstrumentKey): Promise<{ O: number; H: number; L: number; C: number; symbol: string } | null> {
+  try {
+    const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    const quotes = Array.isArray(data.data) ? data.data : [];
+    
+    const quote = pickQuoteForInstrument(quotes, instrument);
+    if (!quote) return null;
+    
+    // API returns: open, high, low, last (close)
+    const O = parseFloat(quote.open) || 0;
+    const H = parseFloat(quote.high) || 0;
+    const L = parseFloat(quote.low) || 0;
+    const C = parseFloat(quote.last) || 0;
+    
+    if (O && H && L && C) {
+      return { O, H, L, C, symbol: quote.symbol };
+    }
+    return null;
+  } catch (err) {
+    console.error("Failed to fetch OHLC:", err);
+    return null;
+  }
+}
+
+async function handlePivot(userPrompt: string, lowerPrompt: string): Promise<string | null> {
   if (!lowerPrompt.includes("pivot")) return null;
 
+  // First check if user provided OHLC manually
   const ohlc = parseOHLCFromPrompt(userPrompt);
-  if (!ohlc) {
-    // Return instruction when pivot is requested but no OHLC data
-    return `# Pivot Point Calculator
+  
+  if (ohlc) {
+    // Use manually provided OHLC
+    const { O, H, L, C } = ohlc;
+    return generatePivotOutput(O, H, L, C, "Manual Input");
+  }
+  
+  // Try to detect instrument and auto-fetch OHLC
+  const instrument = detectInstrumentFromPrompt(userPrompt);
+  if (instrument !== "gold") {
+    // Only auto-fetch if instrument is detected (gold is default, so check if actually mentioned)
+    const hasInstrument = lowerPrompt.includes("gold") || lowerPrompt.includes("emas") || 
+                          lowerPrompt.includes("oil") || lowerPrompt.includes("minyak") ||
+                          lowerPrompt.includes("gbp") || lowerPrompt.includes("eur") || 
+                          lowerPrompt.includes("aud") || lowerPrompt.includes("jpy") ||
+                          lowerPrompt.includes("chf") || lowerPrompt.includes("hsi") ||
+                          lowerPrompt.includes("nikkei") || lowerPrompt.includes("hangseng") ||
+                          lowerPrompt.includes("sekarang") || lowerPrompt.includes("saat ini") ||
+                          lowerPrompt.includes("hari ini") || lowerPrompt.includes("current");
+    
+    if (hasInstrument || lowerPrompt.includes("sekarang") || lowerPrompt.includes("saat ini")) {
+      const ohlcData = await fetchOHLCForPivot(instrument);
+      if (ohlcData) {
+        const label = INSTRUMENT_LABEL[instrument] || { name: ohlcData.symbol, unit: "unit" };
+        return generatePivotOutput(ohlcData.O, ohlcData.H, ohlcData.L, ohlcData.C, `${label.name} (${ohlcData.symbol})`);
+      }
+    }
+  }
+  
+  // Check if user mentions "sekarang", "saat ini", "harga", "current" - then auto-fetch gold as default
+  if (lowerPrompt.includes("sekarang") || lowerPrompt.includes("saat ini") || 
+      lowerPrompt.includes("harga") || lowerPrompt.includes("current") ||
+      lowerPrompt.includes("hari ini")) {
+    const ohlcData = await fetchOHLCForPivot("gold");
+    if (ohlcData) {
+      const label = INSTRUMENT_LABEL["gold"];
+      return generatePivotOutput(ohlcData.O, ohlcData.H, ohlcData.L, ohlcData.C, `${label.name} (${ohlcData.symbol})`);
+    }
+  }
+  
+  // Return instruction when no OHLC data available
+  return `# Pivot Point Calculator
 
-Untuk menghitung pivot point, saya butuh data OHLC (Open, High, Low, Close).
+Untuk menghitung pivot point, Anda bisa:
 
-**Format:**
+**Otomatis dengan harga saat ini:**
+\`\`\`
+Hitung pivot point gold sekarang
+Hitung pivot point oil saat ini
+\`\`\`
+
+**Manual dengan data OHLC:**
 \`\`\`
 Hitung pivot point OHLC 2650, 2680, 2640, 2670
 \`\`\`
 
-**Keterangan:**
-- **Open**: Harga pembukaan
-- **High**: Harga tertinggi
-- **Low**: Harga terendah  
-- **Close**: Harga penutupan
+**Instrumen tersedia:** Gold, Oil, GBP, EUR, AUD, JPY, CHF, HSI, Nikkei
 
 **Metode yang tersedia:**
 - Classic Pivot
@@ -411,15 +481,15 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 - Camarilla Pivot
 
 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
-1. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
-2. "Hitung fibonacci high 2680 low 2640"
+1. "Hitung pivot gold sekarang"
+2. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
 3. "Tampilkan harga gold sekarang"
 
 ---
 *NM Ai - Newsmaker.id*`;
-  }
+}
 
-  const { O, H, L, C } = ohlc;
+function generatePivotOutput(O: number, H: number, L: number, C: number, source: string): string {
   const classic = calcClassic({ H, L, C });
   const woodie = calcWoodie({ O, H, L });
   const camarilla = calcCamarilla({ H, L, C });
@@ -427,6 +497,7 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
   const fmt = (n: number) => n.toFixed(2);
 
   return `## Pivot Point Calculation
+**Source:** ${source}
 
 - **Open**: ${fmt(O)}
 - **High**: ${fmt(H)}
@@ -448,7 +519,7 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung fibonacci dengan high low ini"
 2. "Berapa lot ideal untuk modal $10,000?"
-3. "Tampilkan harga gold sekarang"
+3. "Tampilkan harga sekarang"
 
 ---
 *NM Ai - Newsmaker.id*`;
