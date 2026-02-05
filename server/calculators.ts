@@ -280,7 +280,6 @@ function handleFibonacci(userPrompt: string, lowerPrompt: string): string | null
 
   const HL = parseHighLowForFib(userPrompt);
   if (!HL) {
-    // Return instruction when fibonacci is requested but no data
     return `# Fibonacci Calculator
 
 Untuk menghitung level Fibonacci, saya butuh data High dan Low.
@@ -312,11 +311,9 @@ Hitung fibonacci high 2680 low 2640
   const isDownTrend = /downtren|downtrend|tren turun|turun/.test(lowerPrompt);
   const mode = isDownTrend ? "down" : "up";
   
-  // Detect if user wants retracement only or projection only
   const wantsRetracement = /retrace|retracement|retr/.test(lowerPrompt);
   const wantsProjection = /project|projection|proj|extension|ext/.test(lowerPrompt);
   
-  // If neither specified, show both. If one specified, show only that one.
   const showRetracement = !wantsProjection || wantsRetracement;
   const showProjection = !wantsRetracement || wantsProjection;
   
@@ -325,12 +322,85 @@ Hitung fibonacci high 2680 low 2640
   const D = H - L;
   
   const fmt = (n: number) => n.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const data = mode === "down" ? down : up;
 
-  let result = `## Fibonacci ${mode === "down" ? "Downtrend" : "Uptrend"}${wantsRetracement && !wantsProjection ? " - Retracement" : ""}${wantsProjection && !wantsRetracement ? " - Projection" : ""}
+  // === ACTIONABLE TRADING RECOMMENDATIONS ===
+  const bias = mode === "up" ? "BULLISH" : "BEARISH";
+  const biasIcon = mode === "up" ? "[NAIK]" : "[TURUN]";
+  const recommendation = mode === "up" ? "BUY on Pullback" : "SELL on Rally";
+  
+  // Key retracement levels for entry
+  // Uptrend: buy at retracement (38.2%, 50%, 61.8% above Low)
+  // Downtrend: sell at retracement (38.2%, 50%, 61.8% below High)
+  const goldenZone382 = data.retr["38.20%"];
+  const goldenZone50 = data.retr["50.00%"];
+  const goldenZone618 = data.retr["61.80%"];
+  
+  // Stop loss: beyond the range
+  // Uptrend: SL below Low (break of swing low)
+  // Downtrend: SL above High (break of swing high)
+  const stopLoss = mode === "up" ? L - (D * 0.1) : H + (D * 0.1);
+  
+  // Targets for uptrend: above High (extensions)
+  // Targets for downtrend: below Low (extensions)
+  let scalperTP: number, mediumTP: number, longTermTP: number;
+  
+  if (mode === "up") {
+    // BUY: targets are above entry, toward High and beyond
+    scalperTP = H; // Back to swing high
+    mediumTP = H + (D * 0.382); // 138.2% extension
+    longTermTP = H + (D * 0.618); // 161.8% extension
+  } else {
+    // SELL: targets are below entry, toward Low and beyond
+    scalperTP = L; // Back to swing low
+    mediumTP = L - (D * 0.382); // 138.2% extension below
+    longTermTP = L - (D * 0.618); // 161.8% extension below
+  }
+  
+  // Calculate distances and R:R from 38.2% entry
+  const entry382 = goldenZone382;
+  const slDist382 = Math.abs(entry382 - stopLoss);
+  const scalperDist = Math.abs(scalperTP - entry382);
+  const mediumDist = Math.abs(mediumTP - entry382);
+  const longTermDist = Math.abs(longTermTP - entry382);
+  
+  const calcRR = (tp: number, sl: number) => sl > 0 ? (tp / sl).toFixed(1) : "-";
 
-- **Price (A)**: ${mode === "down" ? fmt(H) : fmt(L)}
-- **Price (B)**: ${mode === "down" ? fmt(L) : fmt(H)}
-- **Range**: ${fmt(D)}
+  let result = `## Fibonacci ${mode === "down" ? "Downtrend" : "Uptrend"}
+
+- **High**: ${fmt(H)}
+- **Low**: ${fmt(L)}
+- **Range**: ${fmt(D)} poin
+
+### ${biasIcon} BIAS: ${bias}
+
+---
+
+### Rekomendasi: ${recommendation}
+
+#### Golden Zone Entry (Area Terbaik)
+
+| Level | Harga | Keterangan |
+|-------|-------|------------|
+| Entry Agresif | ${fmt(goldenZone382)} | Fib 38.2% - entry awal |
+| Entry Ideal | ${fmt(goldenZone50)} | Fib 50% - entry tengah |
+| Entry Konservatif | ${fmt(goldenZone618)} | Fib 61.8% - entry aman |
+
+**Stop Loss:** ${fmt(stopLoss)} (${mode === "up" ? "di bawah Low" : "di atas High"} - ${fmt(slDist382)} poin dari entry 38.2%)
+
+---
+
+#### Target Profit (dari Entry ${fmt(entry382)})
+
+| Gaya Trading | Target | Level | Potensi | R:R |
+|--------------|--------|-------|---------|-----|
+| Scalper | ${mode === "up" ? "High" : "Low"} | ${fmt(scalperTP)} | +${fmt(scalperDist)} poin | 1:${calcRR(scalperDist, slDist382)} |
+| Medium | Fib 138.2% | ${fmt(mediumTP)} | +${fmt(mediumDist)} poin | 1:${calcRR(mediumDist, slDist382)} |
+| Long Term | Fib 161.8% | ${fmt(longTermTP)} | +${fmt(longTermDist)} poin | 1:${calcRR(longTermDist, slDist382)} |
+
+---
+
+### Level Fibonacci Lengkap
 
 `;
 
@@ -340,9 +410,7 @@ Hitung fibonacci high 2680 low 2640
   const projLevels = ["138.20%", "150.00%", "161.80%", "200.00%", "238.20%", "261.80%"];
   
   const retrLevels = mode === "down" ? downLevels : upLevels;
-  const data = mode === "down" ? down : up;
   
-  // Show only retracement
   if (showRetracement && !showProjection) {
     result += `| Retracement | Level |
 |-------------|-------|
@@ -350,18 +418,14 @@ Hitung fibonacci high 2680 low 2640
     for (const level of retrLevels) {
       result += `| ${level} | ${fmt(data.retr[level])} |\n`;
     }
-  }
-  // Show only projection
-  else if (showProjection && !showRetracement) {
+  } else if (showProjection && !showRetracement) {
     result += `| Projection | Level |
 |------------|-------|
 `;
     for (const level of projLevels) {
       result += `| ${level} | ${fmt(data.proj[level])} |\n`;
     }
-  }
-  // Show both (default)
-  else {
+  } else {
     result += `| Retracement | Level | Projection | Level |
 |-------------|-------|------------|-------|
 `;
@@ -374,13 +438,26 @@ Hitung fibonacci high 2680 low 2640
     }
   }
 
-  result += `\n**Mau lanjut eksplor?** *(Ketik angkanya saja)*
-1. "Hitung pivot point dengan data OHLC"
+  result += `
+---
+
+### Strategi Trading Fibonacci
+
+**${mode === "up" ? "BUY on Pullback (Uptrend)" : "SELL on Rally (Downtrend)"}:**
+1. Tunggu harga retrace ke Golden Zone (38.2% - 61.8%)
+2. Konfirmasi dengan candle reversal (pin bar, engulfing, dll)
+3. Entry dengan SL ${mode === "up" ? "di bawah Low (swing low)" : "di atas High (swing high)"}
+4. Target sesuai gaya trading Anda
+
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Hitung pivot point sekarang"
 2. "Berapa margin untuk 2 lot gold?"
 3. "Kalender ekonomi hari ini"
 
 ---
-*NM Ai - Newsmaker.id*`;
+*NM Ai - Newsmaker.id*
+*Analisa bersifat edukatif, keputusan trading tanggung jawab masing-masing.*`;
+
   return result;
 }
 
@@ -740,17 +817,23 @@ function getCurrenciesForInstrument(instrument: string): string[] {
 }
 
 // Analyze actual vs forecast - neutral without directional currency impact assumption
-function analyzeActualImpact(event: any): string {
+interface ImpactAnalysis {
+  text: string;
+  bias: "BULLISH" | "BEARISH" | "NETRAL";
+  currencyImpact: "positif" | "negatif" | "netral";
+}
+
+function analyzeActualImpactWithBias(event: any): ImpactAnalysis {
   const actual = event.actual;
   const forecast = event.forecast;
   const previous = event.previous;
   const eventName = (event.event || "").toLowerCase();
+  const currency = (event.currency || "").toUpperCase();
   
   if (!actual || actual === "-" || actual === "") {
-    return "Belum rilis";
+    return { text: "Belum rilis", bias: "NETRAL", currencyImpact: "netral" };
   }
 
-  // Parse numbers from strings like "0.2%" or "51.5"
   const parseNum = (val: string): number | null => {
     if (!val || val === "-") return null;
     const match = val.match(/-?[\d.]+/);
@@ -761,10 +844,35 @@ function analyzeActualImpact(event: any): string {
   const forecastNum = parseNum(forecast);
   const previousNum = parseNum(previous);
 
-  if (actualNum === null) return "Data tidak valid";
+  if (actualNum === null) return { text: "Data tidak valid", bias: "NETRAL", currencyImpact: "netral" };
 
   let analysis = "";
   let volatilityNote = "";
+  let bias: "BULLISH" | "BEARISH" | "NETRAL" = "NETRAL";
+  let currencyImpact: "positif" | "negatif" | "netral" = "netral";
+  
+  // Determine if higher = good or higher = bad for the currency
+  // Higher is BAD for currency:
+  const higherIsBad = eventName.includes("unemployment") || 
+                      eventName.includes("jobless") || 
+                      eventName.includes("claims") ||  // unemployment claims
+                      eventName.includes("inflation") ||
+                      eventName.includes("trade deficit");
+  
+  // Higher is GOOD for currency:
+  const higherIsGood = eventName.includes("gdp") ||
+                       eventName.includes("retail sales") ||
+                       eventName.includes("employment") ||
+                       eventName.includes("payroll") ||
+                       eventName.includes("pmi") ||
+                       eventName.includes("manufacturing") ||
+                       eventName.includes("services") ||
+                       eventName.includes("consumer confidence") ||
+                       eventName.includes("housing") ||
+                       eventName.includes("industrial production");
+  
+  // If neither, treat as neutral (unknown impact direction)
+  const isAmbiguous = !higherIsBad && !higherIsGood;
 
   if (forecastNum !== null) {
     const diff = actualNum - forecastNum;
@@ -774,20 +882,36 @@ function analyzeActualImpact(event: any): string {
       const direction = diff > 0 ? "lebih tinggi" : "lebih rendah";
       analysis = `Actual ${direction} dari forecast (selisih ${diffPct}%)`;
       
-      // Volatility note based on deviation size
-      if (parseFloat(diffPct) > 20) {
-        volatilityNote = " - Potensi volatilitas TINGGI";
-      } else if (parseFloat(diffPct) > 10) {
-        volatilityNote = " - Potensi volatilitas sedang";
+      // Determine currency impact based on event type
+      if (isAmbiguous) {
+        // Unknown event type - stay neutral
+        currencyImpact = "netral";
+      } else if (higherIsBad) {
+        currencyImpact = diff > 0 ? "negatif" : "positif";
+      } else if (higherIsGood) {
+        currencyImpact = diff > 0 ? "positif" : "negatif";
+      }
+      
+      // Volatility and bias - only set bias for known event types with significant deviation
+      if (!isAmbiguous && parseFloat(diffPct) > 10) {
+        volatilityNote = parseFloat(diffPct) > 20 ? " [VOLATILITAS TINGGI]" : " [Volatilitas sedang]";
+        bias = currencyImpact === "positif" ? "BULLISH" : "BEARISH";
+      } else if (!isAmbiguous && parseFloat(diffPct) > 5) {
+        bias = currencyImpact === "positif" ? "BULLISH" : "BEARISH";
       }
     } else {
-      analysis = "Sesuai ekspektasi - Netral";
+      analysis = "Sesuai ekspektasi";
     }
   } else if (previousNum !== null) {
     const diff = actualNum - previousNum;
     if (Math.abs(diff) > 0.01) {
       const direction = diff > 0 ? "naik" : "turun";
       analysis = `${direction.charAt(0).toUpperCase() + direction.slice(1)} dari periode sebelumnya`;
+      if (higherIsBad) {
+        currencyImpact = diff > 0 ? "negatif" : "positif";
+      } else {
+        currencyImpact = diff > 0 ? "positif" : "negatif";
+      }
     } else {
       analysis = "Stabil dari periode sebelumnya";
     }
@@ -795,7 +919,96 @@ function analyzeActualImpact(event: any): string {
     analysis = `Actual: ${actual}`;
   }
 
-  return `${analysis}${volatilityNote}`;
+  return { 
+    text: `${analysis}${volatilityNote}`, 
+    bias, 
+    currencyImpact 
+  };
+}
+
+function analyzeActualImpact(event: any): string {
+  return analyzeActualImpactWithBias(event).text;
+}
+
+function generateTradingBiasFromCalendar(events: any[]): string {
+  // Analyze high impact events with actual data
+  const highImpactWithActual = events.filter((e: any) => 
+    (e.impact?.includes("★★★") || e.impact?.toLowerCase().includes("high")) &&
+    e.actual && e.actual !== "-" && e.actual !== ""
+  );
+  
+  if (highImpactWithActual.length === 0) {
+    return "";
+  }
+
+  const currencyBias: Record<string, { bullish: number; bearish: number }> = {};
+  
+  for (const event of highImpactWithActual) {
+    const analysis = analyzeActualImpactWithBias(event);
+    const currency = (event.currency || "").toUpperCase();
+    
+    if (!currencyBias[currency]) {
+      currencyBias[currency] = { bullish: 0, bearish: 0 };
+    }
+    
+    if (analysis.bias === "BULLISH") {
+      currencyBias[currency].bullish++;
+    } else if (analysis.bias === "BEARISH") {
+      currencyBias[currency].bearish++;
+    }
+  }
+  
+  // Generate trading recommendations
+  let biasSection = `\n---\n\n## Rekomendasi Trading Berdasarkan Data\n\n`;
+  
+  // Map currencies to instruments
+  const currencyToInstrument: Record<string, string[]> = {
+    "USD": ["XAUUSD (Gold)", "EURUSD", "GBPUSD", "USDJPY"],
+    "EUR": ["EURUSD"],
+    "GBP": ["GBPUSD"],
+    "JPY": ["USDJPY", "JP225 (Nikkei)"],
+    "AUD": ["AUDUSD"],
+    "CHF": ["USDCHF"],
+    "CNY": ["HSI (Hangseng)"],
+    "HKD": ["HSI (Hangseng)"],
+  };
+  
+  let hasRecommendation = false;
+  
+  for (const [currency, scores] of Object.entries(currencyBias)) {
+    const netScore = scores.bullish - scores.bearish;
+    if (Math.abs(netScore) >= 1) {
+      hasRecommendation = true;
+      const bias = netScore > 0 ? "BULLISH" : "BEARISH";
+      const instruments = currencyToInstrument[currency] || [];
+      
+      biasSection += `**${currency}**: ${bias === "BULLISH" ? "[NAIK]" : "[TURUN]"} ${bias}\n`;
+      
+      if (currency === "USD") {
+        // USD strength = Gold weakness, USD pairs strength
+        if (bias === "BULLISH") {
+          biasSection += `- Gold (XAUUSD): Cenderung TURUN (USD menguat)\n`;
+          biasSection += `- EURUSD, GBPUSD: Cenderung TURUN\n`;
+          biasSection += `- USDJPY: Cenderung NAIK\n`;
+        } else {
+          biasSection += `- Gold (XAUUSD): Cenderung NAIK (USD melemah)\n`;
+          biasSection += `- EURUSD, GBPUSD: Cenderung NAIK\n`;
+          biasSection += `- USDJPY: Cenderung TURUN\n`;
+        }
+      } else if (instruments.length > 0) {
+        biasSection += `- Instrumen terkait: ${instruments.join(", ")}\n`;
+      }
+      biasSection += `\n`;
+    }
+  }
+  
+  if (!hasRecommendation) {
+    biasSection += `Data berita hari ini tidak menunjukkan bias arah yang kuat. **WAIT** - Tunggu data high impact berikutnya.\n\n`;
+  }
+  
+  biasSection += `> [INFO] Rekomendasi berdasarkan perbandingan Actual vs Forecast pada berita High Impact. Tetap kombinasikan dengan analisa teknikal.\n`;
+  
+  return biasSection;
 }
 
 async function handleCalendar(userPrompt: string, lowerPrompt: string): Promise<string | null> {
@@ -976,10 +1189,14 @@ Tidak ada event yang sesuai dengan filter yang dipilih.
       suggestions.push('"Harga gold sekarang berapa?"');
     }
 
+    // Generate trading bias recommendations
+    const tradingBiasSection = generateTradingBiasFromCalendar(filtered);
+
     return `# Kalender Ekonomi (${targetDate})
 ${filterHeader}
 ${calendarTable}
 ${analysisSection}
+${tradingBiasSection}
 ${newsSection}
 **Mau filter atau eksplor lagi?**
 ${suggestions.slice(0, 3).map((s, i) => `${i + 1}. ${s}`).join('\n')}

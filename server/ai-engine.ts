@@ -1104,47 +1104,43 @@ Indikator memberikan sinyal BERBEDA di setiap timeframe:
 
 ---
 
-### 🎯 DUA OPSI TRADING (Pilih Sesuai Risk Appetite!)
+### DUA OPSI TRADING (Pilih Sesuai Risk Appetite!)
 
 **OPSI A: SKENARIO BUY (Bullish)**
+
 | Parameter | Level | Keterangan |
 |-----------|-------|------------|
 | Entry BUY | $[harga presisi] | [alasan: support/oversold/reversal pattern] |
 | Stop Loss | $[harga presisi] | [di bawah support/swing low terdekat] |
-| Take Profit 1 | $[harga presisi] | [resistance terdekat - sesuai TF] |
-| Take Profit 2 | $[harga presisi] | [resistance berikutnya] |
-| Risk | [X] poin ($[Y]/lot) | Jika harga turun ke SL |
-| Reward | [X] poin ($[Y]/lot) | Jika harga naik ke TP |
-| R:R Ratio | [rasio] | |
 
-**Benefit Opsi A:**
-- [Keuntungan jika skenario bullish terjadi]
-- [Potensi profit dalam $]
+**Target Profit Variatif (Opsi A):**
 
-**Risiko Opsi A:**
-- [Risiko jika skenario gagal]
-- [Potensi loss dalam $]
+| Gaya Trading | Target | Level | Potensi | R:R |
+|--------------|--------|-------|---------|-----|
+| Scalper | TP1 | $[harga] | +[X] poin | 1:[Y] |
+| Medium/Swing | TP2 | $[harga] | +[X] poin | 1:[Y] |
+| Long Term | TP3 | $[harga] | +[X] poin | 1:[Y] |
+
+**Risk:** [X] poin ($[Y]/lot) jika harga ke SL
 
 ---
 
 **OPSI B: SKENARIO SELL (Bearish)**
+
 | Parameter | Level | Keterangan |
 |-----------|-------|------------|
 | Entry SELL | $[harga presisi] | [alasan: resistance/overbought/breakdown] |
 | Stop Loss | $[harga presisi] | [di atas resistance/swing high terdekat] |
-| Take Profit 1 | $[harga presisi] | [support terdekat - sesuai TF] |
-| Take Profit 2 | $[harga presisi] | [support berikutnya] |
-| Risk | [X] poin ($[Y]/lot) | Jika harga naik ke SL |
-| Reward | [X] poin ($[Y]/lot) | Jika harga turun ke TP |
-| R:R Ratio | [rasio] | |
 
-**Benefit Opsi B:**
-- [Keuntungan jika skenario bearish terjadi]
-- [Potensi profit dalam $]
+**Target Profit Variatif (Opsi B):**
 
-**Risiko Opsi B:**
-- [Risiko jika skenario gagal]
-- [Potensi loss dalam $]
+| Gaya Trading | Target | Level | Potensi | R:R |
+|--------------|--------|-------|---------|-----|
+| Scalper | TP1 | $[harga] | +[X] poin | 1:[Y] |
+| Medium/Swing | TP2 | $[harga] | +[X] poin | 1:[Y] |
+| Long Term | TP3 | $[harga] | +[X] poin | 1:[Y] |
+
+**Risk:** [X] poin ($[Y]/lot) jika harga ke SL
 
 ---
 
