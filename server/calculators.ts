@@ -224,7 +224,7 @@ ${commodityTableMd}
 ### 3. Currency (Forex Pairs)
 ${currencyTableMd}
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Jelaskan apa itu margin call"
@@ -265,7 +265,7 @@ Transaksi derivatif di luar Bursa Berjangka yang dilakukan secara bilateral, den
 - Stop Order (SO): untuk membatasi kerugian
 - OCO: kombinasi Limit & Stop
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 3 lot gold"
 2. "Apa itu auto liquidation?"
 3. "Simulasi trading dengan modal $5,000"
@@ -299,7 +299,7 @@ Hitung fibonacci high 2680 low 2640
 - Retracement: 23.6%, 38.2%, 50%, 61.8%, 78.6%
 - Projection: 138.2%, 150%, 161.8%, 200%, 238.2%
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung fibonacci high 2680 low 2640"
 2. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
 3. "Tampilkan harga gold sekarang"
@@ -374,7 +374,7 @@ Hitung fibonacci high 2680 low 2640
     }
   }
 
-  result += `\n💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+  result += `\n**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung pivot point dengan data OHLC"
 2. "Berapa margin untuk 2 lot gold?"
 3. "Kalender ekonomi hari ini"
@@ -410,7 +410,7 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 - Woodie Pivot
 - Camarilla Pivot
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung pivot OHLC 2650, 2680, 2640, 2670"
 2. "Hitung fibonacci high 2680 low 2640"
 3. "Tampilkan harga gold sekarang"
@@ -445,13 +445,182 @@ Hitung pivot point OHLC 2650, 2680, 2640, 2670
 | S3 | ${fmt(classic.S3)} | ${fmt(woodie.S3)} | ${fmt(camarilla.S3)} |
 | S4 | ${fmt(classic.S4)} | ${fmt(woodie.S4)} | ${fmt(camarilla.S4)} |
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung fibonacci dengan high low ini"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Tampilkan harga gold sekarang"
 
 ---
 *NM Ai - Newsmaker.id*`;
+}
+
+// Mapping of currencies to related instruments
+const CURRENCY_INSTRUMENT_MAP: Record<string, string[]> = {
+  "USD": ["gold", "emas", "xauusd", "oil", "minyak", "xauusd", "eurusd", "gbpusd", "usdjpy", "dxy"],
+  "EUR": ["eurusd", "euro"],
+  "GBP": ["gbpusd", "pound", "sterling"],
+  "JPY": ["usdjpy", "yen"],
+  "AUD": ["audusd", "aussie"],
+  "CAD": ["usdcad", "oil", "minyak"], // CAD correlated with oil
+  "CHF": ["usdchf", "franc"],
+  "CNY": ["usdcny", "yuan"],
+  "NZD": ["nzdusd", "kiwi"],
+};
+
+// Helper to check word boundary match
+function matchesWord(text: string, word: string): boolean {
+  const regex = new RegExp(`\\b${word}\\b`, 'i');
+  return regex.test(text);
+}
+
+// Detect filters from user prompt
+function detectCalendarFilters(lowerPrompt: string): {
+  impactFilter: string | null;
+  countryFilter: string[];
+  instrumentFilter: string | null;
+} {
+  // Impact filter
+  let impactFilter: string | null = null;
+  if (lowerPrompt.includes("high impact") || lowerPrompt.includes("dampak tinggi") || lowerPrompt.includes("high saja") || lowerPrompt.includes("yang high")) {
+    impactFilter = "high";
+  } else if (lowerPrompt.includes("medium impact") || lowerPrompt.includes("dampak sedang")) {
+    impactFilter = "medium";
+  } else if (lowerPrompt.includes("low impact") || lowerPrompt.includes("dampak rendah")) {
+    impactFilter = "low";
+  }
+
+  // Instrument filter - check FIRST (more specific patterns)
+  let instrumentFilter: string | null = null;
+  if (lowerPrompt.includes("gold") || lowerPrompt.includes("emas") || lowerPrompt.includes("xau") || lowerPrompt.includes("related dengan gold") || lowerPrompt.includes("untuk gold")) {
+    instrumentFilter = "gold";
+  } else if (lowerPrompt.includes("oil") || lowerPrompt.includes("minyak") || lowerPrompt.includes("crude") || lowerPrompt.includes("brent")) {
+    instrumentFilter = "oil";
+  } else if (lowerPrompt.includes("eurusd")) {
+    instrumentFilter = "eurusd";
+  } else if (lowerPrompt.includes("gbpusd")) {
+    instrumentFilter = "gbpusd";
+  } else if (lowerPrompt.includes("usdjpy")) {
+    instrumentFilter = "usdjpy";
+  }
+
+  // Country filter - use word boundaries to avoid false matches
+  // Can work TOGETHER with instrument filter for combined queries like "kalender gold US"
+  const countryFilter: string[] = [];
+  
+  const countryKeywords: Record<string, string[]> = {
+    "USD": ["amerika", "united states", "dollar amerika"],
+    "EUR": ["eropa", "europe", "eurozone", "jerman", "germany", "prancis", "france", "italia", "spanyol", "spain"],
+    "GBP": ["inggris", "british", "england", "uk berita"],
+    "JPY": ["jepang", "japan", "nippon"],
+    "AUD": ["australia", "aussie"],
+    "CAD": ["kanada", "canada"],
+    "CHF": ["swiss", "switzerland"],
+    "CNY": ["china", "tiongkok"],
+    "NZD": ["new zealand", "selandia baru"],
+  };
+
+  // Check for explicit currency codes with word boundaries
+  if (matchesWord(lowerPrompt, "usd") || matchesWord(lowerPrompt, "usa") || matchesWord(lowerPrompt, "us dollar")) {
+    countryFilter.push("USD");
+  }
+  if (matchesWord(lowerPrompt, "eur")) countryFilter.push("EUR");
+  if (matchesWord(lowerPrompt, "gbp")) countryFilter.push("GBP");
+  if (matchesWord(lowerPrompt, "jpy")) countryFilter.push("JPY");
+  if (matchesWord(lowerPrompt, "aud")) countryFilter.push("AUD");
+  if (matchesWord(lowerPrompt, "cad")) countryFilter.push("CAD");
+  if (matchesWord(lowerPrompt, "chf")) countryFilter.push("CHF");
+  if (matchesWord(lowerPrompt, "cny")) countryFilter.push("CNY");
+  if (matchesWord(lowerPrompt, "nzd")) countryFilter.push("NZD");
+
+  // Check for country name keywords
+  for (const [currency, keywords] of Object.entries(countryKeywords)) {
+    if (!countryFilter.includes(currency) && keywords.some(k => lowerPrompt.includes(k))) {
+      countryFilter.push(currency);
+    }
+  }
+
+  return { impactFilter, countryFilter, instrumentFilter };
+}
+
+// Get currencies related to an instrument
+function getCurrenciesForInstrument(instrument: string): string[] {
+  const instrumentLower = instrument.toLowerCase();
+  const relatedCurrencies: string[] = [];
+  
+  for (const [currency, instruments] of Object.entries(CURRENCY_INSTRUMENT_MAP)) {
+    if (instruments.some(i => instrumentLower.includes(i) || i.includes(instrumentLower))) {
+      relatedCurrencies.push(currency);
+    }
+  }
+
+  // Gold/Oil specific
+  if (instrumentLower.includes("gold") || instrumentLower.includes("emas") || instrumentLower.includes("xau")) {
+    return ["USD"]; // Gold most affected by USD news
+  }
+  if (instrumentLower.includes("oil") || instrumentLower.includes("minyak")) {
+    return ["USD", "CAD"]; // Oil affected by USD and CAD
+  }
+
+  return relatedCurrencies.length > 0 ? relatedCurrencies : ["USD"];
+}
+
+// Analyze actual vs forecast - neutral without directional currency impact assumption
+function analyzeActualImpact(event: any): string {
+  const actual = event.actual;
+  const forecast = event.forecast;
+  const previous = event.previous;
+  const eventName = (event.event || "").toLowerCase();
+  
+  if (!actual || actual === "-" || actual === "") {
+    return "Belum rilis";
+  }
+
+  // Parse numbers from strings like "0.2%" or "51.5"
+  const parseNum = (val: string): number | null => {
+    if (!val || val === "-") return null;
+    const match = val.match(/-?[\d.]+/);
+    return match ? parseFloat(match[0]) : null;
+  };
+
+  const actualNum = parseNum(actual);
+  const forecastNum = parseNum(forecast);
+  const previousNum = parseNum(previous);
+
+  if (actualNum === null) return "Data tidak valid";
+
+  let analysis = "";
+  let volatilityNote = "";
+
+  if (forecastNum !== null) {
+    const diff = actualNum - forecastNum;
+    const diffPct = forecastNum !== 0 ? Math.abs(diff / Math.abs(forecastNum) * 100).toFixed(1) : "0";
+
+    if (Math.abs(diff) > 0.01) {
+      const direction = diff > 0 ? "lebih tinggi" : "lebih rendah";
+      analysis = `Actual ${direction} dari forecast (selisih ${diffPct}%)`;
+      
+      // Volatility note based on deviation size
+      if (parseFloat(diffPct) > 20) {
+        volatilityNote = " - Potensi volatilitas TINGGI";
+      } else if (parseFloat(diffPct) > 10) {
+        volatilityNote = " - Potensi volatilitas sedang";
+      }
+    } else {
+      analysis = "Sesuai ekspektasi - Netral";
+    }
+  } else if (previousNum !== null) {
+    const diff = actualNum - previousNum;
+    if (Math.abs(diff) > 0.01) {
+      const direction = diff > 0 ? "naik" : "turun";
+      analysis = `${direction.charAt(0).toUpperCase() + direction.slice(1)} dari periode sebelumnya`;
+    } else {
+      analysis = "Stabil dari periode sebelumnya";
+    }
+  } else {
+    analysis = `Actual: ${actual}`;
+  }
+
+  return `${analysis}${volatilityNote}`;
 }
 
 async function handleCalendar(userPrompt: string, lowerPrompt: string): Promise<string | null> {
@@ -467,14 +636,14 @@ async function handleCalendar(userPrompt: string, lowerPrompt: string): Promise<
       console.error("Calendar API not ok:", response.status);
       return `# Kalender Ekonomi
 
-⚠️ **Maaf, data kalender sedang tidak tersedia.**
+[PERHATIAN] **Maaf, data kalender sedang tidak tersedia.**
 
 Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sementara.
 
 **Alternatif:**
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk jadwal berita ekonomi
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Harga gold sekarang berapa?"
 2. "Hitung margin untuk 2 lot gold"
 3. "Jelaskan tentang high impact news"
@@ -484,14 +653,14 @@ Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sement
     }
     
     const data = await response.json();
-    const events = Array.isArray(data.data) ? data.data.slice(0, 20) : [];
+    let events = Array.isArray(data.data) ? data.data : [];
     
     if (events.length === 0) {
       return `# Kalender Ekonomi (${targetDate})
 
 Tidak ada event ekonomi terdaftar untuk tanggal ini.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Kalender ekonomi minggu ini"
 2. "Tampilkan berita terbaru"
 3. "Harga gold sekarang berapa?"
@@ -500,12 +669,72 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
 *NM Ai - Newsmaker.id*`;
     }
 
-    const wantsHighImpact = lowerPrompt.includes("high impact") || lowerPrompt.includes("dampak tinggi");
-    const filtered = wantsHighImpact 
-      ? events.filter((e: any) => e.impact?.includes("★★★") || e.impact?.toLowerCase().includes("high"))
-      : events;
+    // Detect filters
+    const { impactFilter, countryFilter, instrumentFilter } = detectCalendarFilters(lowerPrompt);
+    
+    // Build filter description
+    const filterDescriptions: string[] = [];
 
-    const calendarTable = buildCalendarTable(filtered.map((ev: any) => ({
+    // Apply impact filter
+    if (impactFilter === "high") {
+      events = events.filter((e: any) => e.impact?.includes("★★★") || e.impact?.toLowerCase().includes("high"));
+      filterDescriptions.push("High Impact");
+    } else if (impactFilter === "medium") {
+      events = events.filter((e: any) => e.impact?.includes("★★") && !e.impact?.includes("★★★"));
+      filterDescriptions.push("Medium Impact");
+    } else if (impactFilter === "low") {
+      events = events.filter((e: any) => e.impact?.includes("★") && !e.impact?.includes("★★"));
+      filterDescriptions.push("Low Impact");
+    }
+
+    // Apply country AND/OR instrument filter
+    // If both are set, intersect them (country filter AND instrument-related currencies)
+    if (countryFilter.length > 0 && instrumentFilter) {
+      // Intersect: filter by country AND instrument-related currencies
+      const relatedCurrencies = getCurrenciesForInstrument(instrumentFilter);
+      const intersectedCurrencies = countryFilter.filter(c => relatedCurrencies.includes(c));
+      
+      // If intersection is empty, use country filter (user's explicit intent)
+      const currenciesToUse = intersectedCurrencies.length > 0 ? intersectedCurrencies : countryFilter;
+      events = events.filter((e: any) => currenciesToUse.includes(e.currency));
+      filterDescriptions.push(`Negara: ${countryFilter.join(", ")}`);
+      filterDescriptions.push(`Instrumen: ${instrumentFilter.toUpperCase()}`);
+    } else if (countryFilter.length > 0) {
+      // Only country filter
+      events = events.filter((e: any) => countryFilter.includes(e.currency));
+      filterDescriptions.push(`Negara: ${countryFilter.join(", ")}`);
+    } else if (instrumentFilter) {
+      // Only instrument filter - use related currencies
+      const relatedCurrencies = getCurrenciesForInstrument(instrumentFilter);
+      events = events.filter((e: any) => relatedCurrencies.includes(e.currency));
+      filterDescriptions.push(`Related: ${instrumentFilter.toUpperCase()}`);
+    }
+
+    // Limit to 30 events max
+    const filtered = events.slice(0, 30);
+
+    // Build filter header
+    const filterHeader = filterDescriptions.length > 0 
+      ? `\n**Filter aktif:** ${filterDescriptions.join(" | ")}\n`
+      : "";
+
+    // Check if no events after filtering
+    if (filtered.length === 0) {
+      return `# Kalender Ekonomi (${targetDate})
+${filterHeader}
+Tidak ada event yang sesuai dengan filter yang dipilih.
+
+**Coba filter lain:**
+1. "Kalender ekonomi hari ini" (semua event)
+2. "Kalender high impact saja"
+3. "Kalender ekonomi US"
+
+---
+*NM Ai - Newsmaker.id*`;
+    }
+
+    // Build calendar table with actual analysis
+    const calendarRows = filtered.map((ev: any) => ({
       date: targetDate,
       time: ev.time ?? "-",
       currency: ev.currency ?? "-",
@@ -514,7 +743,24 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
       previous: ev.previous ?? "-",
       forecast: ev.forecast ?? "-",
       actual: ev.actual ?? "",
-    })));
+    }));
+    
+    const calendarTable = buildCalendarTable(calendarRows);
+
+    // Analyze events with actual data
+    let analysisSection = "";
+    const eventsWithActual = filtered.filter((e: any) => e.actual && e.actual !== "-" && e.actual !== "");
+    
+    if (eventsWithActual.length > 0) {
+      analysisSection = `\n---\n\n## Analisa Dampak Actual\n\n`;
+      eventsWithActual.slice(0, 10).forEach((ev: any) => {
+        const impact = analyzeActualImpact(ev);
+        const impactLabel = ev.impact?.includes("★★★") ? "[HIGH]" : ev.impact?.includes("★★") ? "[MED]" : "[LOW]";
+        analysisSection += `${impactLabel} **${ev.event}** (${ev.currency})\n`;
+        analysisSection += `   - Previous: ${ev.previous || "-"} | Forecast: ${ev.forecast || "-"} | Actual: ${ev.actual}\n`;
+        analysisSection += `   - **Dampak**: ${impact}\n\n`;
+      });
+    }
 
     // Fetch latest news to show below calendar
     let newsSection = "";
@@ -524,7 +770,6 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
         newsSection = `\n---\n\n## Berita Terkini\n\n`;
         const limitedNews = news.slice(0, 3);
         limitedNews.forEach((item, index) => {
-          // Use publishedAt directly as string since API already provides formatted WIB time
           const dateStr = item.publishedAt || "";
           newsSection += `**${index + 1}. ${item.title}** `;
           if (item.excerpt) {
@@ -541,35 +786,51 @@ Tidak ada event ekonomi terdaftar untuk tanggal ini.
       console.error("News fetch for calendar failed:", newsErr);
     }
 
-    return `# Kalender Ekonomi (${targetDate})
+    // Dynamic suggestions based on current filter
+    const suggestions = [];
+    if (!impactFilter) {
+      suggestions.push('"Kalender high impact saja"');
+    }
+    if (countryFilter.length === 0) {
+      suggestions.push('"Kalender ekonomi US"');
+    }
+    if (!instrumentFilter) {
+      suggestions.push('"Kalender yang related dengan gold"');
+    }
+    if (suggestions.length < 3) {
+      suggestions.push('"Harga gold sekarang berapa?"');
+    }
 
+    return `# Kalender Ekonomi (${targetDate})
+${filterHeader}
 ${calendarTable}
+${analysisSection}
 ${newsSection}
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
-1. "Tampilkan harga gold sekarang"
-2. "Berapa lot ideal untuk modal $10,000?"
-3. "Jelaskan cara baca dampak berita ekonomi"
+**Mau filter atau eksplor lagi?**
+${suggestions.slice(0, 3).map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+**Contoh filter:**
+- "Kalender high impact saja" - Hanya berita berdampak tinggi
+- "Kalender ekonomi US" - Hanya berita Amerika
+- "Kalender yang related dengan gold" - Berita yang pengaruhi emas
+- "Kalender ekonomi jepang high impact" - Kombinasi filter
 
 ---
 *Sumber: Newsmaker.id - Berita trading & investasi terpercaya*
-
-Untuk update real-time, kunjungi:
-- Website: [Newsmaker.id](https://newsmaker.id)
-- TikTok: [@newsmaker23_talk](https://tiktok.com/@newsmaker23_talk)
 
 *NM Ai - Newsmaker.id*`;
   } catch (err) {
     console.error("Calendar fetch error:", err);
     return `# Kalender Ekonomi
 
-⚠️ **Maaf, data kalender sedang tidak tersedia.**
+[PERHATIAN] **Maaf, data kalender sedang tidak tersedia.**
 
 Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sementara.
 
 **Alternatif:**
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk jadwal berita ekonomi
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Harga gold sekarang berapa?"
 2. "Hitung margin untuk 2 lot gold"
 3. "Jelaskan tentang high impact news"
@@ -586,7 +847,7 @@ async function handlePriceQuote(userPrompt: string): Promise<string | null> {
       console.error("Quote API not ok:", response.status);
       return `# Harga Real-Time
 
-⚠️ **Maaf, data harga sedang tidak tersedia.**
+[PERHATIAN] **Maaf, data harga sedang tidak tersedia.**
 
 Server harga sedang dalam pemeliharaan atau mengalami gangguan sementara.
 
@@ -594,7 +855,7 @@ Server harga sedang dalam pemeliharaan atau mengalami gangguan sementara.
 - Cek langsung di platform trading Anda
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk update terbaru
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Kalender ekonomi hari ini"
 3. "Jelaskan trading rules SPA"
@@ -638,7 +899,7 @@ Instrumen yang tersedia: ${allSymbols}
 *Update terakhir: ${updatedAt}*
 *Data dari sistem Newsmaker, bersifat indikatif.*
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot ${label.name}"
 2. "Kalender ekonomi hari ini"
 3. "Berapa lot ideal untuk modal saya?"
@@ -649,7 +910,7 @@ Instrumen yang tersedia: ${allSymbols}
     console.error("Quote fetch error:", err);
     return `# Harga Real-Time
 
-⚠️ **Maaf, terjadi kesalahan saat mengambil data harga.**
+[PERHATIAN] **Maaf, terjadi kesalahan saat mengambil data harga.**
 
 Silakan coba lagi dalam beberapa saat.
 
@@ -657,7 +918,7 @@ Silakan coba lagi dalam beberapa saat.
 - Cek langsung di platform trading Anda
 - Kunjungi [newsmaker.id](https://newsmaker.id) untuk update terbaru
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Kalender ekonomi hari ini"
 3. "Jelaskan trading rules SPA"
@@ -965,7 +1226,7 @@ Net = $${((dana > 0 ? recommendedLots : lot) * 3 * pointValue).toLocaleString()}
 - **Auto Liquidation**: Equity ≤ 30% Initial Margin ($${((dana > 0 ? recommendedLots : lot) * marginPerLot * 0.3).toLocaleString()})
 ${isOvernight ? `- **Rollover Fee**: $5/lot/malam + PPN 11% = $5.55/lot` : ""}
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa ketahanan dana saya dengan ${dana > 0 ? recommendedLots : lot} lot?"
 2. "Kalender ekonomi hari ini ada apa saja?"
 3. "Hitung pivot point ${instrumentName.split(" ")[0]}"
@@ -1023,7 +1284,7 @@ async function handleKetahananCalculation(userPrompt: string): Promise<string | 
 
 ## Hasil Analisis
 
-⚠️ **Modal tidak cukup untuk ${lot} lot!**
+[PERHATIAN] **Modal tidak cukup untuk ${lot} lot!**
 
 | Analisis | Nilai |
 |----------|-------|
@@ -1033,7 +1294,7 @@ async function handleKetahananCalculation(userPrompt: string): Promise<string | 
 
 Anda membutuhkan minimal **$${totalMargin.toLocaleString()}** untuk membuka ${lot} lot.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa lot ideal untuk modal $${dana.toLocaleString()}?"
 2. "Hitung margin untuk 0.5 lot gold"
 3. "Jelaskan tentang margin call"
@@ -1072,11 +1333,11 @@ Anda membutuhkan minimal **$${totalMargin.toLocaleString()}** untuk membuka ${lo
 | Margin Call | Equity < 70% margin | $${(totalMargin * 0.7).toLocaleString()} |
 | Auto Liquidation | Equity ≤ 30% margin | $${(totalMargin * 0.3).toLocaleString()} |
 
-${ketahanan < 5 ? `> ⚠️ **PERINGATAN**: Ketahanan hanya ${ketahanan} poin sangat berisiko! Pertimbangkan untuk mengurangi lot.` : 
-ketahanan < 10 ? `> ⚡ **Hati-hati**: Ketahanan ${ketahanan} poin termasuk rendah. Gunakan stop loss ketat.` : 
-`> ✅ **Status**: Ketahanan ${ketahanan} poin cukup untuk trading dengan risk management yang baik.`}
+${ketahanan < 5 ? `> [PERHATIAN] **PERINGATAN**: Ketahanan hanya ${ketahanan} poin sangat berisiko! Pertimbangkan untuk mengurangi lot.` : 
+ketahanan < 10 ? `> [ALERT] **Hati-hati**: Ketahanan ${ketahanan} poin termasuk rendah. Gunakan stop loss ketat.` : 
+`> [OK] **Status**: Ketahanan ${ketahanan} poin cukup untuk trading dengan risk management yang baik.`}
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa lot ideal untuk modal $${dana.toLocaleString()}?"
 2. "Hitung position size dengan risk 2%"
 3. "Kalender ekonomi hari ini"
@@ -1098,7 +1359,7 @@ Ketahanan dana $10,000 dengan ${lot} lot
 
 **Atau coba pertanyaan ini:**
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Ketahanan dana $10,000 dengan ${lot} lot"
 2. "Berapa lot ideal untuk modal $5,000?"
 3. "Hitung margin untuk ${lot} lot gold"
@@ -1162,7 +1423,7 @@ Atau:
 - "Hitung RR entry 2650, SL 2645, TP 2665"
 - "Risk reward entry 1.0850 SL 1.0820 TP 1.0920"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung RR entry 2650, SL 2645, TP 2665"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Hitung breakeven setelah loss $500"
@@ -1182,7 +1443,7 @@ Atau:
   if (risk === 0 || reward === 0) {
     return `# Risk/Reward Calculator
 
-⚠️ **Data tidak valid!**
+[PERHATIAN] **Data tidak valid!**
 
 | Parameter | Nilai |
 |-----------|-------|
@@ -1201,7 +1462,7 @@ Pastikan:
 **Contoh yang benar:**
 - "Hitung RR entry 2650, SL 2645, TP 2665"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung RR entry 2650, SL 2645, TP 2665"
 2. "Jelaskan risk reward ratio yang ideal"
 3. "Berapa lot ideal untuk modal $10,000?"
@@ -1251,7 +1512,7 @@ ${assessment}
 
 > **Catatan**: Win Rate Minimum adalah persentase trade yang harus profit agar tetap BE (break even) dalam jangka panjang.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk 2 lot gold"
 2. "Jelaskan apa itu risk management"
 3. "Berapa lot ideal untuk modal $5,000?"
@@ -1288,7 +1549,7 @@ Hitung breakeven setelah loss $500 dengan 2 lot gold
 - "Breakeven loss $300 dengan 1 lot"
 - "Balik modal rugi $1000 pakai 2 lot gold"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung breakeven loss $500 dengan 2 lot"
 2. "Hitung risk reward ratio"
 3. "Berapa margin untuk 3 lot gold?"
@@ -1331,14 +1592,14 @@ Hitung breakeven setelah loss $500 dengan 2 lot gold
 | **Poin yang dibutuhkan** | **${pipsNeeded.toFixed(2)} poin** |
 
 ## Catatan Penting
-> ${pipsNeeded > 10 ? "⚠️ Target lebih dari 10 poin cukup ambisius. Pertimbangkan untuk split target atau terima loss sebagai bagian dari trading." : "✅ Target masih realistis untuk dicapai dalam kondisi market normal."}
+> ${pipsNeeded > 10 ? "[PERHATIAN] Target lebih dari 10 poin cukup ambisius. Pertimbangkan untuk split target atau terima loss sebagai bagian dari trading." : "[OK] Target masih realistis untuk dicapai dalam kondisi market normal."}
 
 **Tips Recovery:**
 1. Jangan langsung revenge trade setelah loss
 2. Tunggu setup yang valid sesuai trading plan
 3. Pertimbangkan untuk membagi target recovery ke beberapa trade
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung risk reward entry 2650 SL 2645 TP 2660"
 2. "Berapa lot ideal untuk modal $10,000?"
 3. "Jelaskan tentang trading psychology"
@@ -1382,7 +1643,7 @@ Position size modal $10,000 risk 2% SL 5 poin
 - "Position size $5000 risk 2% SL 3 poin"
 - "Ukuran posisi modal $10,000 risiko 1%"
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung position size $10,000 risk 2% SL 5 poin"
 2. "Berapa lot ideal untuk modal $5,000?"
 3. "Jelaskan tentang risk management"
@@ -1422,7 +1683,7 @@ Position size modal $10,000 risk 2% SL 5 poin
 
 ## Hasil Analisis
 
-⚠️ **Budget risiko tidak mencukupi untuk 0.1 lot minimum.**
+[PERHATIAN] **Budget risiko tidak mencukupi untuk 0.1 lot minimum.**
 
 | Analisis | Nilai |
 |----------|-------|
@@ -1437,7 +1698,7 @@ Position size modal $10,000 risk 2% SL 5 poin
 
 > **Rekomendasi**: Jangan paksakan trading jika modal tidak memadai. Trading dengan lot minimum yang melebihi risk tolerance sangat berbahaya.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Berapa lot ideal untuk modal $10,000?"
 2. "Jelaskan tentang risk management"
 3. "Simulasi trading dengan modal $5,000"
@@ -1484,9 +1745,9 @@ Position size modal $10,000 risk 2% SL 5 poin
 | Fee | ${roundedLot} × $30 | -$${(roundedLot * feePerLot).toFixed(2)} |
 | **Total Loss** | - | **-$${actualRisk.toFixed(2)}** |
 
-> ✅ Dengan risk ${riskPct}% per trade, Anda bisa mengalami ${Math.floor(100 / riskPct)} losing trades berturut-turut sebelum modal habis. Ini memberi ruang untuk recovery.
+> [OK] Dengan risk ${riskPct}% per trade, Anda bisa mengalami ${Math.floor(100 / riskPct)} losing trades berturut-turut sebelum modal habis. Ini memberi ruang untuk recovery.
 
-💡 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung margin untuk ${roundedLot} lot gold"
 2. "Hitung risk reward ratio"
 3. "Jelaskan tentang money management"
