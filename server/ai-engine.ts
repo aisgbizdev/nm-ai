@@ -941,6 +941,12 @@ export async function* streamOpenAI(
     }
   } catch (err: any) {
     console.error("OpenAI stream error:", err.message);
+    console.error("OpenAI stream error details:", JSON.stringify({
+      status: err?.status,
+      code: err?.code,
+      type: err?.type,
+      error: err?.error
+    }, null, 2));
     yield "Maaf, terjadi kesalahan saat memproses permintaan.";
   }
 }
