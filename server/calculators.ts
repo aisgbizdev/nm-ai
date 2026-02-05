@@ -492,10 +492,14 @@ function generatePivotOutput(O: number, H: number, L: number, C: number, source:
   return `## Pivot Point Calculation
 **Source:** ${source}
 
-- **Open**: ${fmt(O)}
-- **High**: ${fmt(H)}
-- **Low**: ${fmt(L)}
-- **Close**: ${fmt(C)}
+| Data | Nilai |
+|------|-------|
+| Open | ${fmt(O)} |
+| High | ${fmt(H)} |
+| Low | ${fmt(L)} |
+| Close | ${fmt(C)} |
+
+### Pivot Levels
 
 | Level | Classic | Woodie | Camarilla |
 |-------|---------|--------|-----------|
@@ -503,16 +507,26 @@ function generatePivotOutput(O: number, H: number, L: number, C: number, source:
 | R3 | ${fmt(classic.R3)} | ${fmt(woodie.R3)} | ${fmt(camarilla.R3)} |
 | R2 | ${fmt(classic.R2)} | ${fmt(woodie.R2)} | ${fmt(camarilla.R2)} |
 | R1 | ${fmt(classic.R1)} | ${fmt(woodie.R1)} | ${fmt(camarilla.R1)} |
-| Pivot | ${fmt(classic.P)} | ${fmt(woodie.P)} | ${fmt(camarilla.P)} |
+| **Pivot** | **${fmt(classic.P)}** | **${fmt(woodie.P)}** | **${fmt(camarilla.P)}** |
 | S1 | ${fmt(classic.S1)} | ${fmt(woodie.S1)} | ${fmt(camarilla.S1)} |
 | S2 | ${fmt(classic.S2)} | ${fmt(woodie.S2)} | ${fmt(camarilla.S2)} |
 | S3 | ${fmt(classic.S3)} | ${fmt(woodie.S3)} | ${fmt(camarilla.S3)} |
 | S4 | ${fmt(classic.S4)} | ${fmt(woodie.S4)} | ${fmt(camarilla.S4)} |
 
+### Aturan Margin (1 Lot)
+
+| Jenis | Margin | Keterangan |
+|-------|--------|------------|
+| Day Trade | $1,000 | Posisi ditutup hari yang sama |
+| Overnight | $3,000 | Posisi menginap ke hari berikutnya |
+| Hedging | $300 | Posisi lock BUY + SELL |
+
+> 1 poin = $100/lot | Fee transaksi = $30/lot (buka + tutup)
+
 **Mau lanjut eksplor?** *(Ketik angkanya saja)*
 1. "Hitung fibonacci dengan high low ini"
 2. "Berapa lot ideal untuk modal $10,000?"
-3. "Tampilkan harga sekarang"
+3. "Berapa margin untuk 2 lot gold?"
 
 ---
 *NM Ai - Newsmaker.id*`;
