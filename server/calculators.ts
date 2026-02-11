@@ -1505,7 +1505,30 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
   if (danaMatch) {
     let rawDana = parseFloat(danaMatch[1].replace(/,/g, ""));
     if (lowerPrompt.includes("k") && rawDana < 1000) rawDana *= 1000;
+    if (lowerPrompt.includes("juta") || lowerPrompt.includes("jt")) rawDana *= 1000000;
     dana = rawDana;
+  }
+  
+  const isAskingIdealLot = (lowerPrompt.includes("lot") && lowerPrompt.includes("ideal")) ||
+    (lowerPrompt.includes("berapa") && lowerPrompt.includes("lot") && lowerPrompt.includes("modal")) ||
+    (lowerPrompt.includes("lot") && lowerPrompt.includes("modal saya")) ||
+    (lowerPrompt.includes("lot") && lowerPrompt.includes("dana saya"));
+  
+  if (isAskingIdealLot && dana === 0) {
+    return `Untuk menghitung lot ideal, saya perlu tahu jumlah modal Anda.
+
+**Silakan informasikan dana Anda**, contoh:
+- "Berapa lot ideal untuk modal $5,000?"
+- "Lot ideal untuk dana $10,000"
+- "Modal saya $3,000, berapa lot yang aman?"
+
+> **Kenapa ini penting?** Lot yang terlalu besar bisa bikin margin call cepat. Saya akan hitungkan:
+> - Lot ideal (low risk) dengan ketahanan tinggi
+> - Lot medium risk untuk trader berpengalaman
+> - Buffer dana dan ketahanan per level
+
+---
+*NM Ai - Newsmaker.id*`;
   }
   
   const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
