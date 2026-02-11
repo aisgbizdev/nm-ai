@@ -1514,6 +1514,8 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
     (lowerPrompt.includes("lot") && lowerPrompt.includes("modal saya")) ||
     (lowerPrompt.includes("lot") && lowerPrompt.includes("dana saya"));
   
+  const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
+  
   if (isAskingIdealLot && dana === 0) {
     return `Untuk menghitung lot ideal, saya perlu tahu jumlah modal Anda.
 
@@ -1531,7 +1533,67 @@ async function handleMarginCalculation(userPrompt: string): Promise<string | nul
 *NM Ai - Newsmaker.id*`;
   }
   
-  const lotMatch = userPrompt.match(/(\d+(?:\.\d+)?)\s*lot/i);
+  const isAskingCapitalNeeded = dana === 0 && !lotMatch && (
+    (lowerPrompt.includes("modal") && (lowerPrompt.includes("dibutuhkan") || lowerPrompt.includes("butuh") || lowerPrompt.includes("perlu") || lowerPrompt.includes("minimal") || lowerPrompt.includes("minimum"))) ||
+    (lowerPrompt.includes("modal") && (lowerPrompt.includes("aman") || lowerPrompt.includes("ideal") || lowerPrompt.includes("cukup"))) ||
+    (lowerPrompt.includes("dana") && (lowerPrompt.includes("dibutuhkan") || lowerPrompt.includes("butuh") || lowerPrompt.includes("perlu") || lowerPrompt.includes("aman") || lowerPrompt.includes("minimal"))) ||
+    (lowerPrompt.includes("berapa") && lowerPrompt.includes("modal") && !lowerPrompt.includes("lot"))
+  );
+  
+  if (isAskingCapitalNeeded) {
+    const marginPerLotVal = 1000;
+    const feePerLot = 30;
+    
+    const scenarios = [
+      { label: "Minimum (1 lot)", dana: 3000, lot: 1, risk: "Tinggi" },
+      { label: "Aman (1 lot)", dana: 5000, lot: 1, risk: "Sedang" },
+      { label: "Ideal (1-2 lot)", dana: 10000, lot: 2, risk: "Rendah" },
+      { label: "Nyaman (2-3 lot)", dana: 20000, lot: 3, risk: "Sangat Rendah" },
+    ];
+    
+    let scenarioRows = scenarios.map(s => {
+      const margin = s.lot * marginPerLotVal;
+      const buffer = s.dana - margin;
+      const ketahanan = Math.floor(buffer / (s.lot * pointValue));
+      return `| ${s.label} | **$${s.dana.toLocaleString()}** | ${s.lot} lot | $${margin.toLocaleString()} | $${buffer.toLocaleString()} | ~${ketahanan} ${pointLabel} | ${s.risk} |`;
+    }).join("\n");
+    
+    return `# Berapa Modal yang Dibutuhkan untuk Trading ${instrumentName}?
+
+## Aturan Dasar SPA
+| Parameter | Nilai |
+|-----------|-------|
+| **1 LOT** | **$1,000** (setara Rp 10 Juta) |
+| **1 ${pointLabel}** | **$${pointValue}/lot** |
+| Fee Transaksi | $${feePerLot}/lot (buka + tutup) |
+
+## Rekomendasi Modal Berdasarkan Level Risiko
+
+| Skenario | Modal | Lot | Margin | Buffer | Ketahanan | Risiko |
+|----------|-------|-----|--------|--------|-----------|--------|
+${scenarioRows}
+
+## Penjelasan
+
+- **Minimum ($3,000):** Bisa trading 1 lot, tapi buffer kecil. Margin call cepat jika harga bergerak melawan.
+- **Aman ($5,000):** 1 lot dengan buffer cukup untuk menahan fluktuasi normal.
+- **Ideal ($10,000):** Bisa 1-2 lot dengan ketahanan tinggi. **Paling direkomendasikan untuk pemula.**
+- **Nyaman ($20,000):** Fleksibel untuk berbagai strategi dan lot size.
+
+> **Rumus Sederhana:**
+> - Margin = Lot x $1,000
+> - Buffer = Modal - Margin
+> - Ketahanan = Buffer / (Lot x $${pointValue})
+
+**Mau lanjut eksplor?** *(Ketik angkanya saja)*
+1. "Simulasi trading dengan modal $10,000"
+2. "Berapa lot ideal untuk modal $5,000?"
+3. "Hitung ketahanan dana saya"
+
+---
+*NM Ai - Newsmaker.id Perhitungan berdasarkan Trading Rules SPA BBJ/JFX, bersifat edukatif.*`;
+  }
+  
   const lot = lotMatch ? parseFloat(lotMatch[1]) : (dana > 0 ? Math.floor(dana / 1000) : 1);
   
   const isOvernight = lowerPrompt.includes("overnight") || lowerPrompt.includes("swing");
