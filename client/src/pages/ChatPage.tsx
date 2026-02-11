@@ -91,12 +91,13 @@ export default function ChatPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chartStreamingContent, setChartStreamingContent] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastBotMessageRef = useRef<HTMLDivElement>(null);
+  const lastUserMessageRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const wasStreamingRef = useRef(false);
   const justFinishedStreamRef = useRef(false);
+  const streamEndTimeRef = useRef(0);
 
   const { data: sessionData, isLoading: isLoadingChat, isError } = useSession(sessionId);
   
@@ -415,9 +416,9 @@ Silakan tanya atau upload gambar untuk analisis!`;
     }
   };
 
-  const scrollToLastBotMessage = () => {
-    if (lastBotMessageRef.current && scrollRef.current) {
-      const messageTop = lastBotMessageRef.current.offsetTop;
+  const scrollToLastUserMessage = () => {
+    if (lastUserMessageRef.current && scrollRef.current) {
+      const messageTop = lastUserMessageRef.current.offsetTop;
       scrollRef.current.scrollTo({ top: messageTop - 8, behavior: "smooth" });
     }
   };
@@ -435,16 +436,18 @@ Silakan tanya atau upload gambar untuk analisis!`;
     } else if (wasStreamingRef.current) {
       wasStreamingRef.current = false;
       justFinishedStreamRef.current = true;
+      streamEndTimeRef.current = Date.now();
     }
   }, [isStreaming, isAnalyzing]);
 
   useEffect(() => {
     if (justFinishedStreamRef.current) {
       justFinishedStreamRef.current = false;
-      setTimeout(() => scrollToLastBotMessage(), 200);
+      setTimeout(() => scrollToLastUserMessage(), 200);
       return;
     }
     if (!isStreaming && !isAnalyzing) {
+      if (Date.now() - streamEndTimeRef.current < 500) return;
       scrollToBottom();
     }
   }, [sessionData?.messages]);
@@ -803,24 +806,27 @@ Silakan tanya atau upload gambar untuk analisis!`;
             </div>
           ) : (
             <>
-              {sessionData?.messages.map((msg, idx) => {
-                const isLastAssistant = msg.role === "assistant" && 
-                  idx === sessionData.messages.map(m => m.role).lastIndexOf("assistant");
-                return (
-                  <div key={msg.id} ref={isLastAssistant ? lastBotMessageRef : undefined}>
-                    <ChatMessage 
-                      role={msg.role}
-                      content={msg.content}
-                      createdAt={msg.createdAt || undefined}
-                      messageId={msg.id}
-                      meta={msg.meta as { imageData?: string } | null}
-                      isLastMessage={idx === sessionData.messages.length - 1 && msg.role === "assistant" && !isStreaming && !isAnalyzing}
-                      onQuickReply={handleQuickReply}
-                      onResetChat={handleBackToHome}
-                    />
-                  </div>
-                );
-              })}
+              {(() => {
+                const msgs = sessionData?.messages || [];
+                const lastUserIdx = msgs.reduce((acc, m, i) => m.role === "user" ? i : acc, -1);
+                return msgs.map((msg, idx) => {
+                  const isLastUser = msg.role === "user" && idx === lastUserIdx;
+                  return (
+                    <div key={msg.id} ref={isLastUser ? lastUserMessageRef : undefined}>
+                      <ChatMessage 
+                        role={msg.role}
+                        content={msg.content}
+                        createdAt={msg.createdAt || undefined}
+                        messageId={msg.id}
+                        meta={msg.meta as { imageData?: string } | null}
+                        isLastMessage={idx === msgs.length - 1 && msg.role === "assistant" && !isStreaming && !isAnalyzing}
+                        onQuickReply={handleQuickReply}
+                        onResetChat={handleBackToHome}
+                      />
+                    </div>
+                  );
+                });
+              })()}
               {isStreaming && streamingContent && (
                 <ChatMessage 
                   role="assistant"
