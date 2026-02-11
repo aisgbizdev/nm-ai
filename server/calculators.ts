@@ -1274,18 +1274,21 @@ Instrumen yang tersedia: ${allSymbols}
     }
 
     const label = INSTRUMENT_LABEL[instrument] || { name: quote.symbol, unit: "unit" };
-    const change = quote.valueChange >= 0 ? `+${quote.valueChange}` : `${quote.valueChange}`;
-    const pctChange = quote.percentChange >= 0 ? `+${quote.percentChange}%` : `${quote.percentChange}%`;
+    const fmtNum = (v: any) => v != null && v !== "" ? parseFloat(v).toFixed(2) : "-";
+    const valChange = parseFloat(quote.valueChange) || 0;
+    const pctChangeVal = parseFloat(quote.percentChange) || 0;
+    const change = (valChange >= 0 ? "+" : "") + valChange.toFixed(2);
+    const pctChange = (pctChangeVal >= 0 ? "+" : "") + pctChangeVal.toFixed(2) + "%";
     
     return `# Harga ${label.name} (${quote.symbol})
 
 | Data | Nilai |
 |------|-------|
-| Last | **${quote.last}** |
-| High | ${quote.high || "-"} |
-| Low | ${quote.low || "-"} |
-| Open | ${quote.open || "-"} |
-| Prev Close | ${quote.prevClose || "-"} |
+| Last | **${fmtNum(quote.last)}** |
+| High | ${fmtNum(quote.high)} |
+| Low | ${fmtNum(quote.low)} |
+| Open | ${fmtNum(quote.open)} |
+| Prev Close | ${fmtNum(quote.prevClose)} |
 | Change | ${change} (${pctChange}) |
 
 *Update terakhir: ${updatedAt}*
