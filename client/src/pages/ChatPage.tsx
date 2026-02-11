@@ -91,9 +91,12 @@ export default function ChatPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chartStreamingContent, setChartStreamingContent] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastBotMessageRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const wasStreamingRef = useRef(false);
+  const justFinishedStreamRef = useRef(false);
 
   const { data: sessionData, isLoading: isLoadingChat, isError } = useSession(sessionId);
   
@@ -412,17 +415,39 @@ Silakan tanya atau upload gambar untuk analisis!`;
     }
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [sessionData?.messages, streamingContent]);
-
-  // Auto-scroll when streaming starts
-  useEffect(() => {
-    if (isStreaming) {
-      // Small delay to ensure DOM is updated
-      setTimeout(() => scrollToBottom(), 50);
+  const scrollToLastBotMessage = () => {
+    if (lastBotMessageRef.current && scrollRef.current) {
+      const messageTop = lastBotMessageRef.current.offsetTop;
+      scrollRef.current.scrollTo({ top: messageTop - 8, behavior: "smooth" });
     }
-  }, [isStreaming]);
+  };
+
+  useEffect(() => {
+    if (isStreaming || isAnalyzing) {
+      scrollToBottom();
+    }
+  }, [streamingContent, chartStreamingContent]);
+
+  useEffect(() => {
+    if (isStreaming || isAnalyzing) {
+      wasStreamingRef.current = true;
+      setTimeout(() => scrollToBottom(), 50);
+    } else if (wasStreamingRef.current) {
+      wasStreamingRef.current = false;
+      justFinishedStreamRef.current = true;
+    }
+  }, [isStreaming, isAnalyzing]);
+
+  useEffect(() => {
+    if (justFinishedStreamRef.current) {
+      justFinishedStreamRef.current = false;
+      setTimeout(() => scrollToLastBotMessage(), 200);
+      return;
+    }
+    if (!isStreaming && !isAnalyzing) {
+      scrollToBottom();
+    }
+  }, [sessionData?.messages]);
 
   useEffect(() => {
     if (sessionId && pendingPrompt && !isStreaming) {
@@ -778,19 +803,24 @@ Silakan tanya atau upload gambar untuk analisis!`;
             </div>
           ) : (
             <>
-              {sessionData?.messages.map((msg, idx) => (
-                <ChatMessage 
-                  key={msg.id}
-                  role={msg.role}
-                  content={msg.content}
-                  createdAt={msg.createdAt || undefined}
-                  messageId={msg.id}
-                  meta={msg.meta as { imageData?: string } | null}
-                  isLastMessage={idx === sessionData.messages.length - 1 && msg.role === "assistant" && !isStreaming && !isAnalyzing}
-                  onQuickReply={handleQuickReply}
-                  onResetChat={handleBackToHome}
-                />
-              ))}
+              {sessionData?.messages.map((msg, idx) => {
+                const isLastAssistant = msg.role === "assistant" && 
+                  idx === sessionData.messages.map(m => m.role).lastIndexOf("assistant");
+                return (
+                  <div key={msg.id} ref={isLastAssistant ? lastBotMessageRef : undefined}>
+                    <ChatMessage 
+                      role={msg.role}
+                      content={msg.content}
+                      createdAt={msg.createdAt || undefined}
+                      messageId={msg.id}
+                      meta={msg.meta as { imageData?: string } | null}
+                      isLastMessage={idx === sessionData.messages.length - 1 && msg.role === "assistant" && !isStreaming && !isAnalyzing}
+                      onQuickReply={handleQuickReply}
+                      onResetChat={handleBackToHome}
+                    />
+                  </div>
+                );
+              })}
               {isStreaming && streamingContent && (
                 <ChatMessage 
                   role="assistant"
