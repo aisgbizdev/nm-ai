@@ -1,0 +1,16 @@
+[Unit]
+Description=nm-ai
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/gwen-stacy/nm-ai
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=/srv/gwen-stacy/nm-ai/.env
+ExecStart=/usr/bin/node /srv/gwen-stacy/nm-ai/dist/index.cjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
