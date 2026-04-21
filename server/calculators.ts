@@ -23,8 +23,8 @@ import { INDEX_MARGIN_CONFIG } from "./config/indexMarginConfig";
 import { COMMODITY_MARGIN_CONFIG } from "./config/commodityMarginConfig";
 import { CURRENCY_MARGIN_CONFIG } from "./config/currencyMarginConfig";
 import { fetchNews, formatNewsForChat } from "./newsFetcher";
+import { fetchQuotes } from "./utils/quotesProvider";
 
-const QUOTES_API_URL = process.env.QUOTES_API_URL || "https://endpoapi-production-3202.up.railway.app/api/live-quotes";
 const CALENDAR_API_URL = process.env.CALENDAR_API_URL || "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
 
 export interface CalculatorResult {
@@ -124,7 +124,16 @@ function isPriceQuestion(lowerPrompt: string): boolean {
     "xau berapa", "gold berapa", "emas berapa",
     "silver berapa", "perak berapa", "oil berapa", "minyak berapa"
   ];
-  
+
+  const hasInstrumentMention =
+    /(xauusd|xau|gold|emas|xag|silver|perak|bco|oil|minyak|hsi|hang\s*seng|nikkei|jp225|gbpusd|gbp\/usd|gbp usd|eurusd|eur\/usd|eur usd|audusd|aud\/usd|aud usd|usdjpy|usd\/jpy|usd jpy|usdchf|usd\/chf|usd chf)/.test(
+      lowerPrompt,
+    );
+
+  if (lowerPrompt.includes("harga") && hasInstrumentMention) {
+    return true;
+  }
+
   return priceKeywords.some(kw => lowerPrompt.includes(kw));
 }
 
@@ -464,11 +473,8 @@ Hitung fibonacci high 2680 low 2640
 // Fetch OHLC data from quotes API for pivot calculation
 async function fetchOHLCForPivot(instrument: InstrumentKey): Promise<{ O: number; H: number; L: number; C: number; symbol: string } | null> {
   try {
-    const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    const quotes = Array.isArray(data.data) ? data.data : [];
+    const data = await fetchQuotes();
+    const quotes = data.data;
     
     const quote = pickQuoteForInstrument(quotes, instrument);
     if (!quote) return null;
@@ -1234,9 +1240,10 @@ Server kalender ekonomi sedang dalam pemeliharaan atau mengalami gangguan sement
 
 async function handlePriceQuote(userPrompt: string): Promise<string | null> {
   try {
-    const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
-    if (!response.ok) {
-      console.error("Quote API not ok:", response.status);
+    const data = await fetchQuotes();
+    const quotes = Array.isArray(data.data) ? data.data : [];
+    if (!quotes.length) {
+      console.error("Quote API returned empty data");
       return `# Harga Real-Time
 
 [PERHATIAN] **Maaf, data harga sedang tidak tersedia.**
@@ -1255,9 +1262,6 @@ Server harga sedang dalam pemeliharaan atau mengalami gangguan sementara.
 ---
 *NM Ai - Newsmaker.id*`;
     }
-
-    const data = await response.json();
-    const quotes = Array.isArray(data.data) ? data.data : [];
     const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-";
     
     const instrument = detectInstrumentFromPrompt(userPrompt);
@@ -1274,11 +1278,28 @@ Instrumen yang tersedia: ${allSymbols}
     }
 
     const label = INSTRUMENT_LABEL[instrument] || { name: quote.symbol, unit: "unit" };
-    const fmtNum = (v: any) => v != null && v !== "" ? parseFloat(v).toFixed(2) : "-";
-    const valChange = parseFloat(quote.valueChange) || 0;
-    const pctChangeVal = parseFloat(quote.percentChange) || 0;
-    const change = (valChange >= 0 ? "+" : "") + valChange.toFixed(2);
-    const pctChange = (pctChangeVal >= 0 ? "+" : "") + pctChangeVal.toFixed(2) + "%";
+    const fmtNum = (v: any) => {
+      if (v == null || v === "") return "-";
+      if (typeof v === "string") return v;
+      if (typeof v === "number" && Number.isFinite(v)) {
+        return v.toLocaleString("en-US", {
+          useGrouping: false,
+          maximumFractionDigits: 10,
+        });
+      }
+      const parsed = Number.parseFloat(v);
+      if (!Number.isFinite(parsed)) return "-";
+      return parsed.toLocaleString("en-US", {
+        useGrouping: false,
+        maximumFractionDigits: 10,
+      });
+    };
+    const valChange = Number.parseFloat(quote.valueChange);
+    const pctChangeVal = Number.parseFloat(quote.percentChange);
+    const safeValChange = Number.isFinite(valChange) ? valChange : 0;
+    const safePctChange = Number.isFinite(pctChangeVal) ? pctChangeVal : 0;
+    const change = `${safeValChange >= 0 ? "+" : ""}${fmtNum(safeValChange)}`;
+    const pctChange = `${safePctChange >= 0 ? "+" : ""}${fmtNum(safePctChange)}%`;
     
     return `# Harga ${label.name} (${quote.symbol})
 
@@ -1325,10 +1346,7 @@ Silakan coba lagi dalam beberapa saat.
 
 async function fetchRealTimePrice(symbol: string): Promise<number | null> {
   try {
-    const response = await fetch(QUOTES_API_URL, { method: "GET", cache: "no-store" });
-    if (!response.ok) return null;
-    
-    const data = await response.json();
+    const data = await fetchQuotes();
     const quotes = Array.isArray(data.data) ? data.data : [];
     
     const symbolUpper = symbol.toUpperCase();

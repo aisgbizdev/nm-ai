@@ -17,16 +17,16 @@ export type InstrumentKey =
   | "other";
 
 export const INSTRUMENT_HINTS: Record<InstrumentKey, string[]> = {
-  gold: ["LGD", "LGD DAILY", "XAUUSD", "XAU", "GOLD", "EMAS", "LGD"],
+  gold: ["LGD", "LGD DAILY", "XAUUSD", "XAU", "GOLD", "EMAS", "LGD", "XUL10", "XUL"],
   silver: ["LSI", "LSI DAILY", "XAGUSD", "XAG", "SILVER", "PERAK"],
-  oil: ["BCO", "BCO DAILY", "OIL", "BRENT"],
-  hsi: ["HSI", "HSI DAILY", "HANG SENG"],
-  sni: ["SNI", "SNI DAILY", "NIKKEI", "N225", "JAPAN INDEX"],
-  usdchf: ["USD/CHF", "USDCHF", "CHF"],
-  usdjpy: ["USD/JPY", "USDJPY", "YEN", "JPY"],
-  gbpusd: ["GBP/USD", "GBPUSD", "CABLE", "POUND"],
-  audusd: ["AUD/USD", "AUDUSD", "AUSSIE"],
-  eurusd: ["EUR/USD", "EURUSD", "EURO"],
+  oil: ["BCO", "BCO DAILY", "OIL", "BRENT", "BCO10_BBJ", "UKOIL", "USOIL"],
+  hsi: ["HSI", "HSI DAILY", "HANG SENG", "HKK50_BBJ", "HK50"],
+  sni: ["SNI", "SNI DAILY", "NIKKEI", "N225", "JAPAN INDEX", "JPK50_BBJ", "JP225", "NI225"],
+  usdchf: ["USD/CHF", "USDCHF", "CHF", "UC10F_BBJ", "UC10"],
+  usdjpy: ["USD/JPY", "USDJPY", "YEN", "JPY", "UJ10F_BBJ", "UJ10"],
+  gbpusd: ["GBP/USD", "GBPUSD", "CABLE", "POUND", "GU10F_BBJ", "GU10"],
+  audusd: ["AUD/USD", "AUDUSD", "AUSSIE", "AU10F_BBJ", "AU10"],
+  eurusd: ["EUR/USD", "EURUSD", "EURO", "EU10F_BBJ", "EU10"],
   usdidr: ["USD/IDR", "USDIDR", "INDO"],
   other: [],
 };
@@ -120,11 +120,11 @@ export const detectInstrumentFromPrompt = (prompt: string): InstrumentKey => {
     return "gbpusd";
   }
 
-  if (p.includes("aud/usd") || p.includes("audusd") || p.includes("aussie")) {
+  if (p.includes("aud/usd") || p.includes("audusd") || p.includes("aud usd") || p.includes("aussie")) {
     return "audusd";
   }
 
-  if (p.includes("eur/usd") || p.includes("eurusd") || p.includes("euro")) {
+  if (p.includes("eur/usd") || p.includes("eurusd") || p.includes("eur usd") || p.includes("euro")) {
     return "eurusd";
   }
 
@@ -157,12 +157,12 @@ export const detectInstrumentsFromPromptMulti = (
   if (/(oil|minyak|bco|brent)/.test(p)) pushUnique("oil");
   if (/(hang\s*seng|hangseng|hsi)/.test(p)) pushUnique("hsi");
   if (/(nikkei|sni|n225|jepang)/.test(p)) pushUnique("sni");
-  if (/(usd\/chf|usdchf|\bchf\b)/.test(p)) pushUnique("usdchf");
-  if (/(usd\/jpy|usdjpy|dolar yen|dollar yen|\byen\b|\bjpy\b)/.test(p))
+  if (/(usd\/chf|usdchf|usd chf|\bchf\b)/.test(p)) pushUnique("usdchf");
+  if (/(usd\/jpy|usdjpy|usd jpy|dolar yen|dollar yen|\byen\b|\bjpy\b)/.test(p))
     pushUnique("usdjpy");
-  if (/(gbp\/usd|gbpusd|cable|\bpound\b)/.test(p)) pushUnique("gbpusd");
-  if (/(aud\/usd|audusd|aussie)/.test(p)) pushUnique("audusd");
-  if (/(eur\/usd|eurusd|euro)/.test(p)) pushUnique("eurusd");
+  if (/(gbp\/usd|gbpusd|gbp usd|cable|\bpound\b)/.test(p)) pushUnique("gbpusd");
+  if (/(aud\/usd|audusd|aud usd|aussie)/.test(p)) pushUnique("audusd");
+  if (/(eur\/usd|eurusd|eur usd|euro)/.test(p)) pushUnique("eurusd");
   if (/(usd\/idr|usdidr|indo)/.test(p)) pushUnique("usdidr");
 
   return result;
@@ -205,6 +205,7 @@ export const pickQuoteForInstrument = (
   for (const row of rows) {
     const sym: string = (
       row.symbol ||
+      row.sourceSymbol ||
       row.Symbol ||
       row.ticker ||
       row.Ticker ||

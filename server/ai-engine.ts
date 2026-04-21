@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { handleCalculation } from "./calculators";
 import { fetchNews, formatNewsForChat, isNewsRequest as checkNewsIntent } from "./newsFetcher";
+import { fetchQuotes } from "./utils/quotesProvider";
 
 const CALENDAR_API_URL = process.env.CALENDAR_API_URL || "https://endpoapi-production-3202.up.railway.app/api/calendar/this-week";
 
@@ -70,7 +71,6 @@ const OLLAMA_TIMEOUT = parseInt(process.env.OLLAMA_TIMEOUT_MS || "7000");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const KNOWLEDGE_CORE_PATH = path.join(process.cwd(), "knowledge", "core");
-const QUOTES_API_URL = process.env.QUOTES_API_URL || "https://endpoapi-production-3202.up.railway.app/api/live-quotes";
 
 // Cached live prices with 60 second TTL
 let cachedPrices: Record<string, number> = {};
@@ -111,14 +111,12 @@ async function fetchLivePricesCached(): Promise<Record<string, number>> {
   }
   
   try {
-    const response = await fetch(QUOTES_API_URL, { method: "GET" });
-    if (!response.ok) {
+    const data = await fetchQuotes();
+    const quotes = Array.isArray(data.data) ? data.data : [];
+    if (!quotes.length) {
       console.log("Quote API not available, using fallback prices");
       return FALLBACK_PRICES;
     }
-    
-    const data = await response.json();
-    const quotes = Array.isArray(data.data) ? data.data : [];
     
     const prices: Record<string, number> = {};
     
