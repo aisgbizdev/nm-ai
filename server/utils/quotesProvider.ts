@@ -1,5 +1,7 @@
 const LEGACY_QUOTES_DEFAULT_URL =
   "https://endpoapi-production-3202.up.railway.app/api/live-quotes";
+const HISTORICAL_DEFAULT_URL =
+  "https://endpoapi-production-3202.up.railway.app/api/historical?dateFrom=2025-07-01";
 
 const TRADINGVIEW_SCAN_URL =
   process.env.TRADINGVIEW_SCAN_URL ||
@@ -23,6 +25,13 @@ type QuotePayload = {
   data: QuoteRow[];
   updatedAt: string;
   provider: "tradingview" | "fallback";
+};
+
+type DailyOhlc = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 };
 
 type SymbolConfig = {
@@ -139,6 +148,57 @@ const normalizeLegacyQuote = (row: any): QuoteRow | null => {
   };
 };
 
+let historicalCacheTime = 0;
+let historicalCache: Map<string, DailyOhlc> = new Map();
+const HISTORICAL_CACHE_TTL = 300000; // 5 minutes
+
+const fetchHistoricalDailyMap = async (): Promise<Map<string, DailyOhlc>> => {
+  const now = Date.now();
+  if (historicalCache.size > 0 && now - historicalCacheTime < HISTORICAL_CACHE_TTL) {
+    return historicalCache;
+  }
+
+  const historicalUrl = process.env.HISTORICAL_API_URL || HISTORICAL_DEFAULT_URL;
+  try {
+    const response = await fetch(historicalUrl, { method: "GET", cache: "no-store" });
+    if (!response.ok) return historicalCache;
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const map = new Map<string, DailyOhlc>();
+
+    for (const entry of rows) {
+      const symbol = (entry?.symbol || "").toString().trim();
+      const candles = Array.isArray(entry?.data) ? entry.data : [];
+      const latest = candles.length ? candles[0] : null;
+      if (!symbol || !latest) continue;
+
+      const open = Number.parseFloat(latest.open);
+      const high = Number.parseFloat(latest.high);
+      const low = Number.parseFloat(latest.low);
+      const close = Number.parseFloat(latest.close);
+      if (![open, high, low, close].every(Number.isFinite)) continue;
+      map.set(symbol.toUpperCase(), { open, high, low, close });
+    }
+
+    historicalCache = map;
+    historicalCacheTime = now;
+    return historicalCache;
+  } catch {
+    return historicalCache;
+  }
+};
+
+const needsOilOhlcRepair = (row: QuoteRow): boolean => {
+  const sym = row.symbol.toUpperCase();
+  if (!sym.includes("BCO")) return false;
+  const last = row.last;
+  if (!Number.isFinite(last) || last <= 0) return false;
+  const openGap = Math.abs(row.open - last) / last;
+  const lowGap = Math.abs(row.low - last) / last;
+  const hasFlatChange = Math.abs(row.valueChange) < 1e-12 && Math.abs(row.percentChange) < 1e-12;
+  return row.prevClose === 0 || openGap > 0.2 || lowGap > 0.2 || hasFlatChange;
+};
+
 const normalizeTradingViewSymbol = (
   config: SymbolConfig,
   sourceSymbol: string,
@@ -172,6 +232,20 @@ const fetchLegacyQuotes = async (): Promise<{ rows: QuoteRow[]; updatedAt: strin
   const rows = (Array.isArray(data.data) ? data.data : [])
     .map(normalizeLegacyQuote)
     .filter(Boolean) as QuoteRow[];
+
+  const dailyMap = await fetchHistoricalDailyMap();
+  const bcoDaily = dailyMap.get("BCO DAILY");
+  if (bcoDaily) {
+    for (const row of rows) {
+      if (!needsOilOhlcRepair(row)) continue;
+      row.open = bcoDaily.open;
+      row.high = bcoDaily.high;
+      row.low = bcoDaily.low;
+      row.prevClose = bcoDaily.close;
+      row.valueChange = row.last - row.prevClose;
+      row.percentChange = row.prevClose ? (row.valueChange / row.prevClose) * 100 : 0;
+    }
+  }
 
   return {
     rows,
